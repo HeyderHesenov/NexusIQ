@@ -1,0 +1,327 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   Rəng tonları — Black / Orange / White
+   Dəyişdirmək istəsən yalnız buradakı dəyərləri redaktə et.
+   ============================================================ */
+:root {
+  --bg: #0a0a0b;
+  --surface: #161618;
+  --surface-hover: #1f1f22;
+  --border: #2a2a2e;
+  --accent: #ff7a1a;
+  --accent-soft: rgba(255, 122, 26, 0.12);
+  --text: #f5f5f5;
+  --muted: #8a8a8f;
+  --up: #22c55e;
+  --down: #ef4444;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* İncə scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3a3f;
+}
+
+/* Mono rəqəmlər (market datası üçün) */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+/* ============================================================
+   Animasiyalar
+   ============================================================ */
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(255, 122, 26, 0.5);
+  }
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 0 6px rgba(255, 122, 26, 0);
+  }
+}
+.pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes ticker-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.ticker-track {
+  animation: ticker-scroll 40s linear infinite;
+}
+.ticker-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.fade-up {
+  animation: fade-up 0.5s ease-out both;
+}
+
+/* Intro splash — pilləli, yumşaq açılış */
+@keyframes intro-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+.intro-1 {
+  animation: intro-reveal 0.7s 0.15s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.intro-2 {
+  animation: intro-reveal 0.8s 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.intro-3 {
+  animation: intro-reveal 0.8s 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes glow-breathe {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(1.08);
+  }
+}
+.glow-breathe {
+  animation: glow-breathe 4s ease-in-out infinite;
+}
+
+/* Faza keçidi (intro → auth) üçün yumşaq crossfade + zoom */
+.phase-fade {
+  transition:
+    opacity 0.7s ease,
+    transform 0.7s ease;
+}
+
+/* ============================================================
+   MARKET BOOT — intro sekansı
+   ============================================================ */
+@keyframes mb-grid {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes mb-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes mb-area {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes mb-candle {
+  from {
+    opacity: 0;
+    transform: scaleY(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+@keyframes mb-wordmark {
+  from {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0;
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+@keyframes mb-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes mb-underline {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes mb-cta-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 18px -10px rgba(255, 122, 26, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 30px -6px rgba(255, 122, 26, 0.55);
+  }
+}
+
+.mb-grid {
+  animation: mb-grid 0.9s ease-out both;
+}
+.mb-line {
+  stroke-dasharray: 1;
+  animation: mb-draw 1.5s 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+/* Mərkəz blok yuxarıdan aşağı sürüşür (əvvəl) */
+@keyframes mb-slidedown {
+  from {
+    opacity: 0;
+    transform: translateY(-48px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.mb-enter {
+  animation: mb-slidedown 1s 0.1s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Qrafik 0.5s sonra işə düşür */
+.mb-area {
+  animation: mb-area 1s 0.5s ease-out both;
+}
+
+/* Live pulse line — sonsuz sola axın */
+@keyframes line-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.pulse-line-track {
+  animation: line-scroll 18s linear infinite;
+}
+.mb-candle {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: mb-candle 0.45s ease-out both;
+}
+.mb-readout {
+  animation: mb-rise 0.6s 0.35s ease-out both;
+}
+.mb-wordmark {
+  animation: mb-wordmark 0.85s 1.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.mb-underline {
+  transform-origin: left;
+  animation: mb-underline 0.7s 2.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.mb-tagline {
+  animation: mb-rise 0.7s 2.45s ease-out both;
+}
+/* CTA soldan-sağa açılır (wipe), sonra parıltı */
+@keyframes mb-wipe {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+.mb-cta {
+  animation:
+    mb-wipe 0.75s 1.2s cubic-bezier(0.22, 1, 0.36, 1) both,
+    mb-cta-glow 3.2s 2.1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-dot,
+  .ticker-track,
+  .fade-up,
+  .glow-breathe,
+  .phase-fade,
+  .pulse-line-track {
+    animation: none !important;
+    transition: none !important;
+  }
+  /* Intro: animasiyasız son vəziyyəti göstər */
+  .mb-grid,
+  .mb-area,
+  .mb-enter,
+  .mb-candle,
+  .mb-readout,
+  .mb-tagline,
+  .mb-cta {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    clip-path: none !important;
+  }
+  .mb-line {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+  .mb-wordmark {
+    animation: none !important;
+    opacity: 1 !important;
+    clip-path: none !important;
+  }
+  .mb-underline {
+    animation: none !important;
+    transform: scaleX(1) !important;
+  }
+}

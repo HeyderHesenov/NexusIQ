@@ -1,0 +1,42 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---- Env / secrets ----
+.env
+.env.local
+*.env
+!*.env.example
+
+# ---- Node / Next.js ----
+node_modules/
+.next/
+out/
+.turbo/
+npm-debug.log*
+yarn-error.log*
+
+# ---- Data / cache ----
+*.sqlite3
+*.db
+data/cache/
+*.log
+
+# ---- OS / IDE ----
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# ---- Generated charts ----
+backend/app/analytics/_generated/
+
+# ---- Third-party agent skills (separate repo) ----
+skills/

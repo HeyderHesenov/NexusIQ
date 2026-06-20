@@ -1,0 +1,42 @@
+# ---- Web framework ----
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+
+# ---- Settings / validation ----
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+# ---- Database (async) ----
+sqlalchemy==2.0.36
+asyncpg==0.30.0
+alembic==1.14.0
+greenlet==3.1.1
+
+# ---- News ingestion ----
+feedparser==6.0.11
+httpx==0.28.1
+beautifulsoup4==4.12.3
+lxml==5.3.0
+python-dateutil==2.9.0.post0
+
+# ---- Language / AI ----
+langdetect==1.0.9
+openai==1.59.6
+anthropic==0.42.0
+tiktoken==0.8.0
+
+# ---- Analytics / correlation ----
+pandas==2.2.3
+numpy==2.2.1
+scipy==1.15.0
+yfinance==0.2.51
+plotly==5.24.1
+kaleido==0.2.1
+
+# ---- Scheduler ----
+apscheduler==3.11.0
+
+# ---- Utils ----
+tenacity==9.0.0
+python-dotenv==1.0.1
