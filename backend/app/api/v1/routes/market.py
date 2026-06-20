@@ -8,7 +8,7 @@ from app.analytics.crypto_calendar import get_crypto_calendar
 from app.analytics.earnings import get_earnings
 from app.analytics.majors_calendar import get_majors_calendar
 from app.analytics.feargreed import get_fear_greed
-from app.analytics.market import get_metals, get_quotes
+from app.analytics.market import get_commodities, get_metals, get_quotes
 
 router = APIRouter()
 
@@ -53,3 +53,9 @@ async def earnings() -> list[dict]:
 async def metals() -> list[dict]:
     """Metal qiymətləri — Forex tab "Metallar" kateqoriyası."""
     return await get_metals()
+
+
+@router.get("/commodities")
+async def commodities() -> list[dict]:
+    """Əmtəə qiymətləri — Commodities tab (uran, neft, taxıl və s.)."""
+    return await get_commodities()

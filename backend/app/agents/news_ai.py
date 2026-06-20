@@ -25,6 +25,9 @@ _SYSTEM = (
     "You rewrite market news in your OWN words — never copy the source "
     "sentences verbatim. Keep every fact and the logical meaning intact, "
     "stay neutral and professional, no hype, no financial advice. "
+    "CRITICAL: each language field MUST be written ONLY in that exact language. "
+    "Azerbaijani (az) is NOT Turkish — write true Azerbaijani (uses 'ə', e.g. "
+    "'və', 'deyil', 'üçün', 'artıb'), never Turkish words/spelling. "
     "Output ONLY valid JSON."
 )
 
@@ -42,6 +45,38 @@ def _user_prompt(title: str, summary: str | None) -> str:
         f"SOURCE TITLE: {title}\n"
         f"SOURCE SUMMARY: {summary or '(no summary provided)'}"
     )
+
+
+_TRANSLATE_SYSTEM = (
+    "You are a professional financial translator. Translate the given news text "
+    "FAITHFULLY into the target language — preserve every fact, number and name, "
+    "keep paragraph breaks, natural fluent prose. Do NOT summarize, add or omit. "
+    "Keep ticker/pair symbols (EUR/USD, BTC, S&P 500) as-is. "
+    "Azerbaijani (az) is NOT Turkish — write true Azerbaijani (uses 'ə'). "
+    "Output ONLY the translated text, nothing else."
+)
+
+
+async def translate_full(text: str, lang: str, client: AsyncOpenAI | None = None) -> str | None:
+    """Mətni seçilmiş dilə sadiq tərcümə edir (xülasə YOX). Xəta → None."""
+    from app.agents.llm import openai_client
+
+    lname = _LANG_NAMES.get(lang, "English")
+    cli = client or openai_client()
+    try:
+        resp = await cli.chat.completions.create(
+            model=settings.openai_model,
+            messages=[
+                {"role": "system", "content": _TRANSLATE_SYSTEM},
+                {"role": "user", "content": f"Target language: {lname}.\n\n{text}"},
+            ],
+            temperature=0.2,
+            max_tokens=1600,
+        )
+        out = (resp.choices[0].message.content or "").strip()
+        return out or None
+    except Exception:  # noqa: BLE001
+        return None
 
 
 async def translate_and_rewrite(

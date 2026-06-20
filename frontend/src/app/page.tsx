@@ -8,26 +8,27 @@ import { NewsCard } from "@/components/news/NewsCard";
 import { FearGreed } from "@/components/market/FearGreed";
 import { MarketCalendar } from "@/components/market/MarketCalendar";
 import { CATEGORIES } from "@/lib/marketCategories";
-import { apiGet } from "@/lib/api";
+import { apiGet, getNewsCount } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import type { Category, NewsItem } from "@/types";
 
-const TITLES: Record<Category, string> = {
-  forex: "Forex",
-  us: "US Markets",
-  crypto: "Crypto",
-};
+const PAGE_SIZE = 30;
 
 export default function HomePage() {
   const { t } = useI18n();
   const [active, setActive] = useState<Category>("forex");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [items, setItems] = useState<NewsItem[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
-  const load = useCallback(async (cat: Category) => {
+  const load = useCallback(async (cat: Category, pg: number) => {
     setStatus("loading");
     try {
-      const data = await apiGet<NewsItem[]>(`/news?category=${cat}&limit=30`);
+      const offset = (pg - 1) * PAGE_SIZE;
+      const data = await apiGet<NewsItem[]>(
+        `/news?category=${cat}&limit=${PAGE_SIZE}&offset=${offset}`,
+      );
       setItems(data);
       setStatus("ready");
     } catch {
@@ -35,9 +36,27 @@ export default function HomePage() {
     }
   }, []);
 
+  // kateqoriya dəyişəndə ümumi sayı yenilə
   useEffect(() => {
-    load(active);
-  }, [active, load]);
+    getNewsCount(active).then(setTotal);
+  }, [active]);
+
+  // kateqoriya və ya səhifə dəyişəndə xəbərləri çək
+  useEffect(() => {
+    load(active, page);
+  }, [active, page, load]);
+
+  function changeTab(c: Category) {
+    setActive(c);
+    setPage(1);
+  }
+
+  function goToPage(pg: number) {
+    setPage(pg);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   function logout() {
     localStorage.removeItem("nexusiq_session");
@@ -46,22 +65,22 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen">
-      <Header active={active} onChange={setActive} onLogout={logout} />
+      <Header active={active} onChange={changeTab} onLogout={logout} />
       <Ticker />
 
       <main className="mx-auto max-w-7xl px-5 py-8">
         <div className="mb-6 flex items-end justify-between">
           <div>
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-accent">
-              {TITLES[active]}
+              {t(`tab.${active}`)}
             </p>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight">
               {t("home.marketNews")}
             </h1>
           </div>
-          {status === "ready" && (
+          {status === "ready" && total > 0 && (
             <span className="font-mono text-xs text-muted">
-              {items.length} {t("home.count")}
+              {total} {t("home.count")}
             </span>
           )}
         </div>
@@ -81,7 +100,7 @@ export default function HomePage() {
           <EmptyState
             title={t("home.error")}
             hint={t("home.errorHint")}
-            onRetry={() => load(active)}
+            onRetry={() => load(active, page)}
             retryLabel={t("home.retry")}
           />
         )}
@@ -97,10 +116,80 @@ export default function HomePage() {
             ))}
           </NewsGrid>
         )}
+
+        {status !== "loading" && totalPages > 1 && (
+          <Pagination page={page} totalPages={totalPages} onGo={goToPage} />
+        )}
       </main>
 
       <AIAssistantFab />
     </div>
+  );
+}
+
+/** Səhifə nömrələri — siyahının altında. Çox səhifə olsa pəncərələnir (… ilə). */
+function Pagination({
+  page,
+  totalPages,
+  onGo,
+}: {
+  page: number;
+  totalPages: number;
+  onGo: (p: number) => void;
+}) {
+  // göstəriləcək səhifə nömrələri (cari ətrafında pəncərə + ilk/son)
+  const nums: (number | "…")[] = [];
+  const push = (n: number | "…") => nums.push(n);
+  const win = 1;
+  for (let p = 1; p <= totalPages; p++) {
+    if (p === 1 || p === totalPages || (p >= page - win && p <= page + win)) {
+      push(p);
+    } else if (nums[nums.length - 1] !== "…") {
+      push("…");
+    }
+  }
+
+  const base =
+    "min-w-9 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors duration-150";
+
+  return (
+    <nav className="mt-10 flex items-center justify-center gap-1.5">
+      <button
+        onClick={() => onGo(page - 1)}
+        disabled={page <= 1}
+        className={`${base} border-border bg-surface text-muted hover:border-accent hover:text-text disabled:cursor-not-allowed disabled:opacity-40`}
+      >
+        ‹
+      </button>
+
+      {nums.map((n, i) =>
+        n === "…" ? (
+          <span key={`e${i}`} className="px-1.5 text-sm text-muted">
+            …
+          </span>
+        ) : (
+          <button
+            key={n}
+            onClick={() => onGo(n)}
+            className={`${base} ${
+              n === page
+                ? "border-accent bg-accent text-black"
+                : "border-border bg-surface text-muted hover:border-accent hover:text-text"
+            }`}
+          >
+            {n}
+          </button>
+        ),
+      )}
+
+      <button
+        onClick={() => onGo(page + 1)}
+        disabled={page >= totalPages}
+        className={`${base} border-border bg-surface text-muted hover:border-accent hover:text-text disabled:cursor-not-allowed disabled:opacity-40`}
+      >
+        ›
+      </button>
+    </nav>
   );
 }
 

@@ -2,17 +2,18 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.agents.forecast_ai import forecast_impact
 from app.agents.llm import has_openai
+from app.agents.news_ai import translate_full
 from app.core.constants import Category
 from app.db.session import get_db
 from app.models import News
-from app.schemas.news import NewsOut
+from app.schemas.news import NewsOut, _excerpt
 
 _LANGS = {"az", "en", "ru", "tr"}
 
@@ -36,6 +37,18 @@ async def list_news(
     stmt = stmt.order_by(News.published_at.desc().nullslast()).limit(limit).offset(offset)
     rows = (await db.scalars(stmt)).all()
     return [NewsOut.from_model(n) for n in rows]
+
+
+@router.get("/count")
+async def count_news(
+    category: Category | None = Query(None, description="Tab filtri"),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Kateqoriya üzrə ümumi xəbər sayı — səhifələmə üçün."""
+    stmt = select(func.count(News.id))
+    if category is not None:
+        stmt = stmt.where(News.category == category.value)
+    return {"total": (await db.scalar(stmt)) or 0}
 
 
 @router.get("/search", response_model=list[NewsOut])
@@ -71,6 +84,45 @@ async def get_news(
     if news is None:
         raise HTTPException(status_code=404, detail="Xəbər tapılmadı")
     return NewsOut.from_model(news, with_content=True)
+
+
+@router.get("/{news_id}/content")
+async def get_translated_content(
+    news_id: int,
+    lang: str = Query("az"),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Orijinal mətnin seçilmiş dilə tərcüməsi — dil üzrə keşlənir."""
+    lang = lang if lang in _LANGS else "az"
+    news = await db.get(News, news_id)
+    if news is None:
+        raise HTTPException(status_code=404, detail="Xəbər tapılmadı")
+
+    source = _excerpt(news.content) or news.summary or ""
+    if not source.strip():
+        return {"ready": True, "text": ""}
+
+    # Mənbə İngiliscədir — en seçilibsə tərcüməsiz qaytar.
+    if lang == "en":
+        return {"ready": True, "text": source}
+
+    cached = (news.content_tr or {}).get(lang)
+    if cached:
+        return {"ready": True, "text": cached}
+
+    if not has_openai():
+        return {"ready": True, "text": source}  # fallback: orijinal
+
+    translated = await translate_full(source, lang)
+    if not translated:
+        return {"ready": True, "text": source}
+
+    store = dict(news.content_tr or {})
+    store[lang] = translated
+    news.content_tr = store
+    flag_modified(news, "content_tr")
+    await db.commit()
+    return {"ready": True, "text": translated}
 
 
 @router.get("/{news_id}/forecast")

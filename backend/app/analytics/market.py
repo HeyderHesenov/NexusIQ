@@ -163,3 +163,54 @@ async def get_metals() -> list[dict]:
         _metals_cache["data"] = data
         _metals_cache["ts"] = now
     return _metals_cache["data"]
+
+
+# ---- Əmtəələr (Commodities tab → qiymət + trend) ----
+_COMMODITIES = [
+    ("Uranium", "URA", 2),     # Global X Uranium ETF (uran proxy)
+    ("WTI Oil", "CL=F", 2),
+    ("Brent", "BZ=F", 2),
+    ("Nat Gas", "NG=F", 3),
+    ("Gasoline", "RB=F", 3),
+    ("Wheat", "ZW=F", 1),
+    ("Corn", "ZC=F", 1),
+    ("Soybean", "ZS=F", 1),
+    ("Coffee", "KC=F", 1),
+    ("Sugar", "SB=F", 2),
+]
+_comm_cache: dict = {"ts": 0.0, "data": []}
+
+
+def _commodities_sync() -> list[dict]:
+    tickers = " ".join(s for _, s, _ in _COMMODITIES)
+    out: list[dict] = []
+    try:
+        df = yf.download(
+            tickers, period="1mo", interval="1d", progress=False, threads=True
+        )["Close"]
+    except Exception:  # noqa: BLE001
+        return out
+    for name, sym, dec in _COMMODITIES:
+        try:
+            series = df[sym].dropna()
+            last = float(series.iloc[-1])
+            prev = float(series.iloc[-2])
+            chg = (last - prev) / prev * 100 if prev else 0.0
+            q = _quote(name, last, chg, dec)
+            q["spark"] = [round(float(v), 4) for v in series.iloc[-14:]]
+            out.append(q)
+        except (KeyError, IndexError, ValueError, TypeError):
+            continue
+    return out
+
+
+async def get_commodities() -> list[dict]:
+    """Əmtəə qiymətləri (uran, neft, qaz, taxıl və s.) + 14g trend. 90s keş."""
+    now = time.time()
+    if _comm_cache["data"] and now - _comm_cache["ts"] < 90.0:
+        return _comm_cache["data"]
+    data = await asyncio.to_thread(_commodities_sync)
+    if data:
+        _comm_cache["data"] = data
+        _comm_cache["ts"] = now
+    return _comm_cache["data"]

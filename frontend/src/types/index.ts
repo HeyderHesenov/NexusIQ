@@ -1,6 +1,6 @@
 /** Paylaşılan tiplər — backend sxemləri ilə uyğunlaşır (Addım 2+). */
 
-export type Category = "forex" | "us" | "crypto";
+export type Category = "forex" | "us" | "crypto" | "commodities";
 
 export interface NewsItem {
   id: string;
@@ -58,7 +58,7 @@ export interface Earning {
 
 export interface CryptoUnlock {
   sym: string;
-  sector: "major" | "rwa" | "ai";
+  sector: "major" | "perp" | "rwa" | "ai";
   date: string; // ISO YYYY-MM-DD
   tokens: string;
   category: string;

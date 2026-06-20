@@ -46,4 +46,12 @@ FEEDS: list[FeedSource] = [
                Category.CRYPTO, "https://cointelegraph.com"),
     FeedSource("Decrypt", "https://decrypt.co/feed",
                Category.CRYPTO, "https://decrypt.co"),
+
+    # ---- Commodities (əmtəə: enerji, uran, taxıl, metal və s.) ----
+    FeedSource("OilPrice", "https://oilprice.com/rss/main",
+               Category.COMMODITIES, "https://oilprice.com"),
+    FeedSource("Investing Commodities", "https://www.investing.com/rss/news_11.rss",
+               Category.COMMODITIES, "https://www.investing.com"),
+    FeedSource("Mining.com", "https://www.mining.com/feed/",
+               Category.COMMODITIES, "https://www.mining.com"),
 ]

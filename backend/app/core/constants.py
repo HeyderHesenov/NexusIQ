@@ -10,6 +10,7 @@ class Category(StrEnum):
     FOREX = "forex"
     US = "us"
     CRYPTO = "crypto"
+    COMMODITIES = "commodities"
 
 
 # UI-də göstərilən adlar
@@ -17,4 +18,5 @@ CATEGORY_LABELS: dict[Category, str] = {
     Category.FOREX: "Forex",
     Category.US: "US Markets",
     Category.CRYPTO: "Crypto",
+    Category.COMMODITIES: "Commodities",
 }

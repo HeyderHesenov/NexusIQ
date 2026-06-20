@@ -1,6 +1,6 @@
 "use client";
 
-import { Bitcoin, DollarSign, LineChart } from "lucide-react";
+import { Bitcoin, DollarSign, LineChart, Fuel } from "lucide-react";
 import type { Category } from "@/types";
 
 /**
@@ -12,6 +12,7 @@ const CFG: Record<Category, { hue: number; Icon: typeof Bitcoin }> = {
   forex: { hue: 205, Icon: DollarSign },
   us: { hue: 150, Icon: LineChart },
   crypto: { hue: 32, Icon: Bitcoin },
+  commodities: { hue: 95, Icon: Fuel },
 };
 
 const W = 400;

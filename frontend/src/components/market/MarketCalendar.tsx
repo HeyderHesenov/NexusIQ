@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CalendarDays, Check, ChevronDown } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, Search } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import type { CalCategory, CalKind } from "@/lib/marketCategories";
 import type {
@@ -58,11 +58,20 @@ const RAIL =
 const CARD =
   "flex shrink-0 flex-col gap-1.5 rounded-xl border border-border bg-bg/40 px-3.5 py-3";
 
+/** Element üzərində axtarış üçün mətn (növ üzrə). */
+function itemText(kind: CalKind, it: unknown): string {
+  const o = it as Record<string, unknown>;
+  if (kind === "earnings") return `${o.sym} ${o.name}`;
+  if (kind === "events") return `${o.title} ${o.country}`;
+  return `${o.sym ?? ""}`;
+}
+
 export function MarketCalendar({ categories }: { categories: CalCategory[] }) {
   const { t } = useI18n();
   const [idx, setIdx] = useState(0);
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<unknown[] | null>(null);
+  const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
 
   // tab dəyişəndə ilk kateqoriyaya qayıt
@@ -75,11 +84,18 @@ export function MarketCalendar({ categories }: { categories: CalCategory[] }) {
   useEffect(() => {
     let alive = true;
     setItems(null);
+    setQuery("");
     active.load().then((d) => alive && setItems(d));
     return () => {
       alive = false;
     };
   }, [active]);
+
+  const q = query.trim().toLowerCase();
+  const shown =
+    items && q
+      ? items.filter((it) => itemText(active.kind, it).toLowerCase().includes(q))
+      : items;
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -136,6 +152,19 @@ export function MarketCalendar({ categories }: { categories: CalCategory[] }) {
         </div>
       </div>
 
+      {/* axtarış qutusu — çoxlu elementli kateqoriyalarda */}
+      {active.searchable && items && items.length > 0 && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-border bg-bg/40 px-3 py-2">
+          <Search size={14} className="text-muted" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t("market.searchPh").replace("{x}", active.searchEx ?? "")}
+            className="w-full bg-transparent text-sm text-text placeholder:text-muted/60 focus:outline-none"
+          />
+        </div>
+      )}
+
       {/* yüklənir */}
       {!items && (
         <div className={RAIL}>
@@ -149,16 +178,16 @@ export function MarketCalendar({ categories }: { categories: CalCategory[] }) {
       )}
 
       {/* boş */}
-      {items && items.length === 0 && (
+      {shown && shown.length === 0 && (
         <p className="rounded-lg border border-dashed border-border px-3.5 py-4 text-center text-xs text-muted">
           {t("market.calEmpty")}
         </p>
       )}
 
       {/* məzmun */}
-      {items && items.length > 0 && (
+      {shown && shown.length > 0 && (
         <div className={RAIL}>
-          {items.map((it, i) => (
+          {shown.map((it, i) => (
             <Card key={i} kind={active.kind} item={it} t={t} />
           ))}
         </div>

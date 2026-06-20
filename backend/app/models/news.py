@@ -49,6 +49,8 @@ class News(Base, TimestampMixin):
     # AI bazar proqnozu, dil üzrə keşlənir (on-demand doldurulur):
     # {"az": {"summary": ..., "pairs": [{"sym","impact","reason"}]}, ...}
     forecast: Mapped[dict | None] = mapped_column(JSONB)
+    # Orijinal mətnin dil üzrə tərcüməsi, on-demand keşlənir: {"az": "...", ...}
+    content_tr: Mapped[dict | None] = mapped_column(JSONB)
     sentiment: Mapped[float | None] = mapped_column(Float)  # -1..1
     impact_score: Mapped[float | None] = mapped_column(Float)  # 0..100
     is_processed: Mapped[bool] = mapped_column(default=False, nullable=False)

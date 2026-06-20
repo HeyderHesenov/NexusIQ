@@ -10,6 +10,7 @@ const CAT_LABEL: Record<Category, string> = {
   forex: "Forex",
   us: "US",
   crypto: "Crypto",
+  commodities: "Commodities",
 };
 
 /** Bir xəbər kartı — şəkil, kateqoriya, başlıq, xülasə, mənbə + tarix. */

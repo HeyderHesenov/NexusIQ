@@ -61,6 +61,28 @@ export async function getForecast(
   }
 }
 
+/** Kateqoriya üzrə ümumi xəbər sayı — səhifələmə üçün. */
+export async function getNewsCount(category: string): Promise<number> {
+  try {
+    const d = await apiGet<{ total: number }>(`/news/count?category=${category}`);
+    return d.total ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Orijinal xəbər mətninin seçilmiş dilə tərcüməsi (lazy, keşlənir). */
+export async function getTranslatedContent(
+  id: string,
+  lang: string,
+): Promise<{ ready: boolean; text: string }> {
+  try {
+    return await apiGet(`/news/${id}/content?lang=${lang}`);
+  } catch {
+    return { ready: false, text: "" };
+  }
+}
+
 /** Crypto Fear & Greed indeksi. */
 export async function getFearGreed(): Promise<import("@/types").FearGreed | null> {
   try {
@@ -103,6 +125,15 @@ export async function getEarnings(): Promise<import("@/types").Earning[]> {
 export async function getMetals(): Promise<import("@/types").Quote[]> {
   try {
     return await apiGet(`/market/metals`);
+  } catch {
+    return [];
+  }
+}
+
+/** Əmtəə qiymətləri (uran, neft, qaz, taxıl və s.) + 14g trend. */
+export async function getCommodities(): Promise<import("@/types").Quote[]> {
+  try {
+    return await apiGet(`/market/commodities`);
   } catch {
     return [];
   }

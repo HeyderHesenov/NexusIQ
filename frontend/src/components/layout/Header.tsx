@@ -6,10 +6,11 @@ import { useI18n } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { NewsSearch } from "@/components/search/NewsSearch";
 
-const TABS: { key: Category; label: string }[] = [
-  { key: "forex", label: "Forex" },
-  { key: "us", label: "US Markets" },
-  { key: "crypto", label: "Crypto" },
+const TABS: { key: Category; labelKey: string }[] = [
+  { key: "forex", labelKey: "tab.forex" },
+  { key: "us", labelKey: "tab.us" },
+  { key: "crypto", labelKey: "tab.crypto" },
+  { key: "commodities", labelKey: "tab.commodities" },
 ];
 
 export function Header({
@@ -35,17 +36,17 @@ export function Header({
 
         {/* kateqoriya tabları */}
         <nav className="hidden items-center gap-1 rounded-xl border border-border bg-surface p-1 md:flex">
-          {TABS.map((t) => (
+          {TABS.map((tab) => (
             <button
-              key={t.key}
-              onClick={() => onChange(t.key)}
+              key={tab.key}
+              onClick={() => onChange(tab.key)}
               className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-all duration-200 ${
-                active === t.key
+                active === tab.key
                   ? "bg-accent text-black"
                   : "text-muted hover:bg-surface-hover hover:text-text"
               }`}
             >
-              {t.label}
+              {t(tab.labelKey)}
             </button>
           ))}
         </nav>
@@ -66,17 +67,17 @@ export function Header({
 
       {/* mobil tablar */}
       <nav className="flex items-center gap-1 border-t border-border px-3 py-2 md:hidden">
-        {TABS.map((t) => (
+        {TABS.map((tab) => (
           <button
-            key={t.key}
-            onClick={() => onChange(t.key)}
+            key={tab.key}
+            onClick={() => onChange(tab.key)}
             className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-200 ${
-              active === t.key
+              active === tab.key
                 ? "bg-accent text-black"
                 : "text-muted hover:text-text"
             }`}
           >
-            {t.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </nav>

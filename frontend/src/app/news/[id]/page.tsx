@@ -8,12 +8,14 @@ import { useI18n } from "@/lib/i18n";
 import { formatDateTime, localizedNews } from "@/lib/utils";
 import { NewsImage } from "@/components/news/NewsImage";
 import { AIForecast } from "@/components/news/AIForecast";
+import { OriginalText } from "@/components/news/OriginalText";
 import type { NewsItem, Category } from "@/types";
 
 const CAT_LABEL: Record<Category, string> = {
   forex: "Forex",
   us: "US Markets",
   crypto: "Crypto",
+  commodities: "Commodities",
 };
 
 export default function NewsDetailPage({
@@ -107,22 +109,8 @@ export default function NewsDetailPage({
 
               return (
                 <>
-                  {/* orijinal xəbər mətni — tam, mənbə dilində */}
-                  {hasAI && orig && (
-                    <section className="mt-8">
-                      <div className="mb-3 flex items-baseline justify-between gap-3">
-                        <h2 className="font-mono text-xs uppercase tracking-[0.2em] text-muted">
-                          {t("news.originalText")}
-                        </h2>
-                        <span className="text-[11px] text-muted/70">
-                          {t("news.originalNote")}
-                        </span>
-                      </div>
-                      <p className="whitespace-pre-line text-[15px] leading-relaxed text-text/80">
-                        {orig}
-                      </p>
-                    </section>
-                  )}
+                  {/* orijinal xəbər mətni — tam, seçilmiş dilə tərcümə */}
+                  {hasAI && orig && <OriginalText id={news.id} fallback={orig} />}
 
                   {/* AI xülasə — oxucunun dilində qısa digest, vurğulu kart */}
                   <section className="mt-8 rounded-card border border-accent/30 bg-accent/[0.06] p-5 sm:p-6">
