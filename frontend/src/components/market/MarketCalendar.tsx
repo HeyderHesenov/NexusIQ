@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { CalendarDays, Check, ChevronDown, Search } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import type { CalCategory, CalKind } from "@/lib/marketCategories";
@@ -289,10 +290,25 @@ function Card({
     );
   }
 
-  // events
+  // events — klikləndə hadisə izah səhifəsi açılır (yeni tab)
   const e = item as CalEvent;
+  const href =
+    "/event?" +
+    new URLSearchParams({
+      title: e.title,
+      country: e.country,
+      impact: e.impact,
+      date: e.date,
+      time: e.time,
+      forecast: e.forecast,
+      previous: e.previous,
+    }).toString();
   return (
-    <div className={`${CARD} w-48`}>
+    <Link
+      href={href}
+      target="_blank"
+      className={`${CARD} w-48 transition-colors duration-150 hover:border-accent/60`}
+    >
       <div className="flex items-center justify-between">
         <span className="rounded bg-surface-hover px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-wider text-text/80">
           {e.country}
@@ -323,6 +339,6 @@ function Card({
           )}
         </div>
       )}
-    </div>
+    </Link>
   );
 }

@@ -3,6 +3,10 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from fastapi import Query
+
+from app.agents.event_ai import event_brief
+from app.agents.llm import has_openai
 from app.analytics.calendar import get_calendar
 from app.analytics.crypto_calendar import get_crypto_calendar
 from app.analytics.earnings import get_earnings
@@ -59,3 +63,23 @@ async def metals() -> list[dict]:
 async def commodities() -> list[dict]:
     """Əmtəə qiymətləri — Commodities tab (uran, neft, taxıl və s.)."""
     return await get_commodities()
+
+
+_LANGS = {"az", "en", "ru", "tr"}
+
+
+@router.get("/event-brief")
+async def event_brief_route(
+    title: str = Query(..., min_length=1),
+    country: str = Query(""),
+    impact: str = Query(""),
+    lang: str = Query("az"),
+) -> dict:
+    """Təqvim hadisəsi haqqında AI izahı — nədir, yuxarı/aşağı təsir, pairlər."""
+    lang = lang if lang in _LANGS else "az"
+    if not has_openai():
+        return {"ready": False}
+    brief = await event_brief(title, country, impact, lang)
+    if not brief:
+        return {"ready": False}
+    return {"ready": True, **brief}

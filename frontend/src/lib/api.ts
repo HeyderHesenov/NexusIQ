@@ -92,6 +92,29 @@ export async function getFearGreed(): Promise<import("@/types").FearGreed | null
   }
 }
 
+export interface EventBrief {
+  ready: boolean;
+  what?: string;
+  higher?: string;
+  lower?: string;
+  pairs?: { sym: string; bias: "up" | "down" | "mixed"; reason: string }[];
+}
+
+/** Təqvim hadisəsi haqqında AI izahı (nədir, yuxarı/aşağı təsir, pairlər). */
+export async function getEventBrief(
+  title: string,
+  country: string,
+  impact: string,
+  lang: string,
+): Promise<EventBrief> {
+  try {
+    const qs = new URLSearchParams({ title, country, impact, lang });
+    return await apiGet(`/market/event-brief?${qs.toString()}`);
+  } catch {
+    return { ready: false };
+  }
+}
+
 /** Bu həftənin iqtisadi təqvimi (ForexFactory). */
 export async function getCalendar(): Promise<import("@/types").CalEvent[]> {
   try {
