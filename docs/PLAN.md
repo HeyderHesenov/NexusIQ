@@ -60,6 +60,8 @@
 - Struktur cavab: qısa/orta/uzun müddət + risklər. ✅
 - GPT + Claude debate (FinancialAdvisorAgent). ✅
 - Finance-only guard + model gizliliyi. ✅
+- Axın effekti (token-token yazılma, /chat/stream NDJSON). ✅
+- İki aktiv soruşulanda inline korrelyasiya qrafiki + əlaqə izahı. ✅
 
 ## Addım 8 — Korrelyasiya + analitika  `[x]`
 - CorrelationAgent. ✅ (correlation_ai — GPT izah + fallback)

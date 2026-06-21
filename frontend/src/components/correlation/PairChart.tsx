@@ -7,13 +7,15 @@ export function PairChart({
   series,
   labelA,
   labelB,
+  compact = false,
 }: {
   series: CorrPairPoint[];
   labelA: string;
   labelB: string;
+  compact?: boolean;
 }) {
   const W = 760;
-  const H = 280;
+  const H = compact ? 200 : 280;
   const PAD = { top: 16, right: 16, bottom: 28, left: 44 };
 
   if (series.length < 2) {
@@ -48,7 +50,11 @@ export function PairChart({
 
   return (
     <div className="w-full overflow-x-auto">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[600px]" role="img">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className={`w-full ${compact ? "" : "min-w-[600px]"}`}
+        role="img"
+      >
         {/* y grid + etiketlər */}
         {ticks.map((tv, i) => (
           <g key={i}>

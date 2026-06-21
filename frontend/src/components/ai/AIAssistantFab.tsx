@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Sparkles, X, ArrowUp } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
-import { sendChat } from "@/lib/api";
+import { streamChat } from "@/lib/api";
+import { PairChart } from "@/components/correlation/PairChart";
+import type { CorrPair } from "@/types";
 
-type Msg = { role: "user" | "assistant"; text: string };
+type Msg = { role: "user" | "assistant"; text: string; chart?: CorrPair };
 
 /**
  * Sağ-altda üzən AI Analitik düyməsi + sağ drawer (ABB bankı tərzi).
@@ -34,17 +36,32 @@ export function AIAssistantFab() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages, busy]);
 
+  function patchLast(fn: (m: Msg) => Msg) {
+    setMessages((msgs) => {
+      const copy = [...msgs];
+      copy[copy.length - 1] = fn(copy[copy.length - 1]);
+      return copy;
+    });
+  }
+
   async function send(text: string) {
     const q = text.trim();
     if (!q || busy) return;
     setInput("");
-    setMessages((m) => [...m, { role: "user", text: q }]);
+    // istifadəçi sualı + boş köməkçi mesajı (axın bura yazılacaq)
+    setMessages((m) => [
+      ...m,
+      { role: "user", text: q },
+      { role: "assistant", text: "" },
+    ]);
     setBusy(true);
     try {
-      const { answer } = await sendChat(q, lang);
-      setMessages((m) => [...m, { role: "assistant", text: answer }]);
+      await streamChat(q, lang, {
+        onChart: (chart) => patchLast((m) => ({ ...m, chart })),
+        onDelta: (delta) => patchLast((m) => ({ ...m, text: m.text + delta })),
+      });
     } catch {
-      setMessages((m) => [...m, { role: "assistant", text: t("ai.error") }]);
+      patchLast((m) => ({ ...m, text: m.text || t("ai.error") }));
     } finally {
       setBusy(false);
     }
@@ -123,12 +140,23 @@ export function AIAssistantFab() {
             )}
 
             {messages.map((m, i) => (
-              <Bubble key={i} role={m.role}>
-                {m.text}
-              </Bubble>
+              <div key={i} className="space-y-2">
+                {m.role === "assistant" && m.chart && (
+                  <ChatChart pair={m.chart} />
+                )}
+                {(m.text || m.role === "user") && (
+                  <Bubble role={m.role}>{m.text}</Bubble>
+                )}
+              </div>
             ))}
 
-            {busy && <Thinking label={t("ai.thinking")} />}
+            {busy &&
+              (() => {
+                const last = messages[messages.length - 1];
+                const waiting =
+                  last?.role === "assistant" && !last.text && !last.chart;
+                return waiting ? <Thinking label={t("ai.thinking")} /> : null;
+              })()}
           </div>
 
           {/* giriş sahəsi */}
@@ -158,6 +186,31 @@ export function AIAssistantFab() {
         </aside>
       </div>
     </>
+  );
+}
+
+/** AI cavabı ilə birlikdə gələn korrelyasiya qrafiki kartı. */
+function ChatChart({ pair }: { pair: CorrPair }) {
+  const v = pair.value;
+  const color = v >= 0.1 ? "text-up" : v <= -0.1 ? "text-down" : "text-muted";
+  return (
+    <div className="rounded-2xl rounded-tl-sm border border-border bg-surface-hover p-3">
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-xs font-semibold">
+          {pair.a.label} · {pair.b.label}
+        </span>
+        <span className={`font-mono text-sm font-semibold ${color}`}>
+          {v >= 0 ? "+" : ""}
+          {v.toFixed(2)}
+        </span>
+      </div>
+      <PairChart
+        series={pair.series}
+        labelA={pair.a.label}
+        labelB={pair.b.label}
+        compact
+      />
+    </div>
   );
 }
 

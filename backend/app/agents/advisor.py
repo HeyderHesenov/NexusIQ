@@ -24,6 +24,7 @@ from app.agents.llm import (
     has_openai,
     openai_client,
 )
+from app.analytics import correlation
 from app.core.config import settings
 from app.models import News
 
@@ -170,27 +171,57 @@ async def _claude_pass(question: str, context: str) -> str:
     return "".join(b.text for b in msg.content if b.type == "text")
 
 
-async def _synthesize(question: str, lang: str, a: str, b: str) -> str:
+def _synth_messages(
+    question: str, lang: str, a: str, b: str, corr_note: str = ""
+) -> list[dict]:
+    """Sintez üçün mesajlar (həm tam, həm axın variantı bunu işlədir)."""
     lang_name = LANG_NAMES.get(lang, "Azerbaijani")
     both = f"ANALYSIS A:\n{a}\n\nANALYSIS B:\n{b}" if b else f"ANALYSIS:\n{a}"
+    extra = ""
+    if corr_note:
+        extra = (
+            f"\n\n{corr_note}\nThe user is shown a chart of these two assets above "
+            "your answer. Explain their RELATIONSHIP clearly: cite the correlation "
+            "value, say whether they move together or opposite and how strongly, and "
+            "give one practical takeaway (hedging/diversification). "
+        )
+    return [
+        {"role": "system", "content": _GUARD},
+        {
+            "role": "user",
+            "content": f"Two internal analyses are given. Merge them into ONE "
+            f"clear final answer for the user, written in {lang_name}. "
+            "Reconcile agreements, note key disagreements briefly. "
+            "Structure with short headers when useful (qısa/orta/uzun müddət, "
+            "risklər). Under ~180 words. Do NOT mention analyses, models or "
+            f"systems.{extra}\n\nQuestion: {question}\n\n{both}",
+        },
+    ]
+
+
+async def _synthesize(question: str, lang: str, a: str, b: str, corr_note: str = "") -> str:
     resp = await openai_client().chat.completions.create(
         model=settings.openai_model,
-        messages=[
-            {"role": "system", "content": _GUARD},
-            {
-                "role": "user",
-                "content": f"Two internal analyses are given. Merge them into ONE "
-                f"clear final answer for the user, written in {lang_name}. "
-                "Reconcile agreements, note key disagreements briefly. "
-                "Structure with short headers when useful (qısa/orta/uzun müddət, "
-                "risklər). Under ~180 words. Do NOT mention analyses, models or "
-                f"systems.\n\nQuestion: {question}\n\n{both}",
-            },
-        ],
+        messages=_synth_messages(question, lang, a, b, corr_note),
         temperature=0.4,
         max_tokens=600,
     )
     return resp.choices[0].message.content or ""
+
+
+async def _detect_chart(question: str) -> tuple[dict | None, str]:
+    """Sualda iki aktiv varsa korrelyasiya qrafiki datası + AI üçün qeyd qaytarır."""
+    keys = correlation.detect_pair(question)
+    if not keys:
+        return None, ""
+    data = await correlation.get_pair(keys[0], keys[1], 90)
+    if not data:
+        return None, ""
+    note = (
+        f"The 90-day Pearson correlation between {data['a']['label']} and "
+        f"{data['b']['label']} (daily returns) is {data['value']:+.2f}."
+    )
+    return data, note
 
 
 async def answer(question: str, lang: str, session: AsyncSession) -> dict:
@@ -205,8 +236,56 @@ async def answer(question: str, lang: str, session: AsyncSession) -> dict:
         return {"answer": _REFUSAL[lang], "refused": True}
 
     context = await _rag_context(session, question, lang)
+    _, corr_note = await _detect_chart(question)
     gpt_take, claude_take = await asyncio.gather(
         _gpt_pass(question, context), _claude_pass(question, context)
     )
-    final = await _synthesize(question, lang, gpt_take, claude_take)
+    final = await _synthesize(question, lang, gpt_take, claude_take, corr_note)
     return {"answer": final or _REFUSAL[lang], "refused": False}
+
+
+async def answer_stream(question: str, lang: str, session: AsyncSession):
+    """Axın variantı. NDJSON hadisələri verir:
+    {type:chart,chart}, {type:delta,text}, {type:done,refused?}.
+
+    Debate arxa fonda tam gözlənilir (model "fikirləşir"), sonra yekun cavab
+    token-token axıdılır — ChatGPT/Claude tərzi yazılma effekti.
+    """
+    import asyncio
+
+    lang = lang if lang in LANG_NAMES else "az"
+
+    if not has_openai() or not await _classify_finance(question):
+        yield {"type": "delta", "text": _REFUSAL[lang]}
+        yield {"type": "done", "refused": True}
+        return
+
+    # RAG + qrafik aşkarlanması paralel.
+    context, (chart, corr_note) = await asyncio.gather(
+        _rag_context(session, question, lang), _detect_chart(question)
+    )
+    if chart is not None:
+        yield {"type": "chart", "chart": chart}
+
+    # Debate (arxa fon "düşüncəsi") — tam gözlənilir.
+    gpt_take, claude_take = await asyncio.gather(
+        _gpt_pass(question, context), _claude_pass(question, context)
+    )
+
+    # Yekun cavabı token-token axıt.
+    stream = await openai_client().chat.completions.create(
+        model=settings.openai_model,
+        messages=_synth_messages(question, lang, gpt_take, claude_take, corr_note),
+        temperature=0.4,
+        max_tokens=600,
+        stream=True,
+    )
+    got = False
+    async for chunk in stream:
+        delta = chunk.choices[0].delta.content if chunk.choices else None
+        if delta:
+            got = True
+            yield {"type": "delta", "text": delta}
+    if not got:
+        yield {"type": "delta", "text": _REFUSAL[lang]}
+    yield {"type": "done"}

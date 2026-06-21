@@ -182,6 +182,54 @@ export async function sendChat(
   return apiPost("/chat", { message, lang });
 }
 
+export interface ChatStreamHandlers {
+  onChart?: (chart: import("@/types").CorrPair) => void;
+  onDelta?: (text: string) => void;
+  onDone?: (refused: boolean) => void;
+}
+
+/**
+ * AI cavabını axınla alır (NDJSON): əvvəl qrafik (varsa), sonra token-token mətn.
+ * ChatGPT/Claude tərzi yazılma effekti üçün.
+ */
+export async function streamChat(
+  message: string,
+  lang: string,
+  handlers: ChatStreamHandlers,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/chat/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, lang }),
+  });
+  if (!res.ok || !res.body) throw new Error(`API ${res.status}: /chat/stream`);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let nl: number;
+    while ((nl = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (!line) continue;
+      let ev: { type: string; text?: string; chart?: import("@/types").CorrPair; refused?: boolean };
+      try {
+        ev = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      if (ev.type === "chart" && ev.chart) handlers.onChart?.(ev.chart);
+      else if (ev.type === "delta" && ev.text) handlers.onDelta?.(ev.text);
+      else if (ev.type === "done") handlers.onDone?.(Boolean(ev.refused));
+    }
+  }
+}
+
 /** Aktivlər arası Pearson korrelyasiya matrisi (heatmap). */
 export async function getCorrelationMatrix(
   window: number,

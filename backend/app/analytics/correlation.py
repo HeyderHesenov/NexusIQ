@@ -167,3 +167,38 @@ async def get_pair(key_a: str, key_b: str, window_days: int = 90) -> dict | None
 
 def label_for(key: str) -> str:
     return _KEY_TO_LABEL.get(key, key)
+
+
+# Sərbəst mətndə aktiv adlarını tanımaq üçün ləqəblər (4 dil + simvollar).
+_ALIASES: dict[str, list[str]] = {
+    "btc": ["btc", "bitcoin", "биткоин", "bitkoin"],
+    "eth": ["eth", "ethereum", "ether", "эфир"],
+    "spx": ["s&p 500", "s&p500", "s&p", "sp500", "spx", "snp"],
+    "ndx": ["nasdaq", "ndx"],
+    "gold": ["gold", "qızıl", "qizil", "altın", "altin", "xau", "золото"],
+    "oil": ["wti oil", "wti", "crude", "oil", "neft", "petrol", "нефть"],
+    "dxy": ["dxy", "dollar index", "dollar indeksi", "индекс доллара"],
+    "eurusd": ["eur/usd", "eurusd", "eur usd", "eur-usd", "euro", "avro", "евро"],
+    "usdjpy": ["usd/jpy", "usdjpy", "usd jpy", "usd-jpy", "yen", "jpy", "иена", "yeni"],
+}
+
+
+def detect_pair(text: str) -> tuple[str, str] | None:
+    """Mətndə iki aktiv adı tapıb (görünmə sırası ilə) açar cütü qaytarır.
+
+    Məs. "EUR/USD vs DXY əlaqəsi" → ("eurusd", "dxy"). Tapılmasa None.
+    """
+    low = f" {text.lower()} "
+    hits: list[tuple[int, str]] = []
+    for key, aliases in _ALIASES.items():
+        pos = min(
+            (low.find(a) for a in aliases if low.find(a) >= 0),
+            default=-1,
+        )
+        if pos >= 0:
+            hits.append((pos, key))
+    hits.sort()
+    keys = [k for _, k in hits]
+    if len(keys) >= 2:
+        return keys[0], keys[1]
+    return None

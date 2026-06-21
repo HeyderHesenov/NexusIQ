@@ -1,12 +1,15 @@
-"""AI Asistant chat route — finance advisor (ikili AI debate)."""
+"""AI Asistant chat route — finance advisor (ikili AI debate + axın)."""
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agents.advisor import answer
-from app.db.session import get_db
+from app.agents.advisor import answer, answer_stream
+from app.db.session import AsyncSessionLocal, get_db
 
 router = APIRouter()
 
@@ -28,3 +31,22 @@ async def chat(
     """İstifadəçi sualına maliyyə cavabı (arxa fonda debate)."""
     result = await answer(req.message, req.lang, db)
     return ChatResponse(**result)
+
+
+@router.post("/stream")
+async def chat_stream(req: ChatRequest) -> StreamingResponse:
+    """Axın cavabı (NDJSON) — qrafik + token-token yazılma effekti.
+
+    Generator öz DB sessiyasını açır (StreamingResponse müddətincə açıq qalsın).
+    """
+
+    async def gen():
+        async with AsyncSessionLocal() as session:
+            async for event in answer_stream(req.message, req.lang, session):
+                yield json.dumps(event, ensure_ascii=False) + "\n"
+
+    return StreamingResponse(
+        gen(),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
