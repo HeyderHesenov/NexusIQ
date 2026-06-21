@@ -1,0 +1,48 @@
+"use client";
+
+import { useState } from "react";
+import { AppNav } from "@/components/layout/AppNav";
+import { Ticker } from "@/components/market/Ticker";
+import { CategoryTabs } from "@/components/news/CategoryTabs";
+import { MarketCalendar } from "@/components/market/MarketCalendar";
+import { FearGreed } from "@/components/market/FearGreed";
+import { AIAssistantFab } from "@/components/ai/AIAssistantFab";
+import { CATEGORIES } from "@/lib/marketCategories";
+import { useI18n } from "@/lib/i18n";
+import type { Category } from "@/types";
+
+export default function MarketsPage() {
+  const { t } = useI18n();
+  const [active, setActive] = useState<Category>("forex");
+
+  return (
+    <div className="min-h-screen">
+      <AppNav />
+      <Ticker />
+
+      <main className="mx-auto max-w-7xl px-5 py-8">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-accent">
+              {t("nav.markets")}
+            </p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+              {t("markets.title")}
+            </h1>
+          </div>
+          <CategoryTabs active={active} onChange={setActive} />
+        </div>
+
+        {active === "crypto" && (
+          <div className="mb-6">
+            <FearGreed />
+          </div>
+        )}
+
+        <MarketCalendar key={active} categories={CATEGORIES[active]} />
+      </main>
+
+      <AIAssistantFab />
+    </div>
+  );
+}

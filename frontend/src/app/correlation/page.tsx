@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, Activity } from "lucide-react";
+import { Activity } from "lucide-react";
+import { AppNav } from "@/components/layout/AppNav";
 import { getCorrelationMatrix, getCorrelationPair } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { CorrelationMatrix } from "@/components/correlation/CorrelationMatrix";
@@ -54,26 +54,15 @@ export default function CorrelationPage() {
 
   return (
     <div className="min-h-screen">
-      {/* üst panel */}
-      <header className="sticky top-0 z-30 border-b border-border bg-bg/80 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-5">
-          <Link
-            href="/"
-            className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-muted transition-colors hover:border-accent hover:text-text"
-          >
-            <ArrowLeft size={15} />
-            {t("news.back")}
-          </Link>
-          <div className="flex items-center gap-2">
-            <Activity size={16} className="text-accent" />
-            <span className="text-lg font-semibold tracking-tight">
-              {t("corr.title")}
-            </span>
-          </div>
-        </div>
-      </header>
+      <AppNav />
 
       <main className="mx-auto max-w-7xl px-5 py-8">
+        <div className="mb-3 flex items-center gap-2">
+          <Activity size={18} className="text-accent" />
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {t("corr.title")}
+          </h1>
+        </div>
         <p className="max-w-2xl text-sm text-muted">{t("corr.subtitle")}</p>
 
         {/* pəncərə seçimi */}

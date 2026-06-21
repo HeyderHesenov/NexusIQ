@@ -1,14 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Header } from "@/components/layout/Header";
+import { AppNav } from "@/components/layout/AppNav";
 import { Ticker } from "@/components/market/Ticker";
 import { AIAssistantFab } from "@/components/ai/AIAssistantFab";
 import { NewsCard } from "@/components/news/NewsCard";
 import { TrendingStrip } from "@/components/news/TrendingStrip";
-import { FearGreed } from "@/components/market/FearGreed";
-import { MarketCalendar } from "@/components/market/MarketCalendar";
-import { CATEGORIES } from "@/lib/marketCategories";
+import { CategoryTabs } from "@/components/news/CategoryTabs";
 import { apiGet, getNewsCount } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import type { Category, NewsItem } from "@/types";
@@ -59,18 +57,13 @@ export default function HomePage() {
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  function logout() {
-    localStorage.removeItem("nexusiq_session");
-    location.reload();
-  }
-
   return (
     <div className="min-h-screen">
-      <Header active={active} onChange={changeTab} onLogout={logout} />
+      <AppNav />
       <Ticker />
 
       <main className="mx-auto max-w-7xl px-5 py-8">
-        <div className="mb-6 flex items-end justify-between">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-accent">
               {t(`tab.${active}`)}
@@ -79,15 +72,9 @@ export default function HomePage() {
               {t("home.marketNews")}
             </h1>
           </div>
-          {status === "ready" && total > 0 && (
-            <span className="font-mono text-xs text-muted">
-              {total} {t("home.count")}
-            </span>
-          )}
+          <CategoryTabs active={active} onChange={changeTab} />
         </div>
 
-        <MarketCalendar key={active} categories={CATEGORIES[active]} />
-        {active === "crypto" && <FearGreed />}
         {page === 1 && <TrendingStrip category={active} />}
 
         {status === "loading" && (

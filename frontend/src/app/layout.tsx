@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "@/styles/globals.css";
 import { AuthGate } from "@/components/auth/AuthGate";
 import { LanguageProvider } from "@/lib/i18n";
+import { ThemeProvider } from "@/lib/theme";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -36,11 +37,25 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="az" className={`dark ${inter.variable} ${jetbrains.variable}`}>
+    <html
+      lang="az"
+      suppressHydrationWarning
+      className={`dark ${inter.variable} ${jetbrains.variable}`}
+    >
+      <head>
+        {/* Tema flash-ın qarşısını al — paint-dən əvvəl class qoy. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('nexusiq_theme');if(t!=='light'&&t!=='dark')t='dark';var e=document.documentElement;e.classList.remove('dark','light');e.classList.add(t);}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className="min-h-screen bg-bg text-text font-sans antialiased">
-        <LanguageProvider>
-          <AuthGate>{children}</AuthGate>
-        </LanguageProvider>
+        <ThemeProvider>
+          <LanguageProvider>
+            <AuthGate>{children}</AuthGate>
+          </LanguageProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

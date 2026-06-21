@@ -6,7 +6,8 @@
    Rəng tonları — Black / Orange / White
    Dəyişdirmək istəsən yalnız buradakı dəyərləri redaktə et.
    ============================================================ */
-:root {
+:root,
+html.dark {
   --bg: #0a0a0b;
   --surface: #161618;
   --surface-hover: #1f1f22;
@@ -17,6 +18,22 @@
   --muted: #8a8a8f;
   --up: #22c55e;
   --down: #ef4444;
+  --shadow: rgba(0, 0, 0, 0.6);
+}
+
+/* Açıq tema — ağ/açıq fon, oxunaqlı kontrast. */
+html.light {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-hover: #eef0f3;
+  --border: #e2e4e9;
+  --accent: #e8650a;
+  --accent-soft: rgba(232, 101, 10, 0.1);
+  --text: #16181d;
+  --muted: #62656e;
+  --up: #15a34a;
+  --down: #dc2626;
+  --shadow: rgba(15, 23, 42, 0.12);
 }
 
 * {
