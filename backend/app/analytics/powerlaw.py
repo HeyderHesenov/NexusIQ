@@ -21,12 +21,9 @@ ASSETS: dict[str, tuple[str, str]] = {
     "btc": ("BTC", "BTC-USD"),
     "eth": ("ETH", "ETH-USD"),
     "bnb": ("BNB", "BNB-USD"),
-    "sol": ("SOL", "SOL-USD"),
     "xrp": ("XRP", "XRP-USD"),
-    "doge": ("DOGE", "DOGE-USD"),
     "hype": ("HYPE", "HYPE32196-USD"),
     "link": ("LINK", "LINK-USD"),
-    "ltc": ("LTC", "LTC-USD"),
     "trx": ("TRX", "TRX-USD"),
 }
 _BTC_GENESIS = date(2009, 1, 3)
