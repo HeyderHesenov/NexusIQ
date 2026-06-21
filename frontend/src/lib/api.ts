@@ -182,4 +182,30 @@ export async function sendChat(
   return apiPost("/chat", { message, lang });
 }
 
+/** Aktivlər arası Pearson korrelyasiya matrisi (heatmap). */
+export async function getCorrelationMatrix(
+  window: number,
+): Promise<import("@/types").CorrMatrix | null> {
+  try {
+    return await apiGet(`/correlation/matrix?window=${window}`);
+  } catch {
+    return null;
+  }
+}
+
+/** İki aktiv: korrelyasiya dəyəri + normallaşmış seriyalar + AI izah. */
+export async function getCorrelationPair(
+  a: string,
+  b: string,
+  window: number,
+  lang: string,
+): Promise<import("@/types").CorrPair | null> {
+  try {
+    const qs = new URLSearchParams({ a, b, window: String(window), lang });
+    return await apiGet(`/correlation/pair?${qs.toString()}`);
+  } catch {
+    return null;
+  }
+}
+
 export { API_BASE };

@@ -78,3 +78,30 @@ export interface MajorEvent {
   type: "halving" | "escrow" | "burn" | "unlock";
   note: string;
 }
+
+export interface CorrAsset {
+  key: string;
+  label: string;
+  sym: string;
+}
+
+export interface CorrMatrix {
+  window: number;
+  assets: CorrAsset[];
+  matrix: (number | null)[][];
+}
+
+export interface CorrPairPoint {
+  date: string;
+  a: number;
+  b: number;
+}
+
+export interface CorrPair {
+  a: { key: string; label: string };
+  b: { key: string; label: string };
+  window: number;
+  value: number;
+  series: CorrPairPoint[];
+  explanation?: string;
+}

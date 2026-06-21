@@ -61,12 +61,12 @@
 - GPT + Claude debate (FinancialAdvisorAgent). ✅
 - Finance-only guard + model gizliliyi. ✅
 
-## Addım 8 — Korrelyasiya + analitika  `[ ]`
-- CorrelationAgent.
-- Tarixi data (Yahoo Finance).
-- Pearson korrelyasiya.
-- Chart (matplotlib/plotly) + UI-də göstər.
-- Çıxış: dəyər + chart + sadə izah.
+## Addım 8 — Korrelyasiya + analitika  `[x]`
+- CorrelationAgent. ✅ (correlation_ai — GPT izah + fallback)
+- Tarixi data (Yahoo Finance). ✅ (yfinance gündəlik gəlirlər)
+- Pearson korrelyasiya. ✅ (scipy + pandas, /correlation API)
+- Chart + UI-də göstər. ✅ (SVG heatmap + cüt xətt qrafiki, /correlation səhifəsi)
+- Çıxış: dəyər + chart + AI izah (4 dil). ✅
 
 ## Əlavə (2026-06-20)  `[x]`
 - Canlı bazar lenti — real qiymətlər (yfinance, /market/ticker, 60s).

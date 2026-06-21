@@ -1,6 +1,7 @@
 "use client";
 
-import { LogOut } from "lucide-react";
+import Link from "next/link";
+import { Activity, LogOut } from "lucide-react";
 import type { Category } from "@/types";
 import { useI18n } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -55,6 +56,13 @@ export function Header({
         {/* sağ tərəf */}
         <div className="flex items-center gap-2">
           <NewsSearch />
+          <Link
+            href="/correlation"
+            title={t("corr.nav")}
+            className="flex items-center rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-muted transition-all duration-200 hover:border-accent hover:text-accent"
+          >
+            <Activity size={15} />
+          </Link>
           <NotifyBell />
           <LanguageSwitcher />
           <button
