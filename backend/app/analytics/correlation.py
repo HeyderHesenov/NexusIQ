@@ -15,6 +15,8 @@ import pandas as pd
 import yfinance as yf
 from scipy.stats import pearsonr
 
+from app.analytics import swr
+
 # Korrelyasiya üçün aktiv kainatı: (key, göstəriş adı, Yahoo simvolu).
 ASSETS: list[tuple[str, str, str]] = [
     ("btc", "BTC", "BTC-USD"),
@@ -89,25 +91,24 @@ def _norm_window(window_days: int) -> int:
 
 
 async def get_matrix(window_days: int = 90) -> dict:
-    """Pearson korrelyasiya matrisi — bütün aktivlər. UI heatmap üçün."""
+    """Pearson korrelyasiya matrisi (SWR — heç vaxt bloklamaz, köhnəni qaytarar)."""
     window_days = _norm_window(window_days)
-    cached = _matrix_cache.get(window_days)
-    now = time.time()
-    if cached and now - cached["ts"] < _TTL:
-        return cached["data"]
-
-    returns = await _get_returns(window_days)
-    assets_meta = [{"key": k, "label": lbl, "sym": s} for k, lbl, s in ASSETS]
-
-    if returns.empty:
-        data = {"window": window_days, "assets": assets_meta, "matrix": []}
-        if cached:
-            return cached["data"]
+    store = _matrix_cache.setdefault(window_days, {"ts": 0.0, "data": None})
+    data = await swr.get(store, _TTL, lambda: _build_matrix(window_days))
+    if data:
         return data
+    assets_meta = [{"key": k, "label": lbl, "sym": s} for k, lbl, s in ASSETS]
+    return {"window": window_days, "assets": assets_meta, "matrix": []}
+
+
+async def _build_matrix(window_days: int) -> dict | None:
+    """Matrisi hesabla. yfinance boş qaytararsa None (köhnə keş qorunur)."""
+    returns = await _get_returns(window_days)
+    if returns.empty:
+        return None
 
     keys = [k for k, _, _ in ASSETS if k in returns.columns]
     corr = returns[keys].corr(method="pearson")
-    # Tam ASSETS ardıcıllığında matris (çatışmayan aktiv = None).
     order = [k for k, _, _ in ASSETS]
     matrix: list[list[float | None]] = []
     for r in order:
@@ -120,9 +121,8 @@ async def get_matrix(window_days: int = 90) -> dict:
                 row.append(None)
         matrix.append(row)
 
-    data = {"window": window_days, "assets": assets_meta, "matrix": matrix}
-    _matrix_cache[window_days] = {"ts": now, "data": data}
-    return data
+    assets_meta = [{"key": k, "label": lbl, "sym": s} for k, lbl, s in ASSETS]
+    return {"window": window_days, "assets": assets_meta, "matrix": matrix}
 
 
 async def get_pair(key_a: str, key_b: str, window_days: int = 90) -> dict | None:

@@ -15,10 +15,10 @@ from __future__ import annotations
 
 import asyncio
 import math
-import time
 
 import yfinance as yf
 
+from app.analytics import swr
 from app.analytics.assets import ASSETS
 
 _MAD_SCALE = 0.6745
@@ -134,12 +134,9 @@ def _scan_sync() -> list[dict]:
 
 
 async def scan_all(force: bool = False) -> list[dict]:
-    """Bütün reyestri yoxla (5 dəq keş). Anomaliyalar siyahısı."""
-    now = time.time()
-    if not force and _cache["data"] and now - _cache["ts"] < _TTL:
-        return _cache["data"]
-    data = await asyncio.to_thread(_scan_sync)
-    if data or not _cache["data"]:
-        _cache["ts"] = now
-        _cache["data"] = data
-    return _cache["data"]
+    """Bütün reyestri yoxla (SWR — köhnə keş dərhal, arxa planda yenilə)."""
+    return await swr.get(_cache, _TTL, _refresh, force=force) or []
+
+
+async def _refresh() -> list[dict]:
+    return await asyncio.to_thread(_scan_sync)

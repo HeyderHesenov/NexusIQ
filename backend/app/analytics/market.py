@@ -17,6 +17,8 @@ import time
 import httpx
 import yfinance as yf
 
+from app.analytics import swr
+
 # Binance: real-time kripto.
 _CRYPTO = [("BTC/USD", "BTCUSDT"), ("ETH/USD", "ETHUSDT")]
 
@@ -142,15 +144,8 @@ async def _fetch() -> list[dict]:
 
 
 async def get_quotes() -> list[dict]:
-    """Keşlənmiş canlı qiymətlər. Köhnəlibsə yenidən çəkir."""
-    now = time.time()
-    if _cache["data"] and now - _cache["ts"] < _TTL:
-        return _cache["data"]
-    data = await _fetch()
-    if data:
-        _cache["data"] = data
-        _cache["ts"] = now
-    return _cache["data"]
+    """Canlı qiymətlər (SWR — köhnə keş dərhal, arxa planda yenilə)."""
+    return await swr.get(_cache, _TTL, _fetch) or []
 
 
 # ---- Metallar (Forex tab → "Metallar" kateqoriyası) ----
@@ -188,15 +183,10 @@ def _metals_sync() -> list[dict]:
 
 
 async def get_metals() -> list[dict]:
-    """Metal qiymətləri (Gold/Silver/Platinum/Palladium/Copper). 90s keş."""
-    now = time.time()
-    if _metals_cache["data"] and now - _metals_cache["ts"] < 90.0:
-        return _metals_cache["data"]
-    data = await asyncio.to_thread(_metals_sync)
-    if data:
-        _metals_cache["data"] = data
-        _metals_cache["ts"] = now
-    return _metals_cache["data"]
+    """Metal qiymətləri (SWR, 90s keş)."""
+    return await swr.get(
+        _metals_cache, 90.0, lambda: asyncio.to_thread(_metals_sync)
+    ) or []
 
 
 # ---- Əmtəələr (Commodities tab → qiymət + trend) ----
@@ -239,12 +229,7 @@ def _commodities_sync() -> list[dict]:
 
 
 async def get_commodities() -> list[dict]:
-    """Əmtəə qiymətləri (uran, neft, qaz, taxıl və s.) + 14g trend. 90s keş."""
-    now = time.time()
-    if _comm_cache["data"] and now - _comm_cache["ts"] < 90.0:
-        return _comm_cache["data"]
-    data = await asyncio.to_thread(_commodities_sync)
-    if data:
-        _comm_cache["data"] = data
-        _comm_cache["ts"] = now
-    return _comm_cache["data"]
+    """Əmtəə qiymətləri (uran, neft, qaz, taxıl və s.) + 14g trend. SWR, 90s keş."""
+    return await swr.get(
+        _comm_cache, 90.0, lambda: asyncio.to_thread(_commodities_sync)
+    ) or []

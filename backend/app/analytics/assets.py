@@ -11,6 +11,7 @@ import time
 import httpx
 import yfinance as yf
 
+from app.analytics import swr
 from app.analytics.market import _live_last_prev
 
 # (key, label, Yahoo simvolu, tip, dəqiqlik)
@@ -32,11 +33,21 @@ ASSETS: list[tuple[str, str, str, str, int]] = [
     ("hsi", "Hang Seng", "^HSI", "index", 0),
     ("stoxx", "Euro Stoxx 50", "^STOXX50E", "index", 0),
     ("tsx", "TSX", "^GSPTSE", "index", 0),
-    # Forex (4)
+    # Forex (14)
     ("eurusd", "EUR/USD", "EURUSD=X", "forex", 4),
     ("gbpusd", "GBP/USD", "GBPUSD=X", "forex", 4),
     ("usdjpy", "USD/JPY", "USDJPY=X", "forex", 2),
     ("dxy", "DXY", "DX-Y.NYB", "forex", 2),
+    ("usdchf", "USD/CHF", "USDCHF=X", "forex", 4),
+    ("audusd", "AUD/USD", "AUDUSD=X", "forex", 4),
+    ("usdcad", "USD/CAD", "USDCAD=X", "forex", 4),
+    ("nzdusd", "NZD/USD", "NZDUSD=X", "forex", 4),
+    ("eurgbp", "EUR/GBP", "EURGBP=X", "forex", 4),
+    ("eurjpy", "EUR/JPY", "EURJPY=X", "forex", 2),
+    ("gbpjpy", "GBP/JPY", "GBPJPY=X", "forex", 2),
+    ("usdsek", "USD/SEK", "USDSEK=X", "forex", 4),
+    ("usdmxn", "USD/MXN", "USDMXN=X", "forex", 4),
+    ("usdtry", "USD/TRY", "USDTRY=X", "forex", 4),
     # Əmtəələr (3)
     ("oil", "WTI Oil", "CL=F", "commodity", 2),
     ("brent", "Brent", "BZ=F", "commodity", 2),
@@ -319,18 +330,29 @@ def _registry_overview_sync() -> dict[str, dict]:
     return out
 
 
-async def _coin_spark(symbol: str) -> list[float]:
-    """Bir coin üçün ~7 günlük sparkline (Binance klines, 6 saatlıq)."""
+async def _coin_spark(
+    symbol: str, client: httpx.AsyncClient | None = None
+) -> list[float]:
+    """Bir coin üçün ~7 günlük sparkline (Binance klines, 6 saatlıq).
+
+    `client` verilirsə paylaşılan bağlantı istifadə olunur (toplu çağırışda
+    50 ayrı klient açmamaq üçün — soyuq overview-i kəskin sürətləndirir).
+    """
+    own = client is None
+    if own:
+        client = httpx.AsyncClient(timeout=6.0)
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            r = await client.get(
-                "https://api.binance.com/api/v3/klines",
-                params={"symbol": symbol, "interval": "6h", "limit": 28},
-            )
-            r.raise_for_status()
-            return [round(float(k[4]), 6) for k in r.json()]
+        r = await client.get(
+            "https://api.binance.com/api/v3/klines",
+            params={"symbol": symbol, "interval": "6h", "limit": 28},
+        )
+        r.raise_for_status()
+        return [round(float(k[4]), 6) for k in r.json()]
     except (httpx.HTTPError, ValueError, IndexError):
         return []
+    finally:
+        if own:
+            await client.aclose()
 
 
 _news_cache: dict[str, tuple[float, list]] = {}
@@ -399,21 +421,21 @@ async def get_asset_news(key: str) -> list[dict]:
 
 
 async def get_overview() -> list[dict]:
-    """Bütün aktivlər — qiymət + 24s dəyişim + sparkline (CMC tərzi cədvəl, 10 dəq keş)."""
-    now = time.time()
-    if _overview_cache["data"] and now - _overview_cache["ts"] < _OVERVIEW_TTL:
-        return _overview_cache["data"]
+    """Bütün aktivlər — qiymət + sparkline (SWR, 10 dəq keş, heç vaxt bloklamaz)."""
+    return await swr.get(_overview_cache, _OVERVIEW_TTL, _overview_refresh) or []
 
+
+async def _overview_refresh() -> list[dict]:
     await _ensure_coins()
     reg = await asyncio.to_thread(_registry_overview_sync)
 
-    # Coin sparkline-ları paralel (məhdud).
+    # Coin sparkline-ları paralel — tək paylaşılan HTTP klient + məhdud paralel.
     coin_items = list(_coins.items())
-    sem = asyncio.Semaphore(8)
+    sem = asyncio.Semaphore(16)
 
-    async def coin_row(key: str, c: dict) -> dict:
+    async def coin_row(client: httpx.AsyncClient, key: str, c: dict) -> dict:
         async with sem:
-            spark = await _coin_spark(c["symbol"])
+            spark = await _coin_spark(c["symbol"], client)
         dec = _coin_dec(c["price"])
         return {
             "key": key, "label": c["label"], "type": "crypto",
@@ -422,14 +444,13 @@ async def get_overview() -> list[dict]:
             "up": c["chgPct"] >= 0, "spark": spark,
         }
 
-    coin_rows = await asyncio.gather(*(coin_row(k, c) for k, c in coin_items))
+    async with httpx.AsyncClient(timeout=6.0) as client:
+        coin_rows = await asyncio.gather(
+            *(coin_row(client, k, c) for k, c in coin_items)
+        )
 
     # Sıra: reyestr (ASSETS ardıcıllığı) + coinlər (həcm sırası).
-    rows = [reg[k] for k, _, _, _, _ in ASSETS if k in reg] + list(coin_rows)
-    if rows:
-        _overview_cache["data"] = rows
-        _overview_cache["ts"] = now
-    return _overview_cache["data"]
+    return [reg[k] for k, _, _, _, _ in ASSETS if k in reg] + list(coin_rows)
 
 
 async def get_history(key: str, rng: str = "3mo") -> dict | None:
