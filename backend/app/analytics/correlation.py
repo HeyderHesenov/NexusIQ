@@ -20,7 +20,7 @@ ASSETS: list[tuple[str, str, str]] = [
     ("btc", "BTC", "BTC-USD"),
     ("eth", "ETH", "ETH-USD"),
     ("spx", "S&P 500", "^GSPC"),
-    ("ndx", "NASDAQ", "^IXIC"),
+    ("ndx", "NASDAQ", "^NDX"),
     ("gold", "GOLD", "GC=F"),
     ("oil", "WTI OIL", "CL=F"),
     ("dxy", "DXY", "DX-Y.NYB"),

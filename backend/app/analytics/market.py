@@ -25,7 +25,9 @@ _YF = [
     ("EUR/USD", "EURUSD=X", 4),
     ("DXY", "DX-Y.NYB", 2),
     ("S&P 500", "^GSPC", 0),
-    ("NASDAQ", "^IXIC", 0),
+    # NASDAQ = Nasdaq-100 (^NDX) — brokerlər/TradingView "NAS100" budur (~30k).
+    # ^IXIC (Composite, ~26k) deyil; istifadəçinin gördüyü rəqəmlə uyğun olsun.
+    ("NASDAQ", "^NDX", 0),
     ("GBP/USD", "GBPUSD=X", 4),
     ("GOLD", "GC=F", 1),
     ("USD/JPY", "USDJPY=X", 2),
@@ -79,25 +81,57 @@ async def _binance() -> dict[str, dict]:
     return out
 
 
-def _yf_sync() -> dict[str, dict]:
-    """Forex/indeks/əmtəə — son qiymət + dünənə görə dəyişim."""
-    tickers = " ".join(s for _, s, _ in _YF)
-    out: dict[str, dict] = {}
+def _live_last_prev(sym: str) -> tuple[float, float] | None:
+    """fast_info ilə CANLI son qiymət + əvvəlki bağlanış. Alınmasa None."""
     try:
-        df = yf.download(
-            tickers, period="5d", interval="1d", progress=False, threads=True
-        )["Close"]
+        fi = yf.Ticker(sym).fast_info
+        last = fi.get("lastPrice")
+        prev = fi.get("previousClose")
+        if last is None:
+            return None
+        last = float(last)
+        prev = float(prev) if prev is not None else last
+        return last, prev
     except Exception:  # noqa: BLE001
-        return out
+        return None
+
+
+def _yf_sync() -> dict[str, dict]:
+    """Forex/indeks/əmtəə — CANLI son qiymət (fast_info) + dəyişim.
+
+    fast_info real-time qiymət verir (gündəlik bağlanış lag etmir). Alınmasa
+    gündəlik bağlanışa düşür ki, lent heç vaxt boş qalmasın.
+    """
+    out: dict[str, dict] = {}
+    missing: list[tuple[str, str, int]] = []
+
     for name, sym, dec in _YF:
-        try:
-            series = df[sym].dropna()
-            last = float(series.iloc[-1])
-            prev = float(series.iloc[-2])
-            chg = (last - prev) / prev * 100 if prev else 0.0
-            out[name] = _quote(name, last, chg, dec)
-        except (KeyError, IndexError, ValueError, TypeError):
+        lp = _live_last_prev(sym)
+        if lp is None:
+            missing.append((name, sym, dec))
             continue
+        last, prev = lp
+        chg = (last - prev) / prev * 100 if prev else 0.0
+        out[name] = _quote(name, last, chg, dec)
+
+    # fast_info alınmayanlar üçün gündəlik bağlanış fallback (toplu).
+    if missing:
+        try:
+            df = yf.download(
+                " ".join(s for _, s, _ in missing),
+                period="5d", interval="1d", progress=False, threads=True,
+            )["Close"]
+            for name, sym, dec in missing:
+                try:
+                    series = df[sym].dropna() if sym in df else df.dropna()
+                    last = float(series.iloc[-1])
+                    prev = float(series.iloc[-2])
+                    chg = (last - prev) / prev * 100 if prev else 0.0
+                    out[name] = _quote(name, last, chg, dec)
+                except (KeyError, IndexError, ValueError, TypeError):
+                    continue
+        except Exception:  # noqa: BLE001
+            pass
     return out
 
 
