@@ -43,6 +43,15 @@ class Settings(BaseSettings):
     # ---- Analytics ----
     correlation_default_window_days: int = 90
 
+    # ---- Web Push (VAPID) ----
+    vapid_private_key: str = ""
+    vapid_public_key: str = ""
+    vapid_subject: str = "mailto:admin@nexusiq.local"
+
+    @property
+    def push_enabled(self) -> bool:
+        return bool(self.vapid_private_key and self.vapid_public_key)
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.backend_cors_origins.split(",") if o.strip()]

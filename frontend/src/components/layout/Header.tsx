@@ -5,6 +5,7 @@ import type { Category } from "@/types";
 import { useI18n } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { NewsSearch } from "@/components/search/NewsSearch";
+import { NotifyBell } from "@/components/notifications/NotifyBell";
 
 const TABS: { key: Category; labelKey: string }[] = [
   { key: "forex", labelKey: "tab.forex" },
@@ -54,6 +55,7 @@ export function Header({
         {/* sağ tərəf */}
         <div className="flex items-center gap-2">
           <NewsSearch />
+          <NotifyBell />
           <LanguageSwitcher />
           <button
             onClick={onLogout}

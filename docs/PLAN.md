@@ -47,12 +47,12 @@
 ## Auth — email/parol + Google  `[x]`
 - Login/Signup tab, email+parol formu (demo), altında "Google ilə davam et". ✅
 
-## Addım 6.5 — Web Push bildirişlər (PWA)  `[ ]`
-- Service Worker + VAPID açarları (pulsuz).
-- İcazə → abunəni bazada saxla (`push_subscriptions`).
-- Yeni xəbər yarananda `pywebpush` ilə göndər.
+## Addım 6.5 — Web Push bildirişlər (PWA)  `[x]`
+- Service Worker (`public/sw.js`) + VAPID açarları. ✅ (pulsuz)
+- İcazə → abunəni bazada saxla (`push_subscriptions`). ✅ (NotifyBell + /push API)
+- Yeni xəbər yarananda `pywebpush` ilə göndər. ✅ (ingestion hook)
+- PWA manifest + ikonlar (iPhone üçün PWA quraşdırma). ✅
 - Komputer + Android tam; iPhone yalnız PWA quruldusa (iOS 16.4+).
-- Qeyd: ingestion (Addım 3) bitdikdən sonra — "yeni xəbər" hadisəsinə bağlanır.
 
 ## Addım 7 — AI Financial Assistant  `[x]`
 - Platforma içində chat UI (sağ drawer). ✅

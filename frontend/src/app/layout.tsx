@@ -19,6 +19,9 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "NexusIQ — Financial Intelligence",
   description: "AI-driven financial news, analysis and correlation terminal.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "NexusIQ", statusBarStyle: "black-translucent" },
+  icons: { icon: "/icon.svg", apple: "/icon-192.png" },
 };
 
 export const viewport: Viewport = {
