@@ -5,6 +5,7 @@ import { Header } from "@/components/layout/Header";
 import { Ticker } from "@/components/market/Ticker";
 import { AIAssistantFab } from "@/components/ai/AIAssistantFab";
 import { NewsCard } from "@/components/news/NewsCard";
+import { TrendingStrip } from "@/components/news/TrendingStrip";
 import { FearGreed } from "@/components/market/FearGreed";
 import { MarketCalendar } from "@/components/market/MarketCalendar";
 import { CATEGORIES } from "@/lib/marketCategories";
@@ -87,6 +88,7 @@ export default function HomePage() {
 
         <MarketCalendar key={active} categories={CATEGORIES[active]} />
         {active === "crypto" && <FearGreed />}
+        {page === 1 && <TrendingStrip category={active} />}
 
         {status === "loading" && (
           <NewsGrid>

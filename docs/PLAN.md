@@ -74,11 +74,11 @@
 - Canlı bazar lenti — real qiymətlər (yfinance, /market/ticker, 60s).
 - Xəbər şəkilləri — brendli generativ thumbnail (öz şəklimiz, pulsuz).
 
-## Addım 9 — Bonuslar  `[ ]`
-- Trending (ən təsirli xəbərlər).
-- Sentiment skoru.
-- Market Impact Score.
-- Bookmark sistemi.
+## Addım 9 — Bonuslar  `[x]`
+- Trending (ən təsirli xəbərlər). ✅ (/news/trending + home lenti)
+- Sentiment skoru. ✅ (heuristik leksikon, pulsuz)
+- Market Impact Score. ✅ (0..100, kartda rozet)
+- Bookmark sistemi. ✅ (localStorage + /saved səhifəsi)
 
 ## Addım 10 — Cron planlayıcı  `[ ]`
 - APScheduler (saatlıq ingestion).

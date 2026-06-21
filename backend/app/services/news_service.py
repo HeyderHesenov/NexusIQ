@@ -4,6 +4,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.analytics.scoring import score_text
 from app.ingestion.rss_collector import NormalizedNews
 from app.ingestion.sources import FEEDS
 from app.models import News, Source
@@ -63,6 +64,7 @@ async def store_news(
         if it.dedup_hash in known or it.dedup_hash in batch_seen:
             continue
         batch_seen.add(it.dedup_hash)
+        sentiment, impact = score_text(it.title, it.summary, it.category.value)
         session.add(
             News(
                 title=it.title,
@@ -73,6 +75,8 @@ async def store_news(
                 category=it.category.value,
                 dedup_hash=it.dedup_hash,
                 source_id=source_ids.get(it.source_name),
+                sentiment=sentiment,
+                impact_score=impact,
                 is_processed=False,
             )
         )

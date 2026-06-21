@@ -5,6 +5,8 @@ import type { NewsItem, Category } from "@/types";
 import { formatDateTime, localizedNews } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { NewsImage } from "@/components/news/NewsImage";
+import { NewsBadges } from "@/components/news/NewsBadges";
+import { BookmarkButton } from "@/components/news/BookmarkButton";
 
 const CAT_LABEL: Record<Category, string> = {
   forex: "Forex",
@@ -34,6 +36,9 @@ export function NewsCard({ news }: { news: NewsItem }) {
         <span className="absolute left-3 top-3 rounded-md bg-bg/80 px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wider text-accent backdrop-blur">
           {CAT_LABEL[news.category]}
         </span>
+        <div className="absolute right-3 top-3">
+          <BookmarkButton news={news} />
+        </div>
       </div>
 
       {/* mətn */}
@@ -46,7 +51,10 @@ export function NewsCard({ news }: { news: NewsItem }) {
             {body}
           </p>
         )}
-        <div className="mt-4 flex items-center justify-between gap-2 border-t border-border pt-3">
+        <div className="mt-3">
+          <NewsBadges sentiment={news.sentiment} impact={news.impactScore} />
+        </div>
+        <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3">
           <span className="truncate text-xs font-medium text-muted">
             {news.source ?? "—"}
           </span>

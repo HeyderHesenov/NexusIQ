@@ -75,6 +75,36 @@ async def search_news(
     return [NewsOut.from_model(n) for n in rows]
 
 
+@router.get("/trending", response_model=list[NewsOut])
+async def trending_news(
+    category: Category | None = Query(None, description="Tab filtri (opsional)"),
+    limit: int = Query(10, ge=1, le=30),
+    db: AsyncSession = Depends(get_db),
+) -> list[NewsOut]:
+    """Ən təsirli xəbərlər — impact_score + təzəlik üzrə sıralanır.
+
+    Əvvəlcə son 7 günə baxır; az olsa ümumi ən təsirliyə düşür.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    since = datetime.now(timezone.utc) - timedelta(days=7)
+    order = (
+        News.impact_score.desc().nullslast(),
+        News.published_at.desc().nullslast(),
+    )
+    stmt = _BASE.where(News.published_at >= since)
+    if category is not None:
+        stmt = stmt.where(News.category == category.value)
+    rows = (await db.scalars(stmt.order_by(*order).limit(limit))).all()
+
+    if len(rows) < limit:
+        stmt2 = _BASE
+        if category is not None:
+            stmt2 = stmt2.where(News.category == category.value)
+        rows = (await db.scalars(stmt2.order_by(*order).limit(limit))).all()
+    return [NewsOut.from_model(n) for n in rows]
+
+
 @router.get("/{news_id}", response_model=NewsOut)
 async def get_news(
     news_id: int, db: AsyncSession = Depends(get_db)

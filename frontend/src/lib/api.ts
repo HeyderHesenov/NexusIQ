@@ -61,6 +61,18 @@ export async function getForecast(
   }
 }
 
+/** Ən təsirli xəbərlər (impact score + təzəlik üzrə). */
+export async function getTrending(
+  category: string,
+  limit = 8,
+): Promise<import("@/types").NewsItem[]> {
+  try {
+    return await apiGet(`/news/trending?category=${category}&limit=${limit}`);
+  } catch {
+    return [];
+  }
+}
+
 /** Kateqoriya üzrə ümumi xəbər sayı — səhifələmə üçün. */
 export async function getNewsCount(category: string): Promise<number> {
   try {
