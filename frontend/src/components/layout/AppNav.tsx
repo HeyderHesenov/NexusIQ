@@ -30,6 +30,7 @@ const NAV: NavItem[] = [
     kind: "group",
     labelKey: "navg.analysis",
     items: [
+      { href: "/anomalies", labelKey: "anom.nav" },
       { href: "/compare", labelKey: "nav.compare" },
       { href: "/correlation", labelKey: "corr.nav" },
       { href: "/powerlaw", labelKey: "pl.nav" },
@@ -42,6 +43,7 @@ const ALL_LEAVES: Leaf[] = [
   { href: "/assets", labelKey: "nav.assets" },
   { href: "/markets", labelKey: "nav.markets" },
   { href: "/watchlist", labelKey: "nav.watchlist" },
+  { href: "/anomalies", labelKey: "anom.nav" },
   { href: "/compare", labelKey: "nav.compare" },
   { href: "/correlation", labelKey: "corr.nav" },
   { href: "/powerlaw", labelKey: "pl.nav" },

@@ -279,6 +279,17 @@ export async function getAssetsOverview(): Promise<
   }
 }
 
+/** Cari qiymət/həcm anomaliyaları (5 dəq keş; refresh məcburi yeniləyir). */
+export async function getAnomalies(
+  refresh = false,
+): Promise<import("@/types").Anomaly[]> {
+  try {
+    return await apiGet(`/anomalies${refresh ? "?refresh=true" : ""}`);
+  } catch {
+    return [];
+  }
+}
+
 /** İzlənə bilən aktivlərin reyestri. */
 export async function getAssets(): Promise<import("@/types").Asset[]> {
   try {

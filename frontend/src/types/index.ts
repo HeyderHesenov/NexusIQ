@@ -152,6 +152,20 @@ export interface AssetOverview {
   spark: number[];
 }
 
+export type AnomalySeverity = "medium" | "high" | "extreme";
+
+export interface Anomaly {
+  key: string;
+  label: string;
+  type: AssetType;
+  price_z: number;
+  volume_z: number;
+  change_pct: number;
+  severity: AnomalySeverity;
+  last: number;
+  asof: string;
+}
+
 export interface PowerLawProjection {
   years: number;
   date: string;

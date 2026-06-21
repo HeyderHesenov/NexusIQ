@@ -108,3 +108,14 @@ def build_news_payload(title: str, count: int, lang: str = "az") -> dict:
         "url": "/",
         "tag": "nexusiq-news",
     }
+
+
+def build_anomaly_payload(label: str, change_pct: float, price_z: float) -> dict:
+    """Ekstremal anomaliya bildirişinin məzmunu."""
+    arrow = "▲" if change_pct >= 0 else "▼"
+    return {
+        "title": f"NexusIQ — anomaliya: {label}",
+        "body": f"{arrow} {change_pct:+.2f}% (z={price_z:.1f}) qeyri-adi hərəkət",
+        "url": "/anomalies",
+        "tag": "nexusiq-anomaly",
+    }
