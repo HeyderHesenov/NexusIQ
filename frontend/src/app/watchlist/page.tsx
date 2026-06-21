@@ -6,16 +6,17 @@ import { Star } from "lucide-react";
 import { AppNav } from "@/components/layout/AppNav";
 import { WatchButton } from "@/components/assets/WatchButton";
 import { AssetPicker } from "@/components/assets/AssetPicker";
-import { getAssets, getAssetQuote } from "@/lib/api";
+import { Sparkline } from "@/components/charts/Sparkline";
+import { getAssets, getAssetDetail } from "@/lib/api";
 import { toggleWatch, useWatchlist } from "@/lib/watchlist";
 import { useI18n } from "@/lib/i18n";
-import type { Asset, AssetQuote } from "@/types";
+import type { Asset, AssetDetail } from "@/types";
 
 export default function WatchlistPage() {
   const { t } = useI18n();
   const watched = useWatchlist();
   const [registry, setRegistry] = useState<Asset[]>([]);
-  const [quotes, setQuotes] = useState<Record<string, AssetQuote>>({});
+  const [details, setDetails] = useState<Record<string, AssetDetail>>({});
 
   useEffect(() => {
     getAssets().then(setRegistry);
@@ -25,14 +26,14 @@ export default function WatchlistPage() {
     if (watched.length === 0) return;
     let stop = false;
     async function load() {
-      const qs = await Promise.all(watched.map((k) => getAssetQuote(k)));
+      const ds = await Promise.all(watched.map((k) => getAssetDetail(k, "1mo")));
       if (stop) return;
-      const map: Record<string, AssetQuote> = {};
+      const map: Record<string, AssetDetail> = {};
       watched.forEach((k, i) => {
-        const q = qs[i];
-        if (q) map[k] = q;
+        const d = ds[i];
+        if (d) map[k] = d;
       });
-      setQuotes(map);
+      setDetails(map);
     }
     load();
     const id = window.setInterval(load, 60_000);
@@ -61,30 +62,42 @@ export default function WatchlistPage() {
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {watched.map((k) => {
-              const q = quotes[k];
+              const d = details[k];
+              const q = d?.quote;
+              const closes = d?.history?.points.map((p) => p.close) ?? [];
               return (
                 <div
                   key={k}
-                  className="flex items-center justify-between gap-3 rounded-card border border-border bg-surface p-4"
+                  className="group rounded-card border border-border bg-surface p-4 transition-colors hover:border-accent/40"
                 >
-                  <Link href={`/asset/${k}`} className="min-w-0 flex-1">
-                    <p className="truncate font-semibold">
-                      {q?.label ?? k.toUpperCase()}
-                    </p>
-                    {q ? (
-                      <div className="mt-1 flex items-baseline gap-2">
-                        <span className="font-mono text-sm">{q.val}</span>
-                        <span
-                          className={`font-mono text-xs ${q.up ? "text-up" : "text-down"}`}
-                        >
-                          {q.chg}
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="mt-2 h-3 w-20 animate-pulse rounded bg-surface-hover" />
-                    )}
+                  <div className="flex items-center justify-between gap-2">
+                    <Link href={`/asset/${k}`} className="min-w-0">
+                      <p className="truncate font-semibold">
+                        {q?.label ?? k.replace(/^c_/, "").toUpperCase()}
+                      </p>
+                    </Link>
+                    <WatchButton assetKey={k} />
+                  </div>
+                  <Link
+                    href={`/asset/${k}`}
+                    className="mt-3 flex items-end justify-between gap-3"
+                  >
+                    <div>
+                      {q ? (
+                        <>
+                          <p className="font-mono text-base">{q.val}</p>
+                          <p
+                            className={`font-mono text-xs ${q.up ? "text-up" : "text-down"}`}
+                          >
+                            {q.chg}
+                          </p>
+                        </>
+                      ) : (
+                        <div className="h-8 w-20 animate-pulse rounded bg-surface-hover" />
+                      )}
+                    </div>
+                    {closes.length > 1 && <Sparkline values={closes} />}
                   </Link>
-                  <WatchButton assetKey={k} />
                 </div>
               );
             })}

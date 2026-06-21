@@ -6,7 +6,7 @@ import { Ticker } from "@/components/market/Ticker";
 import { AIAssistantFab } from "@/components/ai/AIAssistantFab";
 import { NewsCard } from "@/components/news/NewsCard";
 import { TrendingStrip } from "@/components/news/TrendingStrip";
-import { CategoryTabs } from "@/components/news/CategoryTabs";
+import { CategorySelect } from "@/components/news/CategorySelect";
 import { apiGet, getNewsCount } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import type { Category, NewsItem } from "@/types";
@@ -72,7 +72,7 @@ export default function HomePage() {
               {t("home.marketNews")}
             </h1>
           </div>
-          <CategoryTabs active={active} onChange={changeTab} />
+          <CategorySelect active={active} onChange={changeTab} />
         </div>
 
         {page === 1 && <TrendingStrip category={active} />}

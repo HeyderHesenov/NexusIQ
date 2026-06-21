@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AppNav } from "@/components/layout/AppNav";
 import { Ticker } from "@/components/market/Ticker";
-import { CategoryTabs } from "@/components/news/CategoryTabs";
+import { CategorySelect } from "@/components/news/CategorySelect";
 import { MarketCalendar } from "@/components/market/MarketCalendar";
 import { FearGreed } from "@/components/market/FearGreed";
 import { AIAssistantFab } from "@/components/ai/AIAssistantFab";
@@ -30,7 +30,7 @@ export default function MarketsPage() {
               {t("markets.title")}
             </h1>
           </div>
-          <CategoryTabs active={active} onChange={setActive} />
+          <CategorySelect active={active} onChange={setActive} />
         </div>
 
         {active === "crypto" && (
