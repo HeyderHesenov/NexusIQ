@@ -8,14 +8,17 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_router
 from app.core.config import settings
+from app.scheduler import shutdown_scheduler, start_scheduler
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Başlanğıc / bağlanış hadisələri. (Scheduler sonrakı addımda qoşulacaq.)"""
+    """Başlanğıc / bağlanış hadisələri — planlayıcı burada qoşulur."""
     # startup
+    start_scheduler()
     yield
     # shutdown
+    shutdown_scheduler()
 
 
 def create_app() -> FastAPI:

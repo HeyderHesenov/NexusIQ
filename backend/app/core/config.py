@@ -43,6 +43,13 @@ class Settings(BaseSettings):
     # ---- Analytics ----
     correlation_default_window_days: int = 90
 
+    # ---- Scheduler (Addım 10) ----
+    scheduler_enabled: bool = True
+    # Saatlıq ingestion + scoring + push PULSUZdur (RSS).
+    # AI tərcümə (GPT) XƏRC tələb edir — default söndürülü.
+    scheduler_ai_process: bool = False
+    scheduler_ai_batch: int = 8
+
     # ---- Web Push (VAPID) ----
     vapid_private_key: str = ""
     vapid_public_key: str = ""

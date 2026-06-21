@@ -80,9 +80,9 @@
 - Market Impact Score. ✅ (0..100, kartda rozet)
 - Bookmark sistemi. ✅ (localStorage + /saved səhifəsi)
 
-## Addım 10 — Cron planlayıcı  `[ ]`
-- APScheduler (saatlıq ingestion).
-- Hadisə əsaslı yeniləmə.
+## Addım 10 — Cron planlayıcı  `[x]`
+- APScheduler (saatlıq ingestion). ✅ (AsyncIOScheduler, lifespan-da)
+- Hadisə əsaslı yeniləmə. ✅ (yeni xəbər → push; AI emal opsional/pulsuz default)
 
 ---
 
