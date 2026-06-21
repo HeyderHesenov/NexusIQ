@@ -299,6 +299,24 @@ export async function getAssetQuote(
   }
 }
 
+export interface AssetNewsItem {
+  title: string;
+  url: string | null;
+  source: string | null;
+  publishedAt: string | null;
+  image: string | null;
+  summary: string | null;
+}
+
+/** Aktivə aid xəbərlər (Yahoo Finance ticker xəbərləri). */
+export async function getAssetNews(key: string): Promise<AssetNewsItem[]> {
+  try {
+    return await apiGet(`/assets/${key}/news`);
+  } catch {
+    return [];
+  }
+}
+
 /** Aktiv: canlı qiymət + tarixi seriya. */
 export async function getAssetDetail(
   key: string,

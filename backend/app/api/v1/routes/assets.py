@@ -29,6 +29,12 @@ async def asset_quote(key: str) -> dict:
     return q
 
 
+@router.get("/{key}/news")
+async def asset_news(key: str) -> list[dict]:
+    """Aktivə aid xəbərlər (Yahoo Finance)."""
+    return await assets.get_asset_news(key)
+
+
 @router.get("/{key}")
 async def asset_detail(
     key: str, range: str = Query("3mo")

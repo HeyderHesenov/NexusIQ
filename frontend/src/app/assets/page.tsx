@@ -10,20 +10,13 @@ import { getAssetsOverview } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import type { AssetOverview, AssetType } from "@/types";
 
-const FILTERS: (AssetType | "all")[] = [
-  "all",
-  "crypto",
-  "index",
-  "forex",
-  "metal",
-  "commodity",
-];
+const FILTERS: AssetType[] = ["crypto", "index", "forex", "metal", "commodity"];
 
 export default function AssetsPage() {
   const { t } = useI18n();
   const [rows, setRows] = useState<AssetOverview[]>([]);
   const [status, setStatus] = useState<"loading" | "ready">("loading");
-  const [filter, setFilter] = useState<AssetType | "all">("all");
+  const [filter, setFilter] = useState<AssetType>("crypto");
   const [q, setQ] = useState("");
 
   useEffect(() => {
@@ -38,7 +31,7 @@ export default function AssetsPage() {
     () =>
       rows.filter(
         (r) =>
-          (filter === "all" || r.type === filter) &&
+          r.type === filter &&
           (!query ||
             r.label.toLowerCase().includes(query) ||
             r.key.toLowerCase().includes(query)),
@@ -70,7 +63,7 @@ export default function AssetsPage() {
                     : "text-muted hover:text-text"
                 }`}
               >
-                {f === "all" ? t("assets.all") : t(`atype.${f}`)}
+                {t(`atype.${f}`)}
               </button>
             ))}
           </div>

@@ -5,12 +5,12 @@ import { useParams } from "next/navigation";
 import { AppNav } from "@/components/layout/AppNav";
 import { LineChart } from "@/components/charts/LineChart";
 import { WatchButton } from "@/components/assets/WatchButton";
-import { NewsCard } from "@/components/news/NewsCard";
 import { AIAssistantFab } from "@/components/ai/AIAssistantFab";
-import { getAssetDetail, searchNews } from "@/lib/api";
+import { getAssetDetail, getAssetNews, type AssetNewsItem } from "@/lib/api";
 import { addAlert } from "@/lib/alerts";
+import { formatDateTime } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
-import type { AssetDetail, NewsItem } from "@/types";
+import type { AssetDetail } from "@/types";
 
 const RANGES = ["1mo", "3mo", "6mo", "1y"];
 
@@ -22,7 +22,7 @@ export default function AssetPage() {
   const [range, setRange] = useState("3mo");
   const [data, setData] = useState<AssetDetail | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
-  const [news, setNews] = useState<NewsItem[]>([]);
+  const [news, setNews] = useState<AssetNewsItem[]>([]);
 
   const load = useCallback(
     (r: string) => {
@@ -30,7 +30,6 @@ export default function AssetPage() {
       getAssetDetail(key, r).then((d) => {
         setData(d);
         setStatus(d && (d.quote || d.history) ? "ready" : "error");
-        if (d?.quote) searchNews(d.quote.label).then((n) => setNews(n.slice(0, 6)));
       });
     },
     [key],
@@ -39,6 +38,10 @@ export default function AssetPage() {
   useEffect(() => {
     load(range);
   }, [range, load]);
+
+  useEffect(() => {
+    getAssetNews(key).then((n) => setNews(n.slice(0, 8)));
+  }, [key]);
 
   const q = data?.quote;
   const h = data?.history;
@@ -116,15 +119,42 @@ export default function AssetPage() {
             {/* sürətli siqnal */}
             {q && <QuickAlert assetKey={key} label={q.label} price={q.price} />}
 
-            {/* əlaqəli xəbərlər */}
+            {/* əlaqəli xəbərlər (Yahoo Finance) */}
             {news.length > 0 && (
               <section className="mt-8">
                 <h2 className="mb-4 text-sm font-semibold">
                   {t("asset.relatedNews")}
                 </h2>
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                  {news.map((n) => (
-                    <NewsCard key={n.id} news={n} />
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {news.map((n, i) => (
+                    <a
+                      key={i}
+                      href={n.url ?? "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group flex gap-3 rounded-card border border-border bg-surface p-3 transition-all hover:-translate-y-0.5 hover:border-accent/40"
+                    >
+                      {n.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={n.image}
+                          alt=""
+                          loading="lazy"
+                          className="h-16 w-24 shrink-0 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <div className="h-16 w-24 shrink-0 rounded-lg bg-surface-hover" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="line-clamp-2 text-sm font-medium leading-snug group-hover:text-accent">
+                          {n.title}
+                        </p>
+                        <p className="mt-1.5 truncate font-mono text-[11px] text-muted">
+                          {n.source ?? "—"}
+                          {n.publishedAt ? ` · ${formatDateTime(n.publishedAt)}` : ""}
+                        </p>
+                      </div>
+                    </a>
                   ))}
                 </div>
               </section>

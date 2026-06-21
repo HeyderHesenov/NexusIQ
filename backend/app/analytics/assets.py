@@ -19,18 +19,39 @@ ASSETS: list[tuple[str, str, str, str, int]] = [
     ("eth", "ETH", "ETH-USD", "crypto", 0),
     ("sol", "SOL", "SOL-USD", "crypto", 2),
     ("xrp", "XRP", "XRP-USD", "crypto", 3),
+    # İndekslər (12)
     ("spx", "S&P 500", "^GSPC", "index", 0),
     ("ndx", "NASDAQ", "^NDX", "index", 0),
     ("dji", "Dow Jones", "^DJI", "index", 0),
+    ("rut", "Russell 2000", "^RUT", "index", 0),
+    ("vix", "VIX", "^VIX", "index", 2),
+    ("ftse", "FTSE 100", "^FTSE", "index", 0),
+    ("dax", "DAX", "^GDAXI", "index", 0),
+    ("cac", "CAC 40", "^FCHI", "index", 0),
+    ("nikkei", "Nikkei 225", "^N225", "index", 0),
+    ("hsi", "Hang Seng", "^HSI", "index", 0),
+    ("stoxx", "Euro Stoxx 50", "^STOXX50E", "index", 0),
+    ("tsx", "TSX", "^GSPTSE", "index", 0),
+    # Forex (4)
     ("eurusd", "EUR/USD", "EURUSD=X", "forex", 4),
     ("gbpusd", "GBP/USD", "GBPUSD=X", "forex", 4),
     ("usdjpy", "USD/JPY", "USDJPY=X", "forex", 2),
     ("dxy", "DXY", "DX-Y.NYB", "forex", 2),
+    # Əmtəələr (3)
     ("oil", "WTI Oil", "CL=F", "commodity", 2),
     ("brent", "Brent", "BZ=F", "commodity", 2),
     ("natgas", "Nat Gas", "NG=F", "commodity", 3),
+    # Metallar (10)
     ("gold", "Gold", "GC=F", "metal", 1),
     ("silver", "Silver", "SI=F", "metal", 2),
+    ("platinum", "Platinum", "PL=F", "metal", 1),
+    ("palladium", "Palladium", "PA=F", "metal", 1),
+    ("copper", "Copper", "HG=F", "metal", 3),
+    ("aluminum", "Aluminum", "ALI=F", "metal", 1),
+    ("lithium", "Lithium", "LIT", "metal", 2),
+    ("uranium", "Uranium", "URA", "metal", 2),
+    ("steel", "Steel", "SLX", "metal", 2),
+    ("rareearth", "Rare Earth", "REMX", "metal", 2),
 ]
 
 _BY_KEY = {k: (k, lbl, sym, typ, dec) for k, lbl, sym, typ, dec in ASSETS}
@@ -310,6 +331,71 @@ async def _coin_spark(symbol: str) -> list[float]:
             return [round(float(k[4]), 6) for k in r.json()]
     except (httpx.HTTPError, ValueError, IndexError):
         return []
+
+
+_news_cache: dict[str, tuple[float, list]] = {}
+_NEWS_TTL = 1800.0  # 30 dəqiqə
+
+
+def _yahoo_sym_for(key: str) -> str | None:
+    if key.startswith("c_"):
+        c = _coins.get(key)
+        return f"{c['label']}-USD" if c else None
+    meta = _BY_KEY.get(key)
+    return meta[2] if meta else None
+
+
+def _news_sync(sym: str) -> list[dict]:
+    """Yahoo Finance-in həmin ticker üçün xəbərləri."""
+    try:
+        raw = yf.Ticker(sym).news or []
+    except Exception:  # noqa: BLE001
+        return []
+    out: list[dict] = []
+    for item in raw:
+        c = item.get("content") or item
+        if not isinstance(c, dict):
+            continue
+        title = c.get("title")
+        if not title:
+            continue
+        url = None
+        for f in ("clickThroughUrl", "canonicalUrl"):
+            v = c.get(f)
+            if isinstance(v, dict) and v.get("url"):
+                url = v["url"]
+                break
+        url = url or c.get("link")
+        prov = c.get("provider")
+        source = prov.get("displayName") if isinstance(prov, dict) else None
+        th = c.get("thumbnail")
+        image = th.get("originalUrl") if isinstance(th, dict) else None
+        out.append({
+            "title": title,
+            "url": url,
+            "source": source,
+            "publishedAt": c.get("pubDate") or c.get("displayTime"),
+            "image": image,
+            "summary": c.get("summary") or c.get("description"),
+        })
+    return out
+
+
+async def get_asset_news(key: str) -> list[dict]:
+    """Aktivə aid xəbərlər (Yahoo Finance ticker xəbərləri, 30 dəq keş)."""
+    now = time.time()
+    cached = _news_cache.get(key)
+    if cached and now - cached[0] < _NEWS_TTL:
+        return cached[1]
+    if key.startswith("c_"):
+        await _ensure_coins()
+    sym = _yahoo_sym_for(key)
+    if not sym:
+        return []
+    data = await asyncio.to_thread(_news_sync, sym)
+    if data:
+        _news_cache[key] = (now, data)
+    return data
 
 
 async def get_overview() -> list[dict]:
