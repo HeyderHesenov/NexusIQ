@@ -78,9 +78,6 @@ body {
 .ticker-track {
   animation: ticker-scroll 40s linear infinite;
 }
-.ticker-track:hover {
-  animation-play-state: paused;
-}
 
 @keyframes fade-up {
   from {
