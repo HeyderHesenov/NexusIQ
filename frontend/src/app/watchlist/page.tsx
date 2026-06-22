@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, Star } from "lucide-react";
 import { AppNav } from "@/components/layout/AppNav";
@@ -164,6 +164,7 @@ function PopularAssets() {
   }, []);
 
   const [expanded, setExpanded] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
 
   const byKey = new Map(all.map((r) => [r.key, r]));
   const popular = SAMPLE_KEYS.map((k) => byKey.get(k)).filter(
@@ -173,8 +174,45 @@ function PopularAssets() {
   const count = (type: AssetType) => all.filter((r) => r.type === type).length;
   const view = all.filter((r) => r.type === activeType);
 
+  // Populyar bölmənin başına YALNIZ yuxarı yumşaq scroll (sticky header qədər).
+  function scrollToTop(): number | null {
+    const el = sectionRef.current;
+    if (!el) return null;
+    const header = document.querySelector("header");
+    const offset = (header?.offsetHeight ?? 64) + 12;
+    const top = el.getBoundingClientRect().top + window.scrollY - offset;
+    if (window.scrollY > top + 1) {
+      window.scrollTo({ top, behavior: "smooth" });
+      return top;
+    }
+    return null;
+  }
+
+  // Aç → dərhal. Bağla → əvvəlcə yumşaq yuxarı scroll (siyahı hələ açıqdır →
+  // kəskin atma yox), scroll bitəndən SONRA bağla (assets ilə eyni davranış).
+  function toggle() {
+    if (!expanded) {
+      setExpanded(true);
+      return;
+    }
+    const scrolled = scrollToTop();
+    if (scrolled === null) {
+      setExpanded(false);
+      return;
+    }
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      window.removeEventListener("scrollend", finish);
+      setExpanded(false);
+    };
+    window.addEventListener("scrollend", finish);
+    window.setTimeout(finish, 900);
+  }
+
   return (
-    <section className="mt-10">
+    <section ref={sectionRef} className="mt-10">
       <h2 className="text-sm font-semibold">{t("watch.popular")}</h2>
       <p className="mb-3 mt-1 text-xs text-muted">{t("watch.popularHint")}</p>
 
@@ -192,7 +230,7 @@ function PopularAssets() {
 
         {/* Dow Jones-un altında aç/bağla düyməsi */}
         <button
-          onClick={() => setExpanded((v) => !v)}
+          onClick={toggle}
           aria-expanded={expanded}
           className="flex w-full items-center justify-center gap-2 border-t border-border bg-surface py-2.5 text-xs font-medium text-muted transition-colors hover:bg-surface-hover hover:text-accent"
         >
