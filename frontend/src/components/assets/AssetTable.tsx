@@ -35,9 +35,19 @@ export function SkeletonRow() {
 }
 
 /** Bir CMC sətri — rank, ad, qiymət, 24s, sparkline, izlə düyməsi. */
-export function AssetRow({ row, rank }: { row: AssetOverview; rank: number }) {
+export function AssetRow({
+  row,
+  rank,
+  animate = false,
+}: {
+  row: AssetOverview;
+  rank: number;
+  animate?: boolean;
+}) {
   return (
-    <tr className="group border-t border-border transition-colors hover:bg-surface-hover">
+    <tr
+      className={`group border-t border-border transition-colors hover:bg-surface-hover ${animate ? "fade-up" : ""}`}
+    >
       <td className="px-3 py-2.5 text-right font-mono text-xs text-muted">{rank}</td>
       <td className="px-3 py-2.5">
         <Link href={`/asset/${row.key}`} className="font-medium hover:text-accent">

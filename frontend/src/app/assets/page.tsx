@@ -100,7 +100,14 @@ export default function AssetsPage() {
                 Array.from({ length: 10 }).map((_, i) => <SkeletonRow key={i} />)}
 
               {status === "ready" &&
-                visible.map((r, i) => <AssetRow key={r.key} row={r} rank={i + 1} />)}
+                visible.map((r, i) => (
+                  <AssetRow
+                    key={r.key}
+                    row={r}
+                    rank={i + 1}
+                    animate={showAll && i >= LIMIT}
+                  />
+                ))}
 
               {status === "ready" && view.length === 0 && (
                 <tr className="border-t border-border">
