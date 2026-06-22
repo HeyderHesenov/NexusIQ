@@ -106,7 +106,9 @@ export default function NewsDetailPage({
             {(() => {
               const orig = (news.content ?? news.summary ?? "").trim();
               const ai = localizedNews(news, lang).body.trim();
-              const hasAI = !!news.isProcessed && !!ai && ai !== orig;
+              // Seçilmiş dildə tərcümə varsa onu göstər (isProcessed-dən asılı deyil —
+              // pulsuz tərcümə body-ni doldurur, amma isProcessed false qalır).
+              const hasAI = !!ai && ai !== orig;
 
               return (
                 <>
@@ -122,7 +124,7 @@ export default function NewsDetailPage({
                       </h2>
                     </div>
 
-                    {!news.isProcessed && (
+                    {!hasAI && (
                       <p className="mb-4 rounded-lg border border-border bg-surface px-3.5 py-2.5 text-xs text-muted">
                         {t("news.aiPending")}
                       </p>
