@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, Star } from "lucide-react";
+import { Star } from "lucide-react";
 import { AppNav } from "@/components/layout/AppNav";
 import { Footer } from "@/components/layout/Footer";
 import { WatchButton } from "@/components/assets/WatchButton";
@@ -146,7 +146,7 @@ export default function WatchlistPage() {
 function PopularAssets() {
   const { t } = useI18n();
   const [all, setAll] = useState<AssetOverview[]>([]);
-  const [expanded, setExpanded] = useState(false);
+  const [activeType, setActiveType] = useState<AssetType>("crypto");
 
   useEffect(() => {
     let stop = false;
@@ -163,11 +163,8 @@ function PopularAssets() {
     Boolean,
   ) as AssetOverview[];
 
-  // tam siyahını kateqoriyaya görə qrupla (sıra: TYPE_ORDER)
-  const groups = TYPE_ORDER.map((type) => ({
-    type,
-    rows: all.filter((r) => r.type === type),
-  })).filter((g) => g.rows.length > 0);
+  const count = (type: AssetType) => all.filter((r) => r.type === type).length;
+  const view = all.filter((r) => r.type === activeType);
 
   return (
     <section className="mt-10">
@@ -185,43 +182,46 @@ function PopularAssets() {
                 ))}
           </tbody>
         </table>
-
-        {/* aşağı strelka — tam kateqoriyalı siyahını aç/bağla */}
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className="flex w-full items-center justify-center gap-2 border-t border-border bg-surface py-2.5 text-xs font-medium text-muted transition-colors hover:bg-surface-hover hover:text-accent"
-        >
-          {expanded ? t("watch.hideAll") : t("watch.showAll")}
-          <ChevronDown
-            size={15}
-            className={`transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
-          />
-        </button>
       </div>
 
-      {/* açılan kateqoriyalı tam siyahı */}
-      {expanded && (
-        <div className="fade-up mt-4 space-y-6">
-          {groups.map((g) => (
-            <div key={g.type}>
-              <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
-                {t(`atype.${g.type}`)}
-                <span className="ml-2 text-muted">{g.rows.length}</span>
-              </p>
-              <div className="overflow-hidden rounded-card border border-border">
-                <table className="w-full text-sm">
-                  <AssetTableHead />
-                  <tbody>
-                    {g.rows.map((r, i) => (
-                      <AssetRow key={r.key} row={r} rank={i + 1} />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ))}
+      {/* bütün aktivlər — yan kateqoriya seçici + cədvəl */}
+      <h2 className="mb-3 mt-10 text-sm font-semibold">{t("watch.showAll")}</h2>
+      <div className="flex flex-col gap-4 sm:flex-row">
+        {/* yan seçici — desktopda şaquli rail, mobildə üfüqi sürüşmə */}
+        <nav className="flex gap-2 overflow-x-auto pb-1 sm:w-44 sm:shrink-0 sm:flex-col sm:overflow-visible sm:pb-0">
+          {TYPE_ORDER.map((type) => {
+            const isActive = type === activeType;
+            return (
+              <button
+                key={type}
+                onClick={() => setActiveType(type)}
+                className={`flex shrink-0 items-center justify-between gap-3 rounded-lg border px-3.5 py-2 text-sm font-medium transition-colors ${
+                  isActive
+                    ? "border-accent/50 bg-accent-soft text-accent"
+                    : "border-border text-muted hover:border-border hover:text-text"
+                }`}
+              >
+                <span>{t(`atype.${type}`)}</span>
+                <span className="font-mono text-xs text-muted">{count(type)}</span>
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* seçilmiş kateqoriyanın cədvəli */}
+        <div className="min-w-0 flex-1 overflow-hidden rounded-card border border-border">
+          <table className="w-full text-sm">
+            <AssetTableHead />
+            <tbody>
+              {all.length === 0
+                ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)
+                : view.map((r, i) => (
+                    <AssetRow key={r.key} row={r} rank={i + 1} />
+                  ))}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
     </section>
   );
 }
