@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, Coins } from "lucide-react";
+import { Search, Coins, ChevronDown } from "lucide-react";
 import { AppNav } from "@/components/layout/AppNav";
 import { Footer } from "@/components/layout/Footer";
 import {
@@ -21,6 +21,7 @@ export default function AssetsPage() {
   const [status, setStatus] = useState<"loading" | "ready">("loading");
   const [filter, setFilter] = useState<AssetType>("crypto");
   const [q, setQ] = useState("");
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     getAssetsOverview().then((d) => {
@@ -28,6 +29,9 @@ export default function AssetsPage() {
       setStatus("ready");
     });
   }, []);
+
+  // filtr və ya axtarış dəyişəndə yenidən ilk 10-a qayıt
+  useEffect(() => setShowAll(false), [filter, q]);
 
   const query = q.trim().toLowerCase();
   const view = useMemo(
@@ -41,6 +45,9 @@ export default function AssetsPage() {
       ),
     [rows, filter, query],
   );
+
+  const LIMIT = 10;
+  const visible = showAll ? view : view.slice(0, LIMIT);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -93,7 +100,7 @@ export default function AssetsPage() {
                 Array.from({ length: 10 }).map((_, i) => <SkeletonRow key={i} />)}
 
               {status === "ready" &&
-                view.map((r, i) => <AssetRow key={r.key} row={r} rank={i + 1} />)}
+                visible.map((r, i) => <AssetRow key={r.key} row={r} rank={i + 1} />)}
 
               {status === "ready" && view.length === 0 && (
                 <tr className="border-t border-border">
@@ -104,6 +111,23 @@ export default function AssetsPage() {
               )}
             </tbody>
           </table>
+
+          {/* daha çox / daha az göstər — yalnız 10-dan çox olanda */}
+          {status === "ready" && view.length > LIMIT && (
+            <button
+              onClick={() => setShowAll((v) => !v)}
+              aria-expanded={showAll}
+              className="flex w-full items-center justify-center gap-2 border-t border-border bg-surface py-2.5 text-xs font-medium text-muted transition-colors hover:bg-surface-hover hover:text-accent"
+            >
+              {showAll
+                ? t("assets.showLess")
+                : `${t("assets.showMore")} (${view.length - LIMIT})`}
+              <ChevronDown
+                size={15}
+                className={`transition-transform duration-200 ${showAll ? "rotate-180" : ""}`}
+              />
+            </button>
+          )}
         </div>
       </main>
       <Footer />
