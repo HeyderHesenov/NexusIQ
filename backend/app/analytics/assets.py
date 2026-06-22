@@ -104,6 +104,15 @@ _HIST_TTL = 1800.0
 _REGISTRY_BASES = {"BTC", "ETH", "SOL", "XRP", "HYPE", "ASTER"}
 # Stablecoin / leveraged token — atlanır.
 _SKIP_BASES = {"USDT", "USDC", "FDUSD", "TUSD", "BUSD", "DAI", "USDP", "EUR", "USDE"}
+# Sektor coinləri — top-50-də olmasa belə həmişə daxil et (AI / RWA / Perp DEX).
+_FORCE_BASES = {
+    # AI
+    "FET", "RENDER", "GRT", "VIRTUAL", "IO", "KAITO", "ARKM", "TAO", "WLD", "NEAR",
+    # RWA
+    "ONDO", "PENDLE", "OM", "POLYX", "CFG", "PLUME", "RSR", "USUAL", "XAUT", "PAXG",
+    # Perp DEX (HYPE/ASTER reyestrdədir)
+    "DYDX", "GMX", "JUP", "AEVO", "GNS", "SNX", "AVNT",
+}
 _TOP_COINS = 50
 _COINS_TTL = 300.0  # 5 dəqiqə
 # key → {label, symbol, price, chgPct}
@@ -136,6 +145,16 @@ async def _ensure_coins() -> None:
     usdt.sort(key=lambda x: float(x.get("quoteVolume", 0) or 0), reverse=True)
 
     coins: dict[str, dict] = {}
+
+    def _add(row: dict, sym: str, base: str) -> None:
+        coins[f"c_{base.lower()}"] = {
+            "label": base,
+            "symbol": sym,
+            "price": float(row.get("lastPrice", 0) or 0),
+            "chgPct": float(row.get("priceChangePercent", 0) or 0),
+        }
+
+    # 1) Həcmə görə top coinlər.
     for row in usdt:
         sym = row["symbol"]
         base = sym[:-4]  # "USDT" çıxar
@@ -146,15 +165,20 @@ async def _ensure_coins() -> None:
             or _is_leveraged(base)
         ):
             continue
-        key = f"c_{base.lower()}"
-        coins[key] = {
-            "label": base,
-            "symbol": sym,
-            "price": float(row.get("lastPrice", 0) or 0),
-            "chgPct": float(row.get("priceChangePercent", 0) or 0),
-        }
+        _add(row, sym, base)
         if len(coins) >= _TOP_COINS:
             break
+
+    # 2) Məcburi sektor coinləri — top-50-dən kənarda olsa belə daxil et.
+    for row in usdt:
+        sym = row["symbol"]
+        base = sym[:-4]
+        if (
+            base in _FORCE_BASES
+            and base not in _REGISTRY_BASES
+            and f"c_{base.lower()}" not in coins
+        ):
+            _add(row, sym, base)
 
     if coins:
         _coins = coins

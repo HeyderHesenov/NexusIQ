@@ -24,16 +24,16 @@ import type { Asset, AssetDetail, AssetOverview } from "@/types";
  */
 const CRYPTO_SECTOR: Record<string, "ai" | "perpdex" | "rwa"> = {
   // AI
-  TAO: "ai", WLD: "ai", NEAR: "ai", FET: "ai", RENDER: "ai", RNDR: "ai",
-  GRT: "ai", AGIX: "ai", OCEAN: "ai", AKT: "ai", AIOZ: "ai", ARKM: "ai",
-  PHA: "ai", VIRTUAL: "ai", AI16Z: "ai",
+  TAO: "ai", FET: "ai", RENDER: "ai", RNDR: "ai", WLD: "ai", NEAR: "ai",
+  GRT: "ai", VIRTUAL: "ai", IO: "ai", KAITO: "ai", ARKM: "ai",
+  AGIX: "ai", OCEAN: "ai", AKT: "ai", AIOZ: "ai", PHA: "ai", AI16Z: "ai",
   // Perp DEX
-  DYDX: "perpdex", GMX: "perpdex", HYPE: "perpdex", SNX: "perpdex",
-  AEVO: "perpdex", DRIFT: "perpdex", VRTX: "perpdex", JUP: "perpdex",
-  ASTER: "perpdex", APEX: "perpdex", EDGEN: "perpdex",
+  HYPE: "perpdex", ASTER: "perpdex", DYDX: "perpdex", GMX: "perpdex",
+  JUP: "perpdex", AEVO: "perpdex", GNS: "perpdex", SNX: "perpdex",
+  AVNT: "perpdex", DRIFT: "perpdex", APEX: "perpdex", VRTX: "perpdex",
   // RWA (real-world assets)
-  ONDO: "rwa", XAUT: "rwa", PAXG: "rwa", OM: "rwa", POLYX: "rwa",
-  PENDLE: "rwa", CFG: "rwa", PLUME: "rwa",
+  ONDO: "rwa", PENDLE: "rwa", OM: "rwa", POLYX: "rwa", CFG: "rwa",
+  PLUME: "rwa", RSR: "rwa", USUAL: "rwa", XAUT: "rwa", PAXG: "rwa",
 };
 
 const cryptoSector = (r: AssetOverview) => CRYPTO_SECTOR[r.label.toUpperCase()];
