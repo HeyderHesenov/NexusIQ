@@ -51,10 +51,12 @@ ASSETS: list[tuple[str, str, str, str, int]] = [
     ("usdsek", "USD/SEK", "USDSEK=X", "forex", 4),
     ("usdmxn", "USD/MXN", "USDMXN=X", "forex", 4),
     ("usdtry", "USD/TRY", "USDTRY=X", "forex", 4),
-    # Əmtəələr (3)
+    # Əmtəələr — enerji (5)
     ("oil", "WTI Oil", "CL=F", "commodity", 2),
     ("brent", "Brent", "BZ=F", "commodity", 2),
     ("natgas", "Nat Gas", "NG=F", "commodity", 3),
+    ("heatingoil", "Heating Oil", "HO=F", "commodity", 3),
+    ("gasoline", "Gasoline", "RB=F", "commodity", 3),
     # Metallar (10)
     ("gold", "Gold", "GC=F", "metal", 1),
     ("silver", "Silver", "SI=F", "metal", 2),
