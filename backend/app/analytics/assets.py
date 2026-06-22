@@ -69,6 +69,7 @@ ASSETS: list[tuple[str, str, str, str, int]] = [
     ("uranium", "Uranium", "URA", "industrial", 2),
     ("steel", "Steel", "SLX", "industrial", 2),
     ("rareearth", "Rare Earth", "REMX", "industrial", 2),
+    ("nickel", "Nickel", "NIKL", "industrial", 2),  # Sprott Nickel Miners ETF
     # AI sektoru səhmləri (16) — ABŞ bazarı, yfinance pulsuz
     ("nvda", "NVDA", "NVDA", "stock", 2),
     ("msft", "MSFT", "MSFT", "stock", 2),
