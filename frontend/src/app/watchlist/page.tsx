@@ -16,10 +16,68 @@ import {
 import { getAssets, getAssetDetail, getAssetsOverview } from "@/lib/api";
 import { toggleWatch, useWatchlist } from "@/lib/watchlist";
 import { useI18n } from "@/lib/i18n";
-import type { Asset, AssetDetail, AssetOverview, AssetType } from "@/types";
+import type { Asset, AssetDetail, AssetOverview } from "@/types";
 
-/** Açılan tam siyahıda kateqoriya sırası. */
-const TYPE_ORDER: AssetType[] = ["crypto", "forex", "index", "commodity", "metal"];
+/**
+ * Kripto sektor xəritəsi (baza simvolu → sektor). Binance top-50 dinamik
+ * olduğu üçün yalnız siyahıda olan coinlər görünür; tanınmayan coin sektorsuz.
+ */
+const CRYPTO_SECTOR: Record<string, "ai" | "perpdex" | "rwa"> = {
+  // AI
+  TAO: "ai", WLD: "ai", NEAR: "ai", FET: "ai", RENDER: "ai", RNDR: "ai",
+  GRT: "ai", AGIX: "ai", OCEAN: "ai", AKT: "ai", AIOZ: "ai", ARKM: "ai",
+  PHA: "ai", VIRTUAL: "ai", AI16Z: "ai",
+  // Perp DEX
+  DYDX: "perpdex", GMX: "perpdex", HYPE: "perpdex", SNX: "perpdex",
+  AEVO: "perpdex", DRIFT: "perpdex", VRTX: "perpdex", JUP: "perpdex",
+  // RWA (real-world assets)
+  ONDO: "rwa", XAUT: "rwa", PAXG: "rwa", OM: "rwa", POLYX: "rwa",
+  PENDLE: "rwa", CFG: "rwa", PLUME: "rwa",
+};
+
+const cryptoSector = (r: AssetOverview) => CRYPTO_SECTOR[r.label.toUpperCase()];
+
+type Sub = { key: string; labelKey: string; match: (r: AssetOverview) => boolean };
+type Group = { key: string; labelKey: string; subs: Sub[] };
+
+/** İki-səviyyəli kateqoriya ağacı (üst qrup → alt sektorlar). */
+const GROUPS: Group[] = [
+  {
+    key: "crypto",
+    labelKey: "atype.crypto",
+    subs: [
+      { key: "crypto.all", labelKey: "sub.all", match: (r) => r.type === "crypto" },
+      { key: "crypto.ai", labelKey: "market.aiCoins", match: (r) => r.type === "crypto" && cryptoSector(r) === "ai" },
+      { key: "crypto.perpdex", labelKey: "market.perpDex", match: (r) => r.type === "crypto" && cryptoSector(r) === "perpdex" },
+      { key: "crypto.rwa", labelKey: "market.rwa", match: (r) => r.type === "crypto" && cryptoSector(r) === "rwa" },
+    ],
+  },
+  {
+    key: "forex",
+    labelKey: "atype.forex",
+    subs: [
+      { key: "forex.fx", labelKey: "market.currencies", match: (r) => r.type === "forex" },
+      { key: "forex.metal", labelKey: "market.metals", match: (r) => r.type === "metal" },
+    ],
+  },
+  {
+    key: "us",
+    labelKey: "navg.us",
+    subs: [
+      { key: "us.index", labelKey: "atype.index", match: (r) => r.type === "index" },
+      { key: "us.ai", labelKey: "market.aiStocks", match: (r) => r.type === "stock" },
+    ],
+  },
+  {
+    key: "commodity",
+    labelKey: "atype.commodity",
+    subs: [
+      { key: "commodity.all", labelKey: "sub.all", match: (r) => r.type === "commodity" },
+    ],
+  },
+];
+
+const ALL_SUBS = GROUPS.flatMap((g) => g.subs);
 
 /** Səhifə boş görünməsin deyə nümunə populyar aktivlər — bir kliklə əlavə. */
 const SAMPLE_KEYS = [
@@ -151,7 +209,8 @@ export default function WatchlistPage() {
 function PopularAssets() {
   const { t } = useI18n();
   const [all, setAll] = useState<AssetOverview[]>([]);
-  const [activeType, setActiveType] = useState<AssetType>("crypto");
+  const [activeSub, setActiveSub] = useState("crypto.all");
+  const [openGroup, setOpenGroup] = useState("crypto");
 
   useEffect(() => {
     let stop = false;
@@ -171,8 +230,21 @@ function PopularAssets() {
     Boolean,
   ) as AssetOverview[];
 
-  const count = (type: AssetType) => all.filter((r) => r.type === type).length;
-  const view = all.filter((r) => r.type === activeType);
+  const subCount = (s: Sub) => all.filter(s.match).length;
+  const groupCount = (g: Group) =>
+    all.filter((r) => g.subs.some((s) => s.match(r))).length;
+  const activeSubObj = ALL_SUBS.find((s) => s.key === activeSub) ?? ALL_SUBS[0];
+  const view = all.filter(activeSubObj.match);
+
+  // Qrup başlığına klik: bağlıdırsa aç + ilk alt-sektoru seç; açıqdırsa bağla.
+  function pickGroup(g: Group) {
+    if (openGroup === g.key) {
+      setOpenGroup("");
+      return;
+    }
+    setOpenGroup(g.key);
+    setActiveSub(g.subs[0].key);
+  }
 
   // Populyar bölmənin başına YALNIZ yuxarı yumşaq scroll (sticky header qədər).
   function scrollToTop(): number | null {
@@ -252,41 +324,85 @@ function PopularAssets() {
       >
         <div>
           <div className="flex flex-col gap-4 sm:flex-row">
-            {/* seçilmiş kateqoriyanın cədvəli — solda */}
+            {/* seçilmiş alt-sektorun cədvəli — solda */}
             <div className="min-w-0 flex-1 overflow-hidden rounded-card border border-border">
               <table className="w-full text-sm">
                 <AssetTableHead />
                 <tbody>
-                  {all.length === 0
-                    ? Array.from({ length: 6 }).map((_, i) => (
-                        <SkeletonRow key={i} />
-                      ))
-                    : view.map((r, i) => (
-                        <AssetRow key={r.key} row={r} rank={i + 1} />
-                      ))}
+                  {all.length === 0 ? (
+                    Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)
+                  ) : view.length === 0 ? (
+                    <tr className="border-t border-border">
+                      <td
+                        colSpan={6}
+                        className="px-3 py-10 text-center text-sm text-muted"
+                      >
+                        {t("picker.none")}
+                      </td>
+                    </tr>
+                  ) : (
+                    view.map((r, i) => <AssetRow key={r.key} row={r} rank={i + 1} />)
+                  )}
                 </tbody>
               </table>
             </div>
 
-            {/* kateqoriya seçici — sağda (mobildə yuxarıda) */}
-            <nav className="order-first flex gap-2 overflow-x-auto pb-1 sm:order-none sm:w-44 sm:shrink-0 sm:flex-col sm:overflow-visible sm:pb-0">
-              {TYPE_ORDER.map((type) => {
-                const isActive = type === activeType;
+            {/* iki-səviyyəli kateqoriya seçici — sağda (mobildə yuxarıda) */}
+            <nav className="order-first flex flex-col gap-1 sm:order-none sm:w-48 sm:shrink-0">
+              {GROUPS.map((g) => {
+                const open = openGroup === g.key;
                 return (
-                  <button
-                    key={type}
-                    onClick={() => setActiveType(type)}
-                    className={`flex shrink-0 items-center justify-between gap-3 rounded-lg border px-3.5 py-2 text-sm font-medium transition-colors ${
-                      isActive
-                        ? "border-accent/50 bg-accent-soft text-accent"
-                        : "border-border text-muted hover:text-text"
-                    }`}
-                  >
-                    <span>{t(`atype.${type}`)}</span>
-                    <span className="font-mono text-xs text-muted">
-                      {count(type)}
-                    </span>
-                  </button>
+                  <div key={g.key}>
+                    <button
+                      onClick={() => pickGroup(g)}
+                      aria-expanded={open}
+                      className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3.5 py-2 text-sm font-medium transition-colors ${
+                        open
+                          ? "border-accent/40 bg-accent-soft text-accent"
+                          : "border-border text-muted hover:text-text"
+                      }`}
+                    >
+                      <span>{t(g.labelKey)}</span>
+                      <span className="flex items-center gap-2">
+                        <span className="font-mono text-xs text-muted">
+                          {groupCount(g)}
+                        </span>
+                        <ChevronDown
+                          size={14}
+                          className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+                        />
+                      </span>
+                    </button>
+
+                    {/* alt-sektorlar — yumşaq açılır, sol bağlayıcı xətt */}
+                    <div
+                      className={`overflow-hidden transition-all duration-300 ease-out motion-reduce:transition-none ${
+                        open ? "max-h-60 opacity-100" : "max-h-0 opacity-0"
+                      }`}
+                    >
+                      <div className="ml-3 mt-1 flex flex-col gap-1 border-l border-border pb-1 pl-3">
+                        {g.subs.map((s) => {
+                          const active = s.key === activeSub;
+                          return (
+                            <button
+                              key={s.key}
+                              onClick={() => setActiveSub(s.key)}
+                              className={`flex items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-[13px] transition-colors ${
+                                active
+                                  ? "bg-accent-soft text-accent"
+                                  : "text-muted hover:text-text"
+                              }`}
+                            >
+                              <span>{t(s.labelKey)}</span>
+                              <span className="font-mono text-[11px] text-muted">
+                                {subCount(s)}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
                 );
               })}
             </nav>

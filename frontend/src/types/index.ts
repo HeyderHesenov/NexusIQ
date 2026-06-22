@@ -106,7 +106,13 @@ export interface CorrPair {
   explanation?: string;
 }
 
-export type AssetType = "crypto" | "index" | "forex" | "commodity" | "metal";
+export type AssetType =
+  | "crypto"
+  | "index"
+  | "forex"
+  | "commodity"
+  | "metal"
+  | "stock";
 
 export interface Asset {
   key: string;

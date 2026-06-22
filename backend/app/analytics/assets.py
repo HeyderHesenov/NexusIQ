@@ -63,6 +63,23 @@ ASSETS: list[tuple[str, str, str, str, int]] = [
     ("uranium", "Uranium", "URA", "metal", 2),
     ("steel", "Steel", "SLX", "metal", 2),
     ("rareearth", "Rare Earth", "REMX", "metal", 2),
+    # AI sektoru səhmləri (16) — ABŞ bazarı, yfinance pulsuz
+    ("nvda", "NVDA", "NVDA", "stock", 2),
+    ("msft", "MSFT", "MSFT", "stock", 2),
+    ("googl", "GOOGL", "GOOGL", "stock", 2),
+    ("amzn", "AMZN", "AMZN", "stock", 2),
+    ("meta", "META", "META", "stock", 2),
+    ("amd", "AMD", "AMD", "stock", 2),
+    ("avgo", "AVGO", "AVGO", "stock", 2),
+    ("tsm", "TSM", "TSM", "stock", 2),
+    ("pltr", "PLTR", "PLTR", "stock", 2),
+    ("arm", "ARM", "ARM", "stock", 2),
+    ("mu", "MU", "MU", "stock", 2),
+    ("smci", "SMCI", "SMCI", "stock", 2),
+    ("orcl", "ORCL", "ORCL", "stock", 2),
+    ("crm", "CRM", "CRM", "stock", 2),
+    ("now", "ServiceNow", "NOW", "stock", 2),
+    ("aic3", "C3.ai", "AI", "stock", 2),
 ]
 
 _BY_KEY = {k: (k, lbl, sym, typ, dec) for k, lbl, sym, typ, dec in ASSETS}
