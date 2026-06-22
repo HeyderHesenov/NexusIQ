@@ -31,16 +31,8 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-6"
 
-    # ---- Advisor ----
-    advisor_max_debate_rounds: int = 3
-    advisor_translate_target: str = "az"
-
     # ---- Ingestion ----
     ingest_interval_minutes: int = 60
-    ingest_user_agent: str = "NexusIQ/1.0 (+local)"
-
-    # ---- Analytics ----
-    correlation_default_window_days: int = 90
 
     # ---- Scheduler (Addım 10) ----
     scheduler_enabled: bool = True
