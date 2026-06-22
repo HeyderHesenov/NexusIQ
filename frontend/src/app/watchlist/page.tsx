@@ -58,7 +58,7 @@ const GROUPS: Group[] = [
     labelKey: "atype.forex",
     subs: [
       { key: "forex.fx", labelKey: "market.currencies", match: (r) => r.type === "forex" },
-      { key: "forex.metal", labelKey: "market.metals", match: (r) => r.type === "metal" },
+      { key: "forex.metal", labelKey: "sub.precious", match: (r) => r.type === "metal" },
     ],
   },
   {
@@ -73,7 +73,8 @@ const GROUPS: Group[] = [
     key: "commodity",
     labelKey: "atype.commodity",
     subs: [
-      { key: "commodity.all", labelKey: "sub.all", match: (r) => r.type === "commodity" },
+      { key: "commodity.energy", labelKey: "sub.energy", match: (r) => r.type === "commodity" },
+      { key: "commodity.industrial", labelKey: "sub.industrial", match: (r) => r.type === "industrial" },
     ],
   },
 ];

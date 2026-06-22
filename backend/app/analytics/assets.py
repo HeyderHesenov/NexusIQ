@@ -57,17 +57,18 @@ ASSETS: list[tuple[str, str, str, str, int]] = [
     ("natgas", "Nat Gas", "NG=F", "commodity", 3),
     ("heatingoil", "Heating Oil", "HO=F", "commodity", 3),
     ("gasoline", "Gasoline", "RB=F", "commodity", 3),
-    # Metallar (10)
+    # Qiymətli metallar (4)
     ("gold", "Gold", "GC=F", "metal", 1),
     ("silver", "Silver", "SI=F", "metal", 2),
     ("platinum", "Platinum", "PL=F", "metal", 1),
     ("palladium", "Palladium", "PA=F", "metal", 1),
-    ("copper", "Copper", "HG=F", "metal", 3),
-    ("aluminum", "Aluminum", "ALI=F", "metal", 1),
-    ("lithium", "Lithium", "LIT", "metal", 2),
-    ("uranium", "Uranium", "URA", "metal", 2),
-    ("steel", "Steel", "SLX", "metal", 2),
-    ("rareearth", "Rare Earth", "REMX", "metal", 2),
+    # Sənaye / strateji metallar (6)
+    ("copper", "Copper", "HG=F", "industrial", 3),
+    ("aluminum", "Aluminum", "ALI=F", "industrial", 1),
+    ("lithium", "Lithium", "LIT", "industrial", 2),
+    ("uranium", "Uranium", "URA", "industrial", 2),
+    ("steel", "Steel", "SLX", "industrial", 2),
+    ("rareearth", "Rare Earth", "REMX", "industrial", 2),
     # AI sektoru səhmləri (16) — ABŞ bazarı, yfinance pulsuz
     ("nvda", "NVDA", "NVDA", "stock", 2),
     ("msft", "MSFT", "MSFT", "stock", 2),

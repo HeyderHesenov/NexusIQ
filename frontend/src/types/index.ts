@@ -112,7 +112,8 @@ export type AssetType =
   | "forex"
   | "commodity"
   | "metal"
-  | "stock";
+  | "stock"
+  | "industrial";
 
 export interface Asset {
   key: string;
