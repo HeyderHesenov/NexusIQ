@@ -1,10 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Activity } from "lucide-react";
 import { AppNav } from "@/components/layout/AppNav";
 import { Footer } from "@/components/layout/Footer";
-import { getCorrelationMatrix, getCorrelationPair } from "@/lib/api";
+import {
+  getCorrelationMatrix,
+  getCorrelationPair,
+  getCorrelationExplain,
+} from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { CorrelationMatrix } from "@/components/correlation/CorrelationMatrix";
 import { CorrelationFocus } from "@/components/correlation/CorrelationFocus";
@@ -23,6 +27,8 @@ export default function CorrelationPage() {
   const [sel, setSel] = useState<{ a: string; b: string }>({ a: "btc", b: "spx" });
   const [pair, setPair] = useState<CorrPair | null>(null);
   const [pStatus, setPStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [explain, setExplain] = useState<string | null>(null);
+  const [eStatus, setEStatus] = useState<"loading" | "ready" | "error">("loading");
 
   useEffect(() => {
     setMStatus("loading");
@@ -32,20 +38,34 @@ export default function CorrelationPage() {
     });
   }, [window]);
 
-  const loadPair = useCallback(
-    (a: string, b: string, w: number) => {
-      setPStatus("loading");
-      getCorrelationPair(a, b, w, lang).then((d) => {
-        setPair(d);
-        setPStatus(d ? "ready" : "error");
-      });
-    },
-    [lang],
-  );
-
+  // Qrafik datası — sürətli, AI gözləmir.
   useEffect(() => {
-    loadPair(sel.a, sel.b, window);
-  }, [sel, window, loadPair]);
+    let active = true;
+    setPStatus("loading");
+    getCorrelationPair(sel.a, sel.b, window).then((d) => {
+      if (!active) return;
+      setPair(d);
+      setPStatus(d ? "ready" : "error");
+    });
+    return () => {
+      active = false;
+    };
+  }, [sel, window]);
+
+  // AI izahı — ayrıca yüklənir, qrafiki bloklamır.
+  useEffect(() => {
+    let active = true;
+    setExplain(null);
+    setEStatus("loading");
+    getCorrelationExplain(sel.a, sel.b, window, lang).then((text) => {
+      if (!active) return;
+      setExplain(text);
+      setEStatus(text ? "ready" : "error");
+    });
+    return () => {
+      active = false;
+    };
+  }, [sel, window, lang]);
 
   function selectPair(a: string, b: string) {
     if (a === b) return;
@@ -174,14 +194,19 @@ export default function CorrelationPage() {
                 labelA={pair.a.label}
                 labelB={pair.b.label}
               />
-              {pair.explanation && (
+              {eStatus !== "error" && (
                 <div className="mt-5 rounded-lg border border-border bg-bg/40 p-4">
                   <p className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-accent">
                     {t("corr.aiNote")}
                   </p>
-                  <p className="text-sm leading-relaxed text-text">
-                    {pair.explanation}
-                  </p>
+                  {eStatus === "loading" ? (
+                    <div className="space-y-2">
+                      <div className="skeleton h-3.5 w-full rounded" />
+                      <div className="skeleton h-3.5 w-4/5 rounded" />
+                    </div>
+                  ) : (
+                    <p className="text-sm leading-relaxed text-text">{explain}</p>
+                  )}
                 </div>
               )}
             </>

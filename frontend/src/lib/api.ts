@@ -258,16 +258,33 @@ export async function getCorrelationMatrix(
   }
 }
 
-/** İki aktiv: korrelyasiya dəyəri + normallaşmış seriyalar + AI izah. */
+/** İki aktiv: korrelyasiya dəyəri + normallaşmış seriyalar (sürətli, AI yox). */
 export async function getCorrelationPair(
   a: string,
   b: string,
   window: number,
-  lang: string,
 ): Promise<import("@/types").CorrPair | null> {
   try {
-    const qs = new URLSearchParams({ a, b, window: String(window), lang });
+    const qs = new URLSearchParams({ a, b, window: String(window) });
     return await apiGet(`/correlation/pair?${qs.toString()}`);
+  } catch {
+    return null;
+  }
+}
+
+/** Cüt üçün AI izahı (ayrıca, yavaş ola bilər — qrafiki bloklamır). */
+export async function getCorrelationExplain(
+  a: string,
+  b: string,
+  window: number,
+  lang: string,
+): Promise<string | null> {
+  try {
+    const qs = new URLSearchParams({ a, b, window: String(window), lang });
+    const d = await apiGet<{ explanation: string }>(
+      `/correlation/pair/explain?${qs.toString()}`,
+    );
+    return d.explanation ?? null;
   } catch {
     return null;
   }
