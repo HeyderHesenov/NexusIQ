@@ -403,6 +403,21 @@ export async function getRadarDetail(
   }
 }
 
+/** Bir radar aktivi haqqında ətraflı icmal — seçilmiş dildə (AI, keşli). */
+export async function getRadarAbout(
+  key: string,
+  lang: string,
+): Promise<string | null> {
+  try {
+    const d = await apiGet<{ ready: boolean; text: string }>(
+      `/radar/${key}/about?lang=${lang}`,
+    );
+    return d.ready ? d.text : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Bir radar aktivi üçün on-demand AI izahı (yalnız istəklə — API qənaəti). */
 export async function getRadarExplain(
   key: string,

@@ -77,3 +77,75 @@ async def explain(item: dict, lang: str) -> str | None:
     if text:
         _cache[ck] = (time.time(), text)
     return text or None
+
+
+# ---- "Haqqında" — ətraflı ümumi icmal (seçilmiş dildə) ----
+
+_ABOUT_SYSTEM = (
+    "You are a financial educator for the NexusIQ terminal. You write a clear, "
+    "general overview of an asset for a curious retail reader. Be neutral and "
+    "factual, give NO financial advice. Do NOT invent specifics: if a detail "
+    "(e.g. a token burn schedule, exact dates, team names) is not widely known, "
+    "say it is not publicly confirmed instead of guessing."
+)
+
+_ABOUT_TTL = 604_800.0  # 7 gün (haqqında məlumatı tez-tez dəyişmir)
+_about_cache: dict[tuple[str, str], tuple[float, str]] = {}
+
+
+def _about_prompt(item: dict, source: str, lang: str) -> str:
+    lname = _LANG_NAMES.get(lang, "English")
+    typ = item.get("type")
+    lines = [
+        f"Write entirely in {lname}. 3-5 short paragraphs, no headings, no preamble.",
+        f"ASSET: {item.get('name') or item.get('label')} ({item.get('label')})",
+        f"TYPE: {typ}",
+        f"MARKET CAP: {item.get('mcapFmt')}",
+    ]
+    if typ == "crypto":
+        lines.append(f"CATEGORY: {item.get('category')}")
+        lines.append(
+            "Cover: what this project is and who builds it (team/company/DAO); the "
+            "problem it solves and its purpose; its tokenomics — supply model and "
+            "whether the token is burned (mechanism and timing) if publicly known; "
+            "and its overall vision and place in the market."
+        )
+    else:
+        lines.append(f"THEME: {item.get('theme')}")
+        lines.append(
+            "Cover: what this company does and who runs it; its products and the "
+            "problem it solves; how it fits its sector/theme; and its overall "
+            "vision and growth outlook."
+        )
+    if source:
+        lines.append(f"\nREFERENCE (may be partial, in English):\n{source}")
+    return "\n".join(lines)
+
+
+async def about(item: dict, source: str | None, lang: str) -> str | None:
+    """Aktiv haqqında ətraflı icmal (seçilmiş dildə, keşli 7 gün)."""
+    from app.agents.llm import has_openai, openai_client
+
+    lang = lang if lang in _LANG_NAMES else "az"
+    ck = (item.get("key", ""), lang)
+    hit = _about_cache.get(ck)
+    if hit and time.time() - hit[0] < _ABOUT_TTL:
+        return hit[1]
+    if not has_openai():
+        return None
+    try:
+        resp = await openai_client().chat.completions.create(
+            model=settings.openai_model,
+            messages=[
+                {"role": "system", "content": _ABOUT_SYSTEM},
+                {"role": "user", "content": _about_prompt(item, source or "", lang)},
+            ],
+            temperature=0.4,
+            max_tokens=700,
+        )
+        text = (resp.choices[0].message.content or "").strip()
+    except Exception:  # noqa: BLE001
+        return None
+    if text:
+        _about_cache[ck] = (time.time(), text)
+    return text or None

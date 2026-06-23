@@ -7,7 +7,7 @@ import { ArrowLeft, ExternalLink, Github, Globe, Radar, Sparkles } from "lucide-
 import { AppNav } from "@/components/layout/AppNav";
 import { Footer } from "@/components/layout/Footer";
 import { ScoreBars, ScoreRing, themeLabel } from "@/components/radar/RadarVisuals";
-import { getRadarDetail, getRadarExplain } from "@/lib/api";
+import { getRadarAbout, getRadarDetail, getRadarExplain } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import type { RadarDetail } from "@/types";
 
@@ -75,6 +75,10 @@ export default function RadarDetailPage() {
   const [explaining, setExplaining] = useState(false);
   const [asked, setAsked] = useState(false);
 
+  // "Haqqında" — seçilmiş dildə ətraflı AI icmalı (avto-yüklə, keşli).
+  const [about, setAbout] = useState<string | null>(null);
+  const [aboutLoading, setAboutLoading] = useState(true);
+
   useEffect(() => {
     let cancelled = false;
     setStatus("loading");
@@ -87,6 +91,20 @@ export default function RadarDetailPage() {
       cancelled = true;
     };
   }, [key]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setAboutLoading(true);
+    setAbout(null);
+    getRadarAbout(key, lang).then((text) => {
+      if (cancelled) return;
+      setAbout(text);
+      setAboutLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [key, lang]);
 
   const onExplain = useCallback(async () => {
     setExplaining(true);
@@ -189,11 +207,31 @@ export default function RadarDetailPage() {
               )}
             </div>
 
-            {/* haqqında */}
-            {d.description && (
+            {/* haqqında — seçilmiş dildə ətraflı AI icmalı */}
+            {(aboutLoading || about || d.description) && (
               <div className="rounded-card border border-border bg-surface p-5">
-                <h2 className="mb-2 text-sm font-semibold">{t("radar.about")}</h2>
-                <p className="text-sm leading-relaxed text-muted">{d.description}</p>
+                <h2 className="mb-3 text-sm font-semibold">{t("radar.about")}</h2>
+                {aboutLoading ? (
+                  <div className="space-y-2">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className={`h-3.5 animate-pulse rounded bg-surface-hover ${
+                          i === 3 ? "w-2/3" : "w-full"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-3 text-sm leading-relaxed text-muted">
+                    {(about || d.description || "")
+                      .split(/\n+/)
+                      .filter(Boolean)
+                      .map((para, i) => (
+                        <p key={i}>{para}</p>
+                      ))}
+                  </div>
+                )}
               </div>
             )}
 

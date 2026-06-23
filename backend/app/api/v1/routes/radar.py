@@ -33,6 +33,17 @@ async def radar_explain(key: str, lang: str = Query("az")) -> dict:
     return {"ready": text is not None, "text": text or ""}
 
 
+@router.get("/{key}/about")
+async def radar_about(key: str, lang: str = Query("az")) -> dict:
+    """Aktiv haqqında ətraflı icmal — seçilmiş dildə AI ilə yaradılır (keşli)."""
+    lang = lang if lang in _LANGS else "az"
+    detail = await radar.get_detail(key)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Aktiv radarda tapılmadı")
+    text = await radar_ai.about(detail, detail.get("description"), lang)
+    return {"ready": text is not None, "text": text or ""}
+
+
 @router.get("/{key}")
 async def radar_detail(key: str) -> dict:
     """Aktiv detalı — info + açıqlama + sayt + opensource (GitHub) linki."""
