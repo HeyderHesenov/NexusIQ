@@ -403,18 +403,32 @@ export async function getRadarDetail(
   }
 }
 
-/** Bir radar aktivi haqqında ətraflı icmal — seçilmiş dildə (AI, keşli). */
-export async function getRadarAbout(
+/** Radar aktivi haqqında icmalı seçilmiş dildə token-token axıdır (keşli).
+ * Hər parça gələndə `onDelta` çağırılır → mətn tədricən görünür, gözləmə azalır. */
+export async function streamRadarAbout(
   key: string,
   lang: string,
-): Promise<string | null> {
+  onDelta: (text: string) => void,
+  signal?: AbortSignal,
+): Promise<void> {
   try {
-    const d = await apiGet<{ ready: boolean; text: string }>(
-      `/radar/${key}/about?lang=${lang}`,
-    );
-    return d.ready ? d.text : null;
+    const res = await fetch(`${API_BASE}/radar/${key}/about?lang=${lang}`, {
+      cache: "no-store",
+      signal,
+    });
+    if (!res.ok || !res.body) return;
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      if (chunk) onDelta(chunk);
+    }
+    const tail = decoder.decode(); // qalıq multibyte-ı boşalt
+    if (tail) onDelta(tail);
   } catch {
-    return null;
+    // şəbəkə xətası / abort — səssiz keç (UI köhnə vəziyyəti saxlayır)
   }
 }
 

@@ -187,7 +187,6 @@ export interface RadarItem {
 
 export interface RadarDetail extends RadarItem {
   tab: RadarCategory;
-  description?: string;
   homepage?: string | null;
   github?: string | null;
   image?: string | null;

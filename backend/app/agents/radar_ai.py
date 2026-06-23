@@ -93,7 +93,7 @@ _ABOUT_TTL = 604_800.0  # 7 gün (haqqında məlumatı tez-tez dəyişmir)
 _about_cache: dict[tuple[str, str], tuple[float, str]] = {}
 
 
-def _about_prompt(item: dict, source: str, lang: str) -> str:
+def _about_prompt(item: dict, lang: str) -> str:
     lname = _LANG_NAMES.get(lang, "English")
     typ = item.get("type")
     lines = [
@@ -117,35 +117,46 @@ def _about_prompt(item: dict, source: str, lang: str) -> str:
             "problem it solves; how it fits its sector/theme; and its overall "
             "vision and growth outlook."
         )
-    if source:
-        lines.append(f"\nREFERENCE (may be partial, in English):\n{source}")
     return "\n".join(lines)
 
 
-async def about(item: dict, source: str | None, lang: str) -> str | None:
-    """Aktiv haqqında ətraflı icmal (seçilmiş dildə, keşli 7 gün)."""
+async def about_stream(item: dict, lang: str):
+    """Aktiv haqqında icmalı token-token axıdır (keşli 7 gün).
+
+    Keşdə varsa bir parçada dərhal qaytarır (ani). Yoxdursa GPT-dən axıdır və
+    sonda tam mətni keşləyir. Axın → istifadəçi mətni dərhal görməyə başlayır.
+    """
     from app.agents.llm import has_openai, openai_client
 
     lang = lang if lang in _LANG_NAMES else "az"
     ck = (item.get("key", ""), lang)
     hit = _about_cache.get(ck)
     if hit and time.time() - hit[0] < _ABOUT_TTL:
-        return hit[1]
+        yield hit[1]
+        return
     if not has_openai():
-        return None
+        return
+    parts: list[str] = []
     try:
-        resp = await openai_client().chat.completions.create(
+        stream = await openai_client().chat.completions.create(
             model=settings.openai_model,
             messages=[
                 {"role": "system", "content": _ABOUT_SYSTEM},
-                {"role": "user", "content": _about_prompt(item, source or "", lang)},
+                {"role": "user", "content": _about_prompt(item, lang)},
             ],
             temperature=0.4,
-            max_tokens=700,
+            max_tokens=480,
+            stream=True,
         )
-        text = (resp.choices[0].message.content or "").strip()
+        async for chunk in stream:
+            if not chunk.choices:  # usage/filter chunk — choices boş ola bilər
+                continue
+            delta = chunk.choices[0].delta.content
+            if delta:
+                parts.append(delta)
+                yield delta
     except Exception:  # noqa: BLE001
-        return None
-    if text:
-        _about_cache[ck] = (time.time(), text)
-    return text or None
+        return
+    full = "".join(parts).strip()
+    if full:
+        _about_cache[ck] = (time.time(), full)

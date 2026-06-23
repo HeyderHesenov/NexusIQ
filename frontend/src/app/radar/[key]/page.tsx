@@ -7,7 +7,7 @@ import { ArrowLeft, ExternalLink, Github, Globe, Radar, Sparkles } from "lucide-
 import { AppNav } from "@/components/layout/AppNav";
 import { Footer } from "@/components/layout/Footer";
 import { ScoreBars, ScoreRing, themeLabel } from "@/components/radar/RadarVisuals";
-import { getRadarAbout, getRadarDetail, getRadarExplain } from "@/lib/api";
+import { getRadarDetail, getRadarExplain, streamRadarAbout } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import type { RadarDetail } from "@/types";
 
@@ -93,16 +93,27 @@ export default function RadarDetailPage() {
   }, [key]);
 
   useEffect(() => {
+    const ctrl = new AbortController();
     let cancelled = false;
     setAboutLoading(true);
     setAbout(null);
-    getRadarAbout(key, lang).then((text) => {
-      if (cancelled) return;
-      setAbout(text);
-      setAboutLoading(false);
+    let acc = "";
+    streamRadarAbout(
+      key,
+      lang,
+      (delta) => {
+        if (cancelled) return;
+        acc += delta;
+        setAboutLoading(false);
+        setAbout(acc);
+      },
+      ctrl.signal,
+    ).finally(() => {
+      if (!cancelled) setAboutLoading(false);
     });
     return () => {
       cancelled = true;
+      ctrl.abort(); // dil/coin dəyişəndə köhnə axını dayandır (GPT israfı yox)
     };
   }, [key, lang]);
 
@@ -207,8 +218,8 @@ export default function RadarDetailPage() {
               )}
             </div>
 
-            {/* haqqında — seçilmiş dildə ətraflı AI icmalı */}
-            {(aboutLoading || about || d.description) && (
+            {/* haqqında — yalnız seçilmiş dildə AI icmalı (ingiliscə fallback yox) */}
+            {(aboutLoading || about) && (
               <div className="rounded-card border border-border bg-surface p-5">
                 <h2 className="mb-3 text-sm font-semibold">{t("radar.about")}</h2>
                 {aboutLoading ? (
@@ -224,12 +235,9 @@ export default function RadarDetailPage() {
                   </div>
                 ) : (
                   <div className="space-y-3 text-sm leading-relaxed text-muted">
-                    {(about || d.description || "")
-                      .split(/\n+/)
-                      .filter(Boolean)
-                      .map((para, i) => (
-                        <p key={i}>{para}</p>
-                      ))}
+                    {about!.split(/\n+/).filter(Boolean).map((para, i) => (
+                      <p key={i}>{para}</p>
+                    ))}
                   </div>
                 )}
               </div>

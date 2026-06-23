@@ -81,17 +81,8 @@ _detail_cache: dict[str, tuple[float, dict]] = {}
 _DETAIL_TTL = 21_600.0
 
 
-def _trim(text: str, n: int = 360) -> str:
-    text = " ".join((text or "").split())
-    if len(text) <= n:
-        return text
-    cut = text[:n]
-    dot = cut.rfind(". ")
-    return (cut[: dot + 1] if dot > n * 0.5 else cut).rstrip() + " …"
-
-
 def detail_sync(ticker: str) -> dict:
-    """Səhm detalı — şirkət adı + açıqlama + sayt. 6s keş (yf .info yavaşdır)."""
+    """Səhm detalı — şirkət adı + sayt. 6s keş (yf .info yavaşdır)."""
     hit = _detail_cache.get(ticker)
     if hit and time.time() - hit[0] < _DETAIL_TTL:
         return hit[1]
@@ -101,7 +92,6 @@ def detail_sync(ticker: str) -> dict:
         return {}
     out = {
         "name": info.get("shortName") or info.get("longName") or ticker,
-        "description": _trim(info.get("longBusinessSummary") or ""),
         "homepage": info.get("website"),
         "github": None,
     }

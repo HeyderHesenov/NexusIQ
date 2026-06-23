@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 
 from app.agents import radar_ai
 from app.analytics import radar
@@ -34,14 +35,26 @@ async def radar_explain(key: str, lang: str = Query("az")) -> dict:
 
 
 @router.get("/{key}/about")
-async def radar_about(key: str, lang: str = Query("az")) -> dict:
-    """Aktiv haqqında ətraflı icmal — seçilmiş dildə AI ilə yaradılır (keşli)."""
+async def radar_about(key: str, lang: str = Query("az")) -> StreamingResponse:
+    """Aktiv haqqında icmalı seçilmiş dildə token-token axıdır (keşli).
+
+    Keşli `find_item` (CoinGecko fetch kritik yolda deyil) + axın → açılış sürətli:
+    istifadəçi ilk tokenləri ~1s-də görür, tam GPT cavabını gözləmir.
+    """
     lang = lang if lang in _LANGS else "az"
-    detail = await radar.get_detail(key)
-    if detail is None:
+    item, _ = await radar.find_item(key)
+    if item is None:
         raise HTTPException(status_code=404, detail="Aktiv radarda tapılmadı")
-    text = await radar_ai.about(detail, detail.get("description"), lang)
-    return {"ready": text is not None, "text": text or ""}
+
+    async def gen():
+        async for delta in radar_ai.about_stream(item, lang):
+            yield delta
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/plain; charset=utf-8",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("/{key}")

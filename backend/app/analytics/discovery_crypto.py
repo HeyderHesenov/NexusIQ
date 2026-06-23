@@ -101,17 +101,8 @@ _detail_cache: dict[str, tuple[float, dict]] = {}
 _DETAIL_TTL = 21_600.0
 
 
-def _trim(text: str, n: int = 360) -> str:
-    text = " ".join((text or "").split())
-    if len(text) <= n:
-        return text
-    cut = text[:n]
-    dot = cut.rfind(". ")
-    return (cut[: dot + 1] if dot > n * 0.5 else cut).rstrip() + " …"
-
-
 async def detail(gecko_id: str) -> dict:
-    """Kripto detalı — açıqlama + homepage + GitHub (opensource). 6s keş."""
+    """Kripto detalı — homepage + GitHub (opensource) linkləri. 6s keş."""
     hit = _detail_cache.get(gecko_id)
     if hit and time.time() - hit[0] < _DETAIL_TTL:
         return hit[1]
@@ -134,7 +125,6 @@ async def detail(gecko_id: str) -> dict:
     gh = [g for g in ((links.get("repos_url") or {}).get("github") or []) if g]
     hp = [h for h in (links.get("homepage") or []) if h]
     out = {
-        "description": _trim((d.get("description") or {}).get("en") or ""),
         "homepage": hp[0] if hp else None,
         "github": gh[0] if gh else None,
         "image": (d.get("image") or {}).get("small"),
