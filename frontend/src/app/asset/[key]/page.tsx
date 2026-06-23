@@ -51,7 +51,7 @@ export default function AssetPage() {
   return (
     <div className="flex min-h-screen flex-col">
       <AppNav />
-      <main className="mx-auto max-w-7xl px-5 py-8">
+      <main className="mx-auto w-full max-w-7xl px-5 py-8">
         {status === "loading" && (
           <div className="h-72 animate-pulse rounded-card bg-surface-hover" />
         )}

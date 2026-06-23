@@ -21,7 +21,7 @@ export default function MarketsPage() {
       <AppNav />
       <Ticker />
 
-      <main className="mx-auto max-w-7xl px-5 py-8">
+      <main className="mx-auto w-full max-w-7xl px-5 py-8">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-accent">

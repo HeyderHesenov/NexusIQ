@@ -65,7 +65,7 @@ export default function ComparePage() {
   return (
     <div className="flex min-h-screen flex-col">
       <AppNav />
-      <main className="mx-auto max-w-7xl px-5 py-8">
+      <main className="mx-auto w-full max-w-7xl px-5 py-8">
         <div className="mb-2 flex items-center gap-2">
           <GitCompare size={18} className="text-accent" />
           <h1 className="text-2xl font-semibold tracking-tight">
@@ -128,12 +128,15 @@ export default function ComparePage() {
           ))}
         </div>
 
-        {/* normallaşdırılmış qrafik */}
-        <section className="rounded-card border border-border bg-surface p-5">
-          <p className="mb-3 font-mono text-[10px] uppercase tracking-wider text-muted">
-            {t("compare.normalized")}
-          </p>
-          <LineChart series={series} normalize height={300} />
+        {/* normallaşdırılmış qrafik — səhifənin əsas elementi */}
+        <section className="rounded-card border border-border bg-surface p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <p className="font-mono text-[10px] uppercase tracking-wider text-accent">
+              {t("compare.normalized")}
+            </p>
+            <span className="font-mono text-xs text-muted">{range}</span>
+          </div>
+          <LineChart series={series} normalize height={460} />
         </section>
 
         {/* cədvəl */}

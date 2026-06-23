@@ -90,7 +90,7 @@ export default function AnomaliesPage() {
   return (
     <div className="flex min-h-screen flex-col">
       <AppNav />
-      <main className="mx-auto max-w-4xl px-5 py-8">
+      <main className="mx-auto w-full max-w-4xl px-5 py-8">
         {/* başlıq */}
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>

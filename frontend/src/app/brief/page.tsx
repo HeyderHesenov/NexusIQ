@@ -67,7 +67,7 @@ function BriefView() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-5 py-8">
+      <main className="mx-auto w-full max-w-3xl px-5 py-8">
         {/* meta */}
         <div className="flex flex-wrap items-center gap-3 text-xs">
           {badge && (
