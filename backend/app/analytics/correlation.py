@@ -182,11 +182,8 @@ _ALIASES: dict[str, list[str]] = {
 }
 
 
-def detect_pair(text: str) -> tuple[str, str] | None:
-    """Mətndə iki aktiv adı tapıb (görünmə sırası ilə) açar cütü qaytarır.
-
-    Məs. "EUR/USD vs DXY əlaqəsi" → ("eurusd", "dxy"). Tapılmasa None.
-    """
+def detect_assets(text: str) -> list[str]:
+    """Mətndə tanınan aktiv açarlarını görünmə sırası ilə qaytarır (0+)."""
     low = f" {text.lower()} "
     hits: list[tuple[int, str]] = []
     for key, aliases in _ALIASES.items():
@@ -197,7 +194,15 @@ def detect_pair(text: str) -> tuple[str, str] | None:
         if pos >= 0:
             hits.append((pos, key))
     hits.sort()
-    keys = [k for _, k in hits]
+    return [k for _, k in hits]
+
+
+def detect_pair(text: str) -> tuple[str, str] | None:
+    """Mətndə iki aktiv adı tapıb (görünmə sırası ilə) açar cütü qaytarır.
+
+    Məs. "EUR/USD vs DXY əlaqəsi" → ("eurusd", "dxy"). Tapılmasa None.
+    """
+    keys = detect_assets(text)
     if len(keys) >= 2:
         return keys[0], keys[1]
     return None

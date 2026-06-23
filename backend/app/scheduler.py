@@ -93,6 +93,9 @@ async def _embed_cycle() -> None:
         stats = await embed_pending()
         if stats.get("embedded"):
             logger.info("Xəbər embedding — %s xəbər", stats["embedded"])
+            from app.analytics import analog
+
+            analog.reset_index()  # yeni embedding-lər indeksə daxil olsun
     except Exception:  # noqa: BLE001
         logger.exception("Xəbər embedding xətası")
 
