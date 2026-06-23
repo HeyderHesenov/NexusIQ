@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import yfinance as yf
 
-from app.analytics.discovery_universe import universe
+from app.analytics.discovery_universe import PINNED, universe
 
 # Kateqoriya üzrə market cap aralığı (min — ölü mikro-səhmləri at).
 _MIN_MCAP = 10_000_000.0
@@ -122,7 +122,8 @@ def compute_sync(category: str) -> list[dict]:
     for t in tickers:
         d = ov.get(t)
         mc = mcaps.get(t)
-        if not d or not mc or mc < _MIN_MCAP or mc > cap:
+        # Pin edilmiş ticker MC həddini keçə bilər; qalanları aralıqda olmalıdır.
+        if not d or not mc or mc < _MIN_MCAP or (mc > cap and t not in PINNED):
             continue
         items.append({
             "key": t,

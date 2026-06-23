@@ -17,7 +17,12 @@ STOCK_THEMES: dict[str, list[str]] = {
     "space": ["SPIR", "RDW", "BKSY", "LUNR", "MNTS"],
     "quantum": ["QUBT", "RGTI", "ARQQ", "QMCO"],
     "nuclear": ["NNE", "LTBR", "NPWR"],
+    "biotech": ["MNKD"],
 }
+
+# Pin edilmiş ticker-lər — MC həddini keçsə belə Radarda həmişə görünür
+# (istifadəçinin xüsusi istəyi ilə seçilmiş adlar).
+PINNED: set[str] = {"MNKD"}
 
 # Əmtəə temaları — niş əmtəəni istismar edən small-cap mədən/enerji şirkətləri.
 COMMODITY_THEMES: dict[str, list[str]] = {

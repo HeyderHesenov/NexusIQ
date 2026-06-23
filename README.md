@@ -24,22 +24,27 @@
 | Backend | Python FastAPI, SQLAlchemy 2.0 (async), Pydantic |
 | Verilənlər bazası | PostgreSQL 14 (lokal) |
 | AI | OpenAI API + Anthropic Claude API |
-| Analitika | pandas, yfinance, scipy, plotly |
+| Analitika | pandas, yfinance, scipy, httpx |
+| Data mənbələri | Yahoo Finance, Binance, DefiLlama, CoinGecko |
 | Planlayıcı | APScheduler (saatlıq + hadisə əsaslı) |
 
 ## Arxitektura
 ```
 RSS/API ─► NewsCollectorAgent ─► dedup/normalize ─► PostgreSQL
-                                                        │
-                          ┌─────────────────────────────┤
-                          ▼                              ▼
-                 AI Pipeline (per news)          Frontend (Next.js)
-        Translation / Summarization /                   │
-        Categorization / Sentiment                      │
-                          │                              ▼
-                          ▼                    AI Advisor Chat (GPT+Claude)
-                     PostgreSQL  ◄──── RAG ────────────► CorrelationAgent
+                                                          │
+                            ┌─────────────────────────────┤
+                            ▼                              │
+                   AI Pipeline (per news)                 │
+          Translation / Summarization /                   │
+          Categorization / Sentiment / Impact             │
+                                                          ▼
+Yahoo / Binance / DefiLlama / CoinGecko ─► Analytics ─► Frontend (Next.js)
+   (qiymət, korrelyasiya, anomaliya,          │            │
+    Power Law, Radar kəşf)                     │            ▼
+                                               └──► AI Advisor Chat (GPT + Claude)
+                                                    + on-demand Radar/News izah
 ```
+Bütün ağır analitika SWR keş + startup prewarm ilə servis olunur (endpoint-lər isti ~1ms).
 
 ## Qovluq strukturu
 ```
@@ -54,10 +59,10 @@ NexusIQ/
 │       ├── services/    # biznes məntiqi
 │       ├── agents/      # AI agentləri (modul)
 │       ├── ingestion/   # RSS / scraping kollektorları
-│       ├── analytics/   # korrelyasiya + chartlar
+│       ├── analytics/   # korrelyasiya, anomaliya, Power Law, Radar kəşf, SWR keş
 │       └── utils/
 ├── frontend/         # Next.js + Tailwind UI
-└── docs/             # arxitektura sənədləri
+└── docs/             # arxitektura + plan + spec sənədləri
 ```
 
 ## Quraşdırma
