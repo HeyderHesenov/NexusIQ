@@ -26,11 +26,17 @@ async def radar_list(
 async def radar_explain(key: str, lang: str = Query("az")) -> dict:
     """Aktivin niyə radarda olduğunu AI ilə izah edir (yalnız istəklə)."""
     lang = lang if lang in _LANGS else "az"
-    # Aktivi sıralamadan tap — onsuz da keşdə.
-    for cat in radar.TAB_CONFIG:
-        items = await radar.get_radar(cat)
-        item = next((i for i in items if i["key"] == key), None)
-        if item:
-            text = await radar_ai.explain(item, lang)
-            return {"ready": text is not None, "text": text or ""}
-    raise HTTPException(status_code=404, detail="Aktiv radarda tapılmadı")
+    item, _ = await radar.find_item(key)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Aktiv radarda tapılmadı")
+    text = await radar_ai.explain(item, lang)
+    return {"ready": text is not None, "text": text or ""}
+
+
+@router.get("/{key}")
+async def radar_detail(key: str) -> dict:
+    """Aktiv detalı — info + açıqlama + sayt + opensource (GitHub) linki."""
+    data = await radar.get_detail(key)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Aktiv radarda tapılmadı")
+    return data

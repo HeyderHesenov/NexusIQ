@@ -6,6 +6,7 @@ Nəticə xam item-dir — bal `radar.py`-də hesablanır.
 """
 from __future__ import annotations
 
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 import yfinance as yf
@@ -73,6 +74,39 @@ def _mcaps(tickers: list[str]) -> dict[str, float]:
     with ThreadPoolExecutor(max_workers=16) as ex:
         pairs = ex.map(lambda t: (t, _mcap(t)), tickers)
     return {t: mc for t, mc in pairs if mc}
+
+
+# Detal keşi: ticker → (ts, dict). 6 saat.
+_detail_cache: dict[str, tuple[float, dict]] = {}
+_DETAIL_TTL = 21_600.0
+
+
+def _trim(text: str, n: int = 360) -> str:
+    text = " ".join((text or "").split())
+    if len(text) <= n:
+        return text
+    cut = text[:n]
+    dot = cut.rfind(". ")
+    return (cut[: dot + 1] if dot > n * 0.5 else cut).rstrip() + " …"
+
+
+def detail_sync(ticker: str) -> dict:
+    """Səhm detalı — şirkət adı + açıqlama + sayt. 6s keş (yf .info yavaşdır)."""
+    hit = _detail_cache.get(ticker)
+    if hit and time.time() - hit[0] < _DETAIL_TTL:
+        return hit[1]
+    try:
+        info = yf.Ticker(ticker).info or {}
+    except Exception:  # noqa: BLE001
+        return {}
+    out = {
+        "name": info.get("shortName") or info.get("longName") or ticker,
+        "description": _trim(info.get("longBusinessSummary") or ""),
+        "homepage": info.get("website"),
+        "github": None,
+    }
+    _detail_cache[ticker] = (time.time(), out)
+    return out
 
 
 def compute_sync(category: str) -> list[dict]:

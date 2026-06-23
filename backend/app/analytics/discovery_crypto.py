@@ -11,6 +11,8 @@ Nəticə xam item-dir — bal `radar.py`-də hesablanır.
 """
 from __future__ import annotations
 
+import time
+
 import httpx
 
 _MIN_MCAP = 1_000_000.0
@@ -91,6 +93,53 @@ async def _markets(client: httpx.AsyncClient, ids: list[str]) -> dict[str, dict]
             continue
         for m in r.json():
             out[m["id"]] = m
+    return out
+
+
+# Detal keşi: gecko_id → (ts, dict). 6 saat.
+_detail_cache: dict[str, tuple[float, dict]] = {}
+_DETAIL_TTL = 21_600.0
+
+
+def _trim(text: str, n: int = 360) -> str:
+    text = " ".join((text or "").split())
+    if len(text) <= n:
+        return text
+    cut = text[:n]
+    dot = cut.rfind(". ")
+    return (cut[: dot + 1] if dot > n * 0.5 else cut).rstrip() + " …"
+
+
+async def detail(gecko_id: str) -> dict:
+    """Kripto detalı — açıqlama + homepage + GitHub (opensource). 6s keş."""
+    hit = _detail_cache.get(gecko_id)
+    if hit and time.time() - hit[0] < _DETAIL_TTL:
+        return hit[1]
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.get(
+                f"https://api.coingecko.com/api/v3/coins/{gecko_id}",
+                params={
+                    "localization": "false", "tickers": "false",
+                    "market_data": "false", "community_data": "false",
+                    "developer_data": "false", "sparkline": "false",
+                },
+            )
+        if r.status_code != 200:
+            return {}
+        d = r.json()
+    except (httpx.HTTPError, ValueError):
+        return {}
+    links = d.get("links") or {}
+    gh = [g for g in ((links.get("repos_url") or {}).get("github") or []) if g]
+    hp = [h for h in (links.get("homepage") or []) if h]
+    out = {
+        "description": _trim((d.get("description") or {}).get("en") or ""),
+        "homepage": hp[0] if hp else None,
+        "github": gh[0] if gh else None,
+        "image": (d.get("image") or {}).get("small"),
+    }
+    _detail_cache[gecko_id] = (time.time(), out)
     return out
 
 

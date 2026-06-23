@@ -373,6 +373,17 @@ export async function getRadar(
   }
 }
 
+/** Bir radar aktivinin detalı — info + açıqlama + sayt + opensource linki. */
+export async function getRadarDetail(
+  key: string,
+): Promise<import("@/types").RadarDetail | null> {
+  try {
+    return await apiGet(`/radar/${key}`);
+  } catch {
+    return null;
+  }
+}
+
 /** Bir radar aktivi üçün on-demand AI izahı (yalnız istəklə — API qənaəti). */
 export async function getRadarExplain(
   key: string,

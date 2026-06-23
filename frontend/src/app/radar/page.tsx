@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { ExternalLink, Radar, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { ChevronRight, Radar } from "lucide-react";
 import { AppNav } from "@/components/layout/AppNav";
 import { Footer } from "@/components/layout/Footer";
 import { Sparkline } from "@/components/charts/Sparkline";
-import { getRadar, getRadarExplain } from "@/lib/api";
+import { ScoreBars, ScoreRing, themeLabel } from "@/components/radar/RadarVisuals";
+import { getRadar } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import type { RadarCategory, RadarItem } from "@/types";
 
@@ -15,180 +17,62 @@ const TABS: { key: RadarCategory; labelKey: string }[] = [
   { key: "commodity", labelKey: "radar.tab.commodity" },
 ];
 
-// Tema açarını oxunaqlı teqə çevir (ai_data → AI Data).
-function themeLabel(theme: string): string {
-  return theme
-    .split("_")
-    .map((w) => (w.length <= 3 ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1)))
-    .join(" ");
-}
-
-// Bal səviyyəsinə görə rəng — yüksək=accent, orta=amber, aşağı=muted.
-function tierColor(score: number): string {
-  if (score >= 65) return "var(--accent)";
-  if (score >= 45) return "#fbbf24";
-  return "var(--muted)";
-}
-
-/** Signature — fürsət balı radial halqası (0..100). */
-function ScoreRing({ score }: { score: number }) {
-  const r = 26;
-  const c = 2 * Math.PI * r;
-  const off = c * (1 - Math.max(0, Math.min(100, score)) / 100);
-  const color = tierColor(score);
-  return (
-    <div className="relative h-[68px] w-[68px] shrink-0">
-      <svg width="68" height="68" viewBox="0 0 68 68" className="-rotate-90">
-        <circle cx="34" cy="34" r={r} fill="none" stroke="var(--border)" strokeWidth="5" />
-        <circle
-          cx="34"
-          cy="34"
-          r={r}
-          fill="none"
-          stroke={color}
-          strokeWidth="5"
-          strokeLinecap="round"
-          strokeDasharray={c}
-          strokeDashoffset={off}
-          style={{ transition: "stroke-dashoffset 600ms ease" }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span className="font-mono text-lg font-semibold tabular-nums" style={{ color }}>
-          {Math.round(score)}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-/** Bal komponentləri — hər biri stacked: etiket+dəyər üstdə, bar tam enli altda. */
-function ScoreBars({ breakdown }: { breakdown: Record<string, number> }) {
-  const { t } = useI18n();
-  return (
-    <div className="grid grid-cols-3 gap-x-3 gap-y-2 sm:gap-x-4">
-      {Object.entries(breakdown).map(([key, v]) => {
-        const color = tierColor(v);
-        return (
-          <div key={key}>
-            <div className="flex items-baseline justify-between gap-1.5">
-              <span className="truncate text-[10px] font-medium uppercase tracking-wide text-muted">
-                {t(`radar.bd.${key}`)}
-              </span>
-              <span
-                className="font-mono text-[11px] font-semibold tabular-nums"
-                style={{ color }}
-              >
-                {Math.round(v)}
-              </span>
-            </div>
-            <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-border">
-              <span
-                className="block h-full rounded-full motion-safe:transition-[width] motion-safe:duration-500"
-                style={{ width: `${v}%`, background: color }}
-              />
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function RadarCard({ item, rank }: { item: RadarItem; rank: number }) {
-  const { t, lang } = useI18n();
-  const [explain, setExplain] = useState<string | null>(null);
-  const [explaining, setExplaining] = useState(false);
-  const [asked, setAsked] = useState(false);
-
-  const onExplain = useCallback(async () => {
-    setExplaining(true);
-    setAsked(true);
-    const text = await getRadarExplain(item.key, lang);
-    setExplain(text);
-    setExplaining(false);
-  }, [item.key, lang]);
-
+  const { t } = useI18n();
   const tag = item.type === "crypto" ? item.category : item.theme && themeLabel(item.theme);
 
   return (
-    <div className="rounded-card border border-border bg-surface transition-colors hover:bg-surface-hover">
-      <div className="p-4 sm:p-5">
-        {/* üst sətir: sıra + halqa + ad/meta + qiymət */}
-        <div className="flex items-center gap-3 sm:gap-4">
-          <span className="hidden w-5 text-center font-mono text-sm text-muted tabular-nums sm:block">
-            {rank}
-          </span>
-          <ScoreRing score={item.score} />
+    <Link
+      href={`/radar/${item.key}`}
+      className="group block rounded-card border border-border bg-surface p-4 transition-colors hover:bg-surface-hover sm:p-5"
+    >
+      <div className="flex items-center gap-3 sm:gap-4">
+        <span className="hidden w-5 text-center font-mono text-sm text-muted tabular-nums sm:block">
+          {rank}
+        </span>
+        <ScoreRing score={item.score} />
 
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <a
-                href={item.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 font-semibold hover:text-accent"
-              >
-                {item.label}
-                <ExternalLink size={12} className="text-muted" />
-              </a>
-              {tag && (
-                <span className="rounded-full border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted">
-                  {tag}
-                </span>
-              )}
-            </div>
-            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 font-mono text-[11px] text-muted">
-              <span>
-                {t("radar.mc")} <span className="text-text">{item.mcapFmt}</span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="font-semibold group-hover:text-accent">{item.label}</span>
+            {tag && (
+              <span className="rounded-full border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted">
+                {tag}
               </span>
-              {item.revenueFmt && (
-                <span>
-                  {t("radar.rev")} <span className="text-up">{item.revenueFmt}</span>
-                </span>
-              )}
-            </div>
+            )}
           </div>
-
-          <div className="flex shrink-0 flex-col items-end gap-1.5">
-            <div className="font-mono text-sm font-semibold tabular-nums">{item.val}</div>
-            <div
-              className={`font-mono text-xs tabular-nums ${item.up ? "text-up" : "text-down"}`}
-            >
-              {item.chg}
-            </div>
-            <div className="mt-0.5 hidden sm:block">
-              <Sparkline values={item.spark} width={96} height={28} />
-            </div>
-          </div>
-        </div>
-
-        {/* komponentlər — tam enli, rahat oxunan */}
-        <div className="mt-4">
-          <ScoreBars breakdown={item.breakdown} />
-        </div>
-      </div>
-
-      {/* AI izah */}
-      <div className="border-t border-border px-4 py-3 sm:px-5">
-        {asked ? (
-          <p className="flex items-start gap-2 text-sm text-text">
-            <Sparkles size={14} className="mt-0.5 shrink-0 text-accent" />
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 font-mono text-[11px] text-muted">
             <span>
-              {explaining ? t("radar.explaining") : explain || t("radar.noExplain")}
+              {t("radar.mc")} <span className="text-text">{item.mcapFmt}</span>
             </span>
-          </p>
-        ) : (
-          <button
-            onClick={onExplain}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-accent transition-opacity hover:opacity-80"
-          >
-            <Sparkles size={13} />
-            {t("radar.explain")}
-          </button>
-        )}
+            {item.revenueFmt && (
+              <span>
+                {t("radar.rev")} <span className="text-up">{item.revenueFmt}</span>
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <div className="font-mono text-sm font-semibold tabular-nums">{item.val}</div>
+          <div className={`font-mono text-xs tabular-nums ${item.up ? "text-up" : "text-down"}`}>
+            {item.chg}
+          </div>
+          <div className="mt-0.5 hidden sm:block">
+            <Sparkline values={item.spark} width={96} height={28} />
+          </div>
+        </div>
+
+        <ChevronRight
+          size={18}
+          className="hidden shrink-0 text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-accent sm:block"
+        />
       </div>
-    </div>
+
+      <div className="mt-4">
+        <ScoreBars breakdown={item.breakdown} />
+      </div>
+    </Link>
   );
 }
 

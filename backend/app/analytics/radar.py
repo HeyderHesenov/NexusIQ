@@ -90,3 +90,27 @@ async def get_radar(category: str, force: bool = False) -> list[dict]:
     store = _caches[category]
     ttl = TAB_CONFIG[category]["ttl"]
     return await swr.get(store, ttl, lambda: _compute(category), force=force) or []
+
+
+async def find_item(key: str) -> tuple[dict | None, str | None]:
+    """Açar üzrə item-i sıralamalarda tap (keşdən). → (item, category)."""
+    for cat in TAB_CONFIG:
+        items = await get_radar(cat)
+        item = next((i for i in items if i["key"] == key), None)
+        if item:
+            return item, cat
+    return None, None
+
+
+async def get_detail(key: str) -> dict | None:
+    """Item + zənginləşdirmə (açıqlama, sayt, opensource GitHub linki)."""
+    item, cat = await find_item(key)
+    if not item:
+        return None
+    if cat == "crypto":
+        extra = await discovery_crypto.detail(key)
+    else:
+        extra = await asyncio.to_thread(discovery_stocks.detail_sync, key)
+    # "tab" = kateqoriya (crypto/stock/commodity); item-in öz "category"-si
+    # (məs. kripto "Dexs") qorunur.
+    return {**item, "tab": cat, **extra}
