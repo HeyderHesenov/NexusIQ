@@ -26,7 +26,7 @@ export function NewsCard({ news }: { news: NewsItem }) {
       target="_blank"
       onMouseEnter={() => prefetchForecast(news.id, lang)}
       onFocus={() => prefetchForecast(news.id, lang)}
-      className="group flex flex-col overflow-hidden rounded-card border border-border bg-surface transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-[0_12px_30px_-12px_rgba(0,0,0,0.6)]"
+      className="group flex flex-col overflow-hidden rounded-card border border-border bg-surface transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-[0_12px_30px_-12px_var(--shadow)]"
     >
       {/* real şəkil (alınmasa generativ fallback) */}
       <div className="relative aspect-[16/9] overflow-hidden bg-surface-hover">

@@ -202,7 +202,7 @@ export function AuthScreen({
         <button
           onClick={handleGoogle}
           disabled={busy}
-          className="group flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-white py-3.5 text-sm font-semibold text-[#1f1f22] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_30px_-8px_rgba(255,255,255,0.25)] active:translate-y-0 disabled:opacity-60"
+          className="group flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-white py-3.5 text-sm font-semibold text-[#1f1f22] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_30px_-8px_var(--shadow)] active:translate-y-0 disabled:opacity-60"
         >
           <GoogleIcon />
           {t("auth.google")}
