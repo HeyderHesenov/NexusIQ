@@ -20,6 +20,7 @@ html.dark {
   --down: #ef4444;
   --shadow: rgba(0, 0, 0, 0.6);
   --bar-weak: #8a8a8f;
+  --header-bg: rgba(10, 10, 11, 0.8);
 }
 
 /* Açıq tema — soyuq-boz fon + ağ səth, dərinlikli kontrast. */
@@ -36,6 +37,7 @@ html.light {
   --down: #dc2626;
   --shadow: rgba(15, 23, 42, 0.1);
   --bar-weak: #c3c7d0;
+  --header-bg: rgba(255, 255, 255, 0.85);
 }
 
 /* Light-da kartlar fona qarışmasın — yumşaq elevation ilə "otursun". */
