@@ -7,7 +7,7 @@ import { AppNav } from "@/components/layout/AppNav";
 import { Footer } from "@/components/layout/Footer";
 import { Sparkline } from "@/components/charts/Sparkline";
 import { ScoreBars, ScoreRing, themeLabel } from "@/components/radar/RadarVisuals";
-import { getRadar } from "@/lib/api";
+import { getRadar, prefetchRadarDetail } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import type { RadarCategory, RadarItem } from "@/types";
 
@@ -24,6 +24,8 @@ function RadarCard({ item, rank }: { item: RadarItem; rank: number }) {
   return (
     <Link
       href={`/radar/${item.key}`}
+      onMouseEnter={() => prefetchRadarDetail(item.key)}
+      onFocus={() => prefetchRadarDetail(item.key)}
       className="group block rounded-card border border-border bg-surface p-4 transition-colors hover:bg-surface-hover sm:p-5"
     >
       <div className="flex items-center gap-3 sm:gap-4">

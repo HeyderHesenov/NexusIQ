@@ -392,15 +392,30 @@ export async function getRadar(
   }
 }
 
-/** Bir radar aktivinin detalı — info + açıqlama + sayt + opensource linki. */
+const _radarDetailCache = new Map<string, import("@/types").RadarDetail>();
+const _radarPrefetching = new Set<string>();
+
+/** Bir radar aktivinin detalı — info + açıqlama + sayt + opensource linki.
+ * Nəticə client-də keşlənir ki, hover-prefetch-dən sonra açılış ani olsun. */
 export async function getRadarDetail(
   key: string,
 ): Promise<import("@/types").RadarDetail | null> {
+  const cached = _radarDetailCache.get(key);
+  if (cached) return cached;
   try {
-    return await apiGet(`/radar/${key}`);
+    const d = await apiGet<import("@/types").RadarDetail>(`/radar/${key}`);
+    _radarDetailCache.set(key, d);
+    return d;
   } catch {
     return null;
   }
+}
+
+/** Hover/fokus zamanı detalı öncədən çəkib keşləyir — klik anında skeleton yox. */
+export function prefetchRadarDetail(key: string): void {
+  if (_radarDetailCache.has(key) || _radarPrefetching.has(key)) return;
+  _radarPrefetching.add(key);
+  void getRadarDetail(key).finally(() => _radarPrefetching.delete(key));
 }
 
 /** Radar aktivi haqqında icmalı seçilmiş dildə token-token axıdır (keşli).

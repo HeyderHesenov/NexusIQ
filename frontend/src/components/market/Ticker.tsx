@@ -27,7 +27,7 @@ function Row({ quotes }: { quotes: Quote[] }) {
           key={q.sym}
           className="flex items-center gap-2 whitespace-nowrap px-5 text-xs"
         >
-          <span className="font-mono text-muted">{q.sym}</span>
+          <span className="font-mono font-medium text-text">{q.sym}</span>
           <span className="tabular text-text">{q.val}</span>
           <span className={q.up ? "tabular text-up" : "tabular text-down"}>
             {q.chg}
