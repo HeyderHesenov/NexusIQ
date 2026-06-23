@@ -62,27 +62,35 @@ function ScoreRing({ score }: { score: number }) {
   );
 }
 
-/** Bal komponentləri — breakdown açarlarına görə nazik zolaqlar. */
+/** Bal komponentləri — hər biri stacked: etiket+dəyər üstdə, bar tam enli altda. */
 function ScoreBars({ breakdown }: { breakdown: Record<string, number> }) {
   const { t } = useI18n();
   return (
-    <div className="grid grid-cols-3 gap-x-4 gap-y-1.5">
-      {Object.entries(breakdown).map(([key, v]) => (
-        <div key={key} className="flex items-center gap-2">
-          <span className="w-14 shrink-0 text-[10px] uppercase tracking-wide text-muted">
-            {t(`radar.bd.${key}`)}
-          </span>
-          <span className="h-1 flex-1 overflow-hidden rounded-full bg-border">
-            <span
-              className="block h-full rounded-full"
-              style={{ width: `${v}%`, background: tierColor(v) }}
-            />
-          </span>
-          <span className="w-6 text-right font-mono text-[10px] tabular-nums text-muted">
-            {Math.round(v)}
-          </span>
-        </div>
-      ))}
+    <div className="grid grid-cols-3 gap-x-3 gap-y-2 sm:gap-x-4">
+      {Object.entries(breakdown).map(([key, v]) => {
+        const color = tierColor(v);
+        return (
+          <div key={key}>
+            <div className="flex items-baseline justify-between gap-1.5">
+              <span className="truncate text-[10px] font-medium uppercase tracking-wide text-muted">
+                {t(`radar.bd.${key}`)}
+              </span>
+              <span
+                className="font-mono text-[11px] font-semibold tabular-nums"
+                style={{ color }}
+              >
+                {Math.round(v)}
+              </span>
+            </div>
+            <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-border">
+              <span
+                className="block h-full rounded-full motion-safe:transition-[width] motion-safe:duration-500"
+                style={{ width: `${v}%`, background: color }}
+              />
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -105,59 +113,59 @@ function RadarCard({ item, rank }: { item: RadarItem; rank: number }) {
 
   return (
     <div className="rounded-card border border-border bg-surface transition-colors hover:bg-surface-hover">
-      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-4 p-4 sm:gap-5 sm:p-5">
-        {/* sıra + bal halqası */}
+      <div className="p-4 sm:p-5">
+        {/* üst sətir: sıra + halqa + ad/meta + qiymət */}
         <div className="flex items-center gap-3 sm:gap-4">
-          <span className="w-5 text-center font-mono text-sm text-muted tabular-nums">
+          <span className="hidden w-5 text-center font-mono text-sm text-muted tabular-nums sm:block">
             {rank}
           </span>
           <ScoreRing score={item.score} />
-        </div>
 
-        {/* aktiv + meta + komponentlər */}
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <a
-              href={item.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 font-semibold hover:text-accent"
-            >
-              {item.label}
-              <ExternalLink size={12} className="text-muted" />
-            </a>
-            {tag && (
-              <span className="rounded-full border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted">
-                {tag}
-              </span>
-            )}
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 font-mono text-[11px] text-muted">
-            <span>
-              {t("radar.mc")} <span className="text-text">{item.mcapFmt}</span>
-            </span>
-            {item.revenueFmt && (
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <a
+                href={item.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 font-semibold hover:text-accent"
+              >
+                {item.label}
+                <ExternalLink size={12} className="text-muted" />
+              </a>
+              {tag && (
+                <span className="rounded-full border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted">
+                  {tag}
+                </span>
+              )}
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 font-mono text-[11px] text-muted">
               <span>
-                {t("radar.rev")} <span className="text-up">{item.revenueFmt}</span>
+                {t("radar.mc")} <span className="text-text">{item.mcapFmt}</span>
               </span>
-            )}
+              {item.revenueFmt && (
+                <span>
+                  {t("radar.rev")} <span className="text-up">{item.revenueFmt}</span>
+                </span>
+              )}
+            </div>
           </div>
-          <div className="mt-2.5 max-w-md">
-            <ScoreBars breakdown={item.breakdown} />
+
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
+            <div className="font-mono text-sm font-semibold tabular-nums">{item.val}</div>
+            <div
+              className={`font-mono text-xs tabular-nums ${item.up ? "text-up" : "text-down"}`}
+            >
+              {item.chg}
+            </div>
+            <div className="mt-0.5 hidden sm:block">
+              <Sparkline values={item.spark} width={96} height={28} />
+            </div>
           </div>
         </div>
 
-        {/* qiymət + trend */}
-        <div className="flex flex-col items-end gap-1.5">
-          <div className="font-mono text-sm font-semibold tabular-nums">{item.val}</div>
-          <div
-            className={`font-mono text-xs tabular-nums ${item.up ? "text-up" : "text-down"}`}
-          >
-            {item.chg}
-          </div>
-          <div className="mt-0.5 hidden sm:block">
-            <Sparkline values={item.spark} width={96} height={28} />
-          </div>
+        {/* komponentlər — tam enli, rahat oxunan */}
+        <div className="mt-4">
+          <ScoreBars breakdown={item.breakdown} />
         </div>
       </div>
 
