@@ -60,6 +60,8 @@ export function ScoreBars({ breakdown }: { breakdown: Record<string, number> }) 
     <div className="grid grid-cols-3 gap-x-3 gap-y-2 sm:gap-x-4">
       {Object.entries(breakdown).map(([key, v]) => {
         const color = tierColor(v);
+        // Zəif bal barı yumşaq neytral — güclü siqnaldan az diqqət çəksin.
+        const barColor = v >= 45 ? color : "var(--bar-weak)";
         return (
           <div key={key}>
             <div className="flex items-baseline justify-between gap-1.5">
@@ -76,7 +78,7 @@ export function ScoreBars({ breakdown }: { breakdown: Record<string, number> }) 
             <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-border">
               <span
                 className="block h-full rounded-full motion-safe:transition-[width] motion-safe:duration-500"
-                style={{ width: `${v}%`, background: color }}
+                style={{ width: `${v}%`, background: barColor }}
               />
             </span>
           </div>
