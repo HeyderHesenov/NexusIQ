@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Activity,
-  Bookmark,
   CalendarDays,
   ChevronDown,
   Coins,
@@ -25,6 +24,7 @@ import { prefetchAnomalies } from "@/lib/api";
 import { useClickOutside } from "@/lib/useClickOutside";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { NewsSearch } from "@/components/search/NewsSearch";
+import { SavedNavLink } from "@/components/layout/SavedNavLink";
 import { NotifyBell } from "@/components/notifications/NotifyBell";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -203,13 +203,7 @@ export function AppNav() {
           >
             <Target size={16} />
           </Link>
-          <Link
-            href="/saved"
-            title={t("bm.title")}
-            className="flex items-center rounded-lg px-2 py-1.5 text-muted transition-colors duration-200 hover:bg-surface-hover hover:text-accent"
-          >
-            <Bookmark size={16} />
-          </Link>
+          <SavedNavLink />
           <NotifyBell />
           <ThemeToggle />
           <span className="mx-1 h-5 w-px bg-border" />
