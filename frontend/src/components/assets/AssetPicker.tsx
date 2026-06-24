@@ -6,7 +6,15 @@ import type { Asset } from "@/types";
 import { useI18n } from "@/lib/i18n";
 import { useClickOutside } from "@/lib/useClickOutside";
 
-const TYPE_ORDER = ["index", "forex", "metal", "commodity", "crypto"] as const;
+const TYPE_ORDER = [
+  "crypto",
+  "stock",
+  "index",
+  "forex",
+  "metal",
+  "commodity",
+  "industrial",
+] as const;
 
 /**
  * Minimalist aktiv seçici — axtarış sahəsi + tələb üzrə açılan tək sütunlu

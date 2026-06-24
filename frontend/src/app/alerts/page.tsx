@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Target, Trash2 } from "lucide-react";
 import { AppNav } from "@/components/layout/AppNav";
 import { Footer } from "@/components/layout/Footer";
+import { AssetSelect } from "@/components/assets/AssetSelect";
 import { getAssets } from "@/lib/api";
 import { addAlert, removeAlert, useAlerts } from "@/lib/alerts";
 import { useI18n } from "@/lib/i18n";
@@ -47,17 +48,7 @@ export default function AlertsPage() {
         {/* yaratma formu */}
         <section className="rounded-card border border-border bg-surface p-4">
           <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-              className="rounded-lg border border-border bg-bg px-3 py-2 text-sm focus:border-accent focus:outline-none"
-            >
-              {registry.map((a) => (
-                <option key={a.key} value={a.key}>
-                  {a.label}
-                </option>
-              ))}
-            </select>
+            <AssetSelect assets={registry} value={key} onChange={setKey} />
             <div className="flex gap-1 rounded-lg border border-border bg-bg p-1">
               {(["above", "below"] as const).map((d) => (
                 <button
