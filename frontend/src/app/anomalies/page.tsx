@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Activity, Eye, RefreshCw } from "lucide-react";
+import { Activity, Eye, Newspaper, RefreshCw } from "lucide-react";
 import { AppNav } from "@/components/layout/AppNav";
 import { Footer } from "@/components/layout/Footer";
-import { getAnomalies } from "@/lib/api";
+import { getAnomalies, getAnomalyNews } from "@/lib/api";
+import { localizedNews } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
-import type { AnomalyScan, AnomalySeverity, NearMove } from "@/types";
+import type { AnomalyScan, AnomalySeverity, NearMove, NewsItem } from "@/types";
 
 // Şiddət rəngləri — istiqamətdən (yaşıl/qırmızı) ayrı semantik siqnal.
 const SEV: Record<AnomalySeverity, { dot: string; ring: string; key: string }> = {
@@ -233,6 +234,7 @@ export default function AnomaliesPage() {
                       </div>
                     </div>
                   </div>
+                  <AnomalyWhy assetKey={a.key} />
                 </div>
               );
             })}
@@ -333,6 +335,44 @@ function WatchRow({ n }: { n: NearMove }) {
             vol z {n.volume_z.toFixed(1)}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Anomaliyanın ehtimal səbəbi — aktivi qeyd edən son xəbər(lər), lazy çəkilir. */
+function AnomalyWhy({ assetKey }: { assetKey: string }) {
+  const { t, lang } = useI18n();
+  const [news, setNews] = useState<NewsItem[] | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    getAnomalyNews(assetKey, 2).then((d) => alive && setNews(d));
+    return () => {
+      alive = false;
+    };
+  }, [assetKey]);
+
+  // Əlaqəli xəbər yoxdursa sətri göstərmə (səliqə).
+  if (!news || news.length === 0) return null;
+
+  return (
+    <div className="border-t border-border/60 px-5 py-2.5">
+      <div className="mb-1 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-muted/70">
+        <Newspaper size={11} className="text-accent" />
+        {t("anom.whyLabel")}
+      </div>
+      <div className="space-y-1">
+        {news.map((n) => (
+          <Link
+            key={n.id}
+            href={`/news/${n.id}`}
+            target="_blank"
+            className="block truncate text-[13px] text-text/80 transition-colors hover:text-accent"
+          >
+            {localizedNews(n, lang).title}
+          </Link>
+        ))}
       </div>
     </div>
   );

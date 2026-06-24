@@ -412,6 +412,18 @@ export function prefetchAnomalies(): void {
   void getAnomalies(false);
 }
 
+/** Anomaliyanın ehtimal səbəbi — aktivi qeyd edən son xəbərlər (pulsuz, lazy). */
+export async function getAnomalyNews(
+  key: string,
+  k = 3,
+): Promise<import("@/types").NewsItem[]> {
+  try {
+    return await apiGet(`/anomalies/${key}/news?k=${k}`);
+  } catch {
+    return [];
+  }
+}
+
 /** İzlənə bilən aktivlərin reyestri. */
 export async function getAssets(): Promise<import("@/types").Asset[]> {
   try {
