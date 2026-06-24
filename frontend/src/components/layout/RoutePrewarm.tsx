@@ -22,6 +22,7 @@ const ROUTES = [
   "/markets",
   "/watchlist",
   "/anomalies",
+  "/analogs",
   "/compare",
   "/correlation",
   "/powerlaw",

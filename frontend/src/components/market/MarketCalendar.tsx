@@ -245,7 +245,7 @@ function Card({
       <SaveWrap
         saved={{ id: `earn:${e.sym}:${e.date}`, name: e.name, badge: e.sym, sub, href }}
       >
-        <Link href={href} target="_blank" className={`${CARD} w-44`}>
+        <Link href={href} className={`${CARD} w-44`}>
           <div className="flex items-center justify-between">
             <span className="rounded bg-accent/15 px-1.5 py-0.5 font-mono text-[11px] font-bold tracking-wider text-accent">
               {e.sym}
@@ -275,7 +275,7 @@ function Card({
       <SaveWrap
         saved={{ id: `unlock:${u.sym}:${u.date}`, name: u.sym, badge: u.sym, sub, href }}
       >
-        <Link href={href} target="_blank" className={`${CARD} w-44`}>
+        <Link href={href} className={`${CARD} w-44`}>
           <div className="flex items-center justify-between">
             <span className="rounded bg-accent/15 px-1.5 py-0.5 font-mono text-[11px] font-bold tracking-wider text-accent">
               {u.sym}
@@ -311,7 +311,6 @@ function Card({
             badge: q.sym,
             sub: `${q.val}  ${q.chg}`,
           })}
-          target="_blank"
           className={`${CARD} w-44`}
         >
           <div className="flex items-center justify-between">
@@ -349,7 +348,7 @@ function Card({
       <SaveWrap
         saved={{ id: `cevent:${e.sym}:${e.date}:${e.type}`, name, badge: e.sym, sub, href }}
       >
-        <Link href={href} target="_blank" className={`${CARD} w-44`}>
+        <Link href={href} className={`${CARD} w-44`}>
           <div className="flex items-center justify-between">
             <span className="rounded bg-accent/15 px-1.5 py-0.5 font-mono text-[11px] font-bold tracking-wider text-accent">
               {e.sym}
@@ -389,7 +388,7 @@ function Card({
         href,
       }}
     >
-      <Link href={href} target="_blank" className={`${CARD} w-48`}>
+      <Link href={href} className={`${CARD} w-48`}>
         <div className="flex items-center justify-between">
           <span className="rounded bg-surface-hover px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-wider text-text/80">
             {e.country}

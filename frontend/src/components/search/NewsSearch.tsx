@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Search, X, CornerDownLeft } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { searchNews } from "@/lib/api";
@@ -129,11 +130,10 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
           )}
 
           {results.map((n) => (
-            <a
+            <Link
               key={n.id}
               href={`/news/${n.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
+              onClick={onClose}
               className="flex items-start gap-3 border-t border-border px-4 py-3 transition-colors hover:bg-surface-hover"
             >
               <span className="mt-0.5 rounded-md bg-accent/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-accent">
@@ -143,7 +143,7 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
                 {localizedNews(n, lang).title}
               </span>
               <CornerDownLeft size={14} className="mt-1 shrink-0 text-muted" />
-            </a>
+            </Link>
           ))}
         </div>
       </div>

@@ -43,7 +43,6 @@ function TrendCard({ news, rank }: { news: NewsItem; rank: number }) {
   return (
     <Link
       href={`/news/${news.id}`}
-      target="_blank"
       onMouseEnter={() => prefetchForecast(news.id, lang)}
       onFocus={() => prefetchForecast(news.id, lang)}
       className="group flex w-64 shrink-0 flex-col gap-2 rounded-card border border-border bg-surface p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/50"

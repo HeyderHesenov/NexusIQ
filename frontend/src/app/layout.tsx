@@ -26,6 +26,8 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, title: "NexusIQ", statusBarStyle: "black-translucent" },
   icons: { icon: "/icon.svg", apple: "/icon-192.png" },
+  // Müasir standart (apple-mobile-web-app-capable deprekasiyasını əvəzləyir).
+  other: { "mobile-web-app-capable": "yes" },
 };
 
 export const viewport: Viewport = {

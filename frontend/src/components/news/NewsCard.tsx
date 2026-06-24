@@ -23,7 +23,6 @@ export function NewsCard({ news }: { news: NewsItem }) {
   return (
     <Link
       href={`/news/${news.id}`}
-      target="_blank"
       onMouseEnter={() => prefetchForecast(news.id, lang)}
       onFocus={() => prefetchForecast(news.id, lang)}
       className="group flex flex-col overflow-hidden rounded-card border border-border bg-surface transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-[0_12px_30px_-12px_var(--shadow)]"

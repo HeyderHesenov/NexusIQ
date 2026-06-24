@@ -84,7 +84,6 @@ function SavedEventCard({ event }: { event: SavedEvent }) {
     <div className="group relative">
       <Link
         href={event.href}
-        target="_blank"
         className="flex h-full flex-col gap-2 rounded-card border border-border bg-surface px-4 py-3.5 transition-colors duration-150 hover:border-accent/60"
       >
         <div className="flex items-center justify-between gap-2">

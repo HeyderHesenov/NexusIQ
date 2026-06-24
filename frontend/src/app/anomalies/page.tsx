@@ -367,7 +367,6 @@ function AnomalyWhy({ assetKey }: { assetKey: string }) {
           <Link
             key={n.id}
             href={`/news/${n.id}`}
-            target="_blank"
             className="block truncate text-[13px] text-text/80 transition-colors hover:text-accent"
           >
             {localizedNews(n, lang).title}
