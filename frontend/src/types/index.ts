@@ -18,6 +18,16 @@ export interface NewsItem {
   translations?: Record<string, { title: string; body: string }> | null;
 }
 
+/** Saxlanan bazar təqvim hadisəsi — kartın /brief normallaşmasından qurulur. */
+export interface SavedEvent {
+  id: string; // sabit törəmə açar
+  name: string; // başlıq
+  badge: string; // sym / ölkə
+  sub: string; // tarix · meta sətri
+  href: string; // /brief linki
+  savedAt: number;
+}
+
 export type Impact = "up" | "down" | "mixed" | "neutral";
 
 export interface ForecastPair {

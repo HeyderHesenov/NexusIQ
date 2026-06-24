@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CalendarDays, Check, ChevronDown, Search } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useClickOutside } from "@/lib/useClickOutside";
+import { SaveEventButton } from "@/components/market/SaveEventButton";
 import type { CalCategory, CalKind } from "@/lib/marketCategories";
 import type {
   CalEvent,
@@ -12,7 +13,30 @@ import type {
   Earning,
   MajorEvent,
   Quote,
+  SavedEvent,
 } from "@/types";
+
+type SavedPayload = Omit<SavedEvent, "savedAt">;
+
+/** Kart + (təqvim hadisəsidirsə) hover-də görünən saxla düyməsi. */
+function SaveWrap({
+  saved,
+  children,
+}: {
+  saved: SavedPayload | null;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="group relative shrink-0">
+      {children}
+      {saved && (
+        <div className="absolute bottom-1.5 right-1.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+          <SaveEventButton event={saved} />
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** Kiçik trend qrafiki — son qiymətlərdən SVG polyline. */
 function Sparkline({ data }: { data: number[] }) {
@@ -208,174 +232,195 @@ function Card({
 }) {
   if (kind === "earnings") {
     const e = item as Earning;
+    const sub = `${fromISO(e.date)} · ${e.time}`;
+    const href = briefHref({
+      kind: "earnings",
+      name: e.name,
+      sym: e.sym,
+      badge: e.sym,
+      sub,
+      meta: e.date,
+    });
     return (
-      <Link
-        href={briefHref({
-          kind: "earnings",
-          name: e.name,
-          sym: e.sym,
-          badge: e.sym,
-          sub: `${fromISO(e.date)} · ${e.time}`,
-          meta: e.date,
-        })}
-        target="_blank"
-        className={`${CARD} w-44`}
+      <SaveWrap
+        saved={{ id: `earn:${e.sym}:${e.date}`, name: e.name, badge: e.sym, sub, href }}
       >
-        <div className="flex items-center justify-between">
-          <span className="rounded bg-accent/15 px-1.5 py-0.5 font-mono text-[11px] font-bold tracking-wider text-accent">
-            {e.sym}
-          </span>
-          <span className="font-mono text-[11px] text-muted">
-            {fromISO(e.date)} · {e.time}
-          </span>
-        </div>
-        <span className="truncate text-[13px] font-medium text-text/90">{e.name}</span>
-      </Link>
+        <Link href={href} target="_blank" className={`${CARD} w-44`}>
+          <div className="flex items-center justify-between">
+            <span className="rounded bg-accent/15 px-1.5 py-0.5 font-mono text-[11px] font-bold tracking-wider text-accent">
+              {e.sym}
+            </span>
+            <span className="font-mono text-[11px] text-muted">
+              {fromISO(e.date)} · {e.time}
+            </span>
+          </div>
+          <span className="truncate text-[13px] font-medium text-text/90">{e.name}</span>
+        </Link>
+      </SaveWrap>
     );
   }
 
   if (kind === "unlocks") {
     const u = item as CryptoUnlock;
+    const sub = `${fromISO(u.date)} · ${u.tokens} ${t("market.unlock")}`;
+    const href = briefHref({
+      kind: "unlock",
+      name: u.sym,
+      sym: u.sym,
+      badge: u.sym,
+      sub,
+      meta: `${u.tokens} tokens, ${u.category}`,
+    });
     return (
-      <Link
-        href={briefHref({
-          kind: "unlock",
-          name: u.sym,
-          sym: u.sym,
-          badge: u.sym,
-          sub: `${fromISO(u.date)} · ${u.tokens} ${t("market.unlock")}`,
-          meta: `${u.tokens} tokens, ${u.category}`,
-        })}
-        target="_blank"
-        className={`${CARD} w-44`}
+      <SaveWrap
+        saved={{ id: `unlock:${u.sym}:${u.date}`, name: u.sym, badge: u.sym, sub, href }}
       >
-        <div className="flex items-center justify-between">
-          <span className="rounded bg-accent/15 px-1.5 py-0.5 font-mono text-[11px] font-bold tracking-wider text-accent">
-            {u.sym}
-          </span>
-          <span className="font-mono text-[11px] text-muted">{fromISO(u.date)}</span>
-        </div>
-        <div className="flex items-baseline gap-1.5">
-          <span className="font-mono text-sm font-semibold tabular-nums text-text/90">
-            {u.tokens}
-          </span>
-          <span className="text-[11px] text-muted">{t("market.unlock")}</span>
-        </div>
-        {u.category && (
-          <span className="truncate font-mono text-[10px] uppercase tracking-wider text-muted/70">
-            {u.category}
-          </span>
-        )}
-      </Link>
+        <Link href={href} target="_blank" className={`${CARD} w-44`}>
+          <div className="flex items-center justify-between">
+            <span className="rounded bg-accent/15 px-1.5 py-0.5 font-mono text-[11px] font-bold tracking-wider text-accent">
+              {u.sym}
+            </span>
+            <span className="font-mono text-[11px] text-muted">{fromISO(u.date)}</span>
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-mono text-sm font-semibold tabular-nums text-text/90">
+              {u.tokens}
+            </span>
+            <span className="text-[11px] text-muted">{t("market.unlock")}</span>
+          </div>
+          {u.category && (
+            <span className="truncate font-mono text-[10px] uppercase tracking-wider text-muted/70">
+              {u.category}
+            </span>
+          )}
+        </Link>
+      </SaveWrap>
     );
   }
 
   if (kind === "prices") {
+    // canlı qiymət — təqvim hadisəsi deyil, saxlanmır.
     const q = item as Quote;
     return (
-      <Link
-        href={briefHref({
-          kind: "asset",
-          name: q.sym,
-          sym: q.sym,
-          badge: q.sym,
-          sub: `${q.val}  ${q.chg}`,
-        })}
-        target="_blank"
-        className={`${CARD} w-44`}
-      >
-        <div className="flex items-center justify-between">
-          <span className="font-mono text-[11px] font-semibold tracking-wider text-text/80">
-            {q.sym}
+      <SaveWrap saved={null}>
+        <Link
+          href={briefHref({
+            kind: "asset",
+            name: q.sym,
+            sym: q.sym,
+            badge: q.sym,
+            sub: `${q.val}  ${q.chg}`,
+          })}
+          target="_blank"
+          className={`${CARD} w-44`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-[11px] font-semibold tracking-wider text-text/80">
+              {q.sym}
+            </span>
+            <span
+              className={`font-mono text-[12px] ${q.up ? "text-emerald-400" : "text-rose-400"}`}
+            >
+              {q.chg}
+            </span>
+          </div>
+          <span className="font-mono text-lg font-semibold tabular-nums text-text">
+            {q.val}
           </span>
-          <span
-            className={`font-mono text-[12px] ${q.up ? "text-emerald-400" : "text-rose-400"}`}
-          >
-            {q.chg}
-          </span>
-        </div>
-        <span className="font-mono text-lg font-semibold tabular-nums text-text">
-          {q.val}
-        </span>
-        {q.spark && <Sparkline data={q.spark} />}
-      </Link>
+          {q.spark && <Sparkline data={q.spark} />}
+        </Link>
+      </SaveWrap>
     );
   }
 
   if (kind === "cryptoEvents") {
     const e = item as MajorEvent;
+    const name = `${e.sym} — ${t(`market.ev.${e.type}`)}`;
+    const sub = `${t(`market.ev.${e.type}`)} · ${fromISO(e.date)}`;
+    const href = briefHref({
+      kind: "cryptoEvent",
+      name,
+      sym: e.sym,
+      badge: e.sym,
+      sub,
+      meta: `${e.type}, ${e.note}`,
+    });
     return (
-      <Link
-        href={briefHref({
-          kind: "cryptoEvent",
-          name: `${e.sym} — ${t(`market.ev.${e.type}`)}`,
-          sym: e.sym,
-          badge: e.sym,
-          sub: `${t(`market.ev.${e.type}`)} · ${fromISO(e.date)}`,
-          meta: `${e.type}, ${e.note}`,
-        })}
-        target="_blank"
-        className={`${CARD} w-44`}
+      <SaveWrap
+        saved={{ id: `cevent:${e.sym}:${e.date}:${e.type}`, name, badge: e.sym, sub, href }}
       >
-        <div className="flex items-center justify-between">
-          <span className="rounded bg-accent/15 px-1.5 py-0.5 font-mono text-[11px] font-bold tracking-wider text-accent">
-            {e.sym}
+        <Link href={href} target="_blank" className={`${CARD} w-44`}>
+          <div className="flex items-center justify-between">
+            <span className="rounded bg-accent/15 px-1.5 py-0.5 font-mono text-[11px] font-bold tracking-wider text-accent">
+              {e.sym}
+            </span>
+            <span className="font-mono text-[11px] text-muted">{fromISO(e.date)}</span>
+          </div>
+          <span className="text-[13px] font-medium text-text/90">
+            {t(`market.ev.${e.type}`)}
           </span>
-          <span className="font-mono text-[11px] text-muted">{fromISO(e.date)}</span>
-        </div>
-        <span className="text-[13px] font-medium text-text/90">
-          {t(`market.ev.${e.type}`)}
-        </span>
-        {e.note && (
-          <span className="font-mono text-[11px] text-muted">{e.note}</span>
-        )}
-      </Link>
+          {e.note && (
+            <span className="font-mono text-[11px] text-muted">{e.note}</span>
+          )}
+        </Link>
+      </SaveWrap>
     );
   }
 
   // events — klikləndə hadisə analiz səhifəsi açılır (yeni tab)
   const e = item as CalEvent;
+  const sub = `${e.country} · ${e.impact} · ${fromUS(e.date)} ${e.time}`;
   const href = briefHref({
     kind: "event",
     name: e.title,
     badge: e.country,
-    sub: `${e.country} · ${e.impact} · ${fromUS(e.date)} ${e.time}`,
+    sub,
     meta: `${e.country}, impact ${e.impact}`,
     forecast: e.forecast,
     previous: e.previous,
   });
   return (
-    <Link href={href} target="_blank" className={`${CARD} w-48`}>
-      <div className="flex items-center justify-between">
-        <span className="rounded bg-surface-hover px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-wider text-text/80">
-          {e.country}
-        </span>
-        <span className="flex items-center gap-1.5 font-mono text-[11px] text-muted">
-          <span
-            className={`inline-block h-1.5 w-1.5 rounded-full ${
-              e.impact === "High" ? "bg-rose-400" : "bg-amber-400"
-            }`}
-          />
-          {fromUS(e.date)} · {e.time}
-        </span>
-      </div>
-      <p className="line-clamp-2 text-[13px] font-medium leading-snug text-text/90">
-        {e.title}
-      </p>
-      {(e.forecast || e.previous) && (
-        <div className="flex gap-3 font-mono text-[11px] text-muted">
-          {e.forecast && (
-            <span>
-              {t("market.fc")}: <span className="text-text/80">{e.forecast}</span>
-            </span>
-          )}
-          {e.previous && (
-            <span>
-              {t("market.prev")}: <span className="text-text/80">{e.previous}</span>
-            </span>
-          )}
+    <SaveWrap
+      saved={{
+        id: `event:${e.country}:${e.date}:${e.time}:${e.title}`,
+        name: e.title,
+        badge: e.country,
+        sub,
+        href,
+      }}
+    >
+      <Link href={href} target="_blank" className={`${CARD} w-48`}>
+        <div className="flex items-center justify-between">
+          <span className="rounded bg-surface-hover px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-wider text-text/80">
+            {e.country}
+          </span>
+          <span className="flex items-center gap-1.5 font-mono text-[11px] text-muted">
+            <span
+              className={`inline-block h-1.5 w-1.5 rounded-full ${
+                e.impact === "High" ? "bg-rose-400" : "bg-amber-400"
+              }`}
+            />
+            {fromUS(e.date)} · {e.time}
+          </span>
         </div>
-      )}
-    </Link>
+        <p className="line-clamp-2 text-[13px] font-medium leading-snug text-text/90">
+          {e.title}
+        </p>
+        {(e.forecast || e.previous) && (
+          <div className="flex gap-3 font-mono text-[11px] text-muted">
+            {e.forecast && (
+              <span>
+                {t("market.fc")}: <span className="text-text/80">{e.forecast}</span>
+              </span>
+            )}
+            {e.previous && (
+              <span>
+                {t("market.prev")}: <span className="text-text/80">{e.previous}</span>
+              </span>
+            )}
+          </div>
+        )}
+      </Link>
+    </SaveWrap>
   );
 }
