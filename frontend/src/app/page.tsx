@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { AppNav } from "@/components/layout/AppNav";
 import { Footer } from "@/components/layout/Footer";
 import { Ticker } from "@/components/market/Ticker";
-import { AIAssistantFab } from "@/components/ai/AIAssistantFab";
 import { NewsCard } from "@/components/news/NewsCard";
 import { TrendingStrip } from "@/components/news/TrendingStrip";
 import { CategorySelect } from "@/components/news/CategorySelect";
@@ -112,7 +111,6 @@ export default function HomePage() {
         )}
       </main>
 
-      <AIAssistantFab />
       <Footer />
     </div>
   );

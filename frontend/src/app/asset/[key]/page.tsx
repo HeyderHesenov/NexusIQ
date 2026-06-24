@@ -6,7 +6,6 @@ import { AppNav } from "@/components/layout/AppNav";
 import { Footer } from "@/components/layout/Footer";
 import { LineChart } from "@/components/charts/LineChart";
 import { WatchButton } from "@/components/assets/WatchButton";
-import { AIAssistantFab } from "@/components/ai/AIAssistantFab";
 import { getAssetDetail, getAssetNews, type AssetNewsItem } from "@/lib/api";
 import { addAlert } from "@/lib/alerts";
 import { formatDateTime } from "@/lib/utils";
@@ -163,7 +162,6 @@ export default function AssetPage() {
           </>
         )}
       </main>
-      <AIAssistantFab />
       <Footer />
     </div>
   );

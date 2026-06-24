@@ -7,7 +7,6 @@ import { Ticker } from "@/components/market/Ticker";
 import { CategorySelect } from "@/components/news/CategorySelect";
 import { MarketCalendar } from "@/components/market/MarketCalendar";
 import { FearGreed } from "@/components/market/FearGreed";
-import { AIAssistantFab } from "@/components/ai/AIAssistantFab";
 import { CATEGORIES } from "@/lib/marketCategories";
 import { useI18n } from "@/lib/i18n";
 import type { Category } from "@/types";
@@ -43,7 +42,6 @@ export default function MarketsPage() {
         <MarketCalendar key={active} categories={CATEGORIES[active]} />
       </main>
 
-      <AIAssistantFab />
       <Footer />
     </div>
   );

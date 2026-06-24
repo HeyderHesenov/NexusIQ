@@ -6,6 +6,7 @@ import { LanguageProvider } from "@/lib/i18n";
 import { ThemeProvider } from "@/lib/theme";
 import { AlertWatcher } from "@/components/alerts/AlertWatcher";
 import { RoutePrewarm } from "@/components/layout/RoutePrewarm";
+import { AIAssistantFab } from "@/components/ai/AIAssistantFab";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -55,7 +56,11 @@ export default function RootLayout({
       <body className="min-h-screen bg-bg text-text font-sans antialiased">
         <ThemeProvider>
           <LanguageProvider>
-            <AuthGate>{children}</AuthGate>
+            <AuthGate>
+              {children}
+              {/* AI Assistant — bütün authed səhifələrdə üzən giriş */}
+              <AIAssistantFab />
+            </AuthGate>
             <AlertWatcher />
             <RoutePrewarm />
           </LanguageProvider>

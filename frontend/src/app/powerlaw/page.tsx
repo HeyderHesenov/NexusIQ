@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { AppNav } from "@/components/layout/AppNav";
 import { Footer } from "@/components/layout/Footer";
 import { PowerLawChart } from "@/components/powerlaw/PowerLawChart";
-import { AIAssistantFab } from "@/components/ai/AIAssistantFab";
 import { getPowerLaw, getPowerLawAssets } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import type { PowerLaw } from "@/types";
@@ -154,7 +153,6 @@ export default function PowerLawPage() {
           </>
         )}
       </main>
-      <AIAssistantFab />
       <Footer />
     </div>
   );
