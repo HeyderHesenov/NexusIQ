@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Activity, RefreshCw } from "lucide-react";
+import { Activity, Eye, RefreshCw } from "lucide-react";
 import { AppNav } from "@/components/layout/AppNav";
 import { Footer } from "@/components/layout/Footer";
 import { getAnomalies } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
-import type { Anomaly, AnomalySeverity } from "@/types";
+import type { AnomalyScan, AnomalySeverity, NearMove } from "@/types";
 
 // Şiddət rəngləri — istiqamətdən (yaşıl/qırmızı) ayrı semantik siqnal.
 const SEV: Record<AnomalySeverity, { dot: string; ring: string; key: string }> = {
@@ -69,14 +69,14 @@ function DeviationGauge({ z, up }: { z: number; up: boolean }) {
 
 export default function AnomaliesPage() {
   const { t } = useI18n();
-  const [rows, setRows] = useState<Anomaly[]>([]);
+  const [scan, setScan] = useState<AnomalyScan | null>(null);
   const [status, setStatus] = useState<"loading" | "ready">("loading");
   const [scanning, setScanning] = useState(false);
 
   const load = useCallback(async (refresh: boolean) => {
     if (refresh) setScanning(true);
     const data = await getAnomalies(refresh);
-    setRows(data);
+    setScan(data);
     setStatus("ready");
     setScanning(false);
   }, []);
@@ -85,7 +85,10 @@ export default function AnomaliesPage() {
     load(false);
   }, [load]);
 
-  const asof = rows[0]?.asof ?? "";
+  const rows = scan?.anomalies ?? [];
+  const near = scan?.near ?? [];
+  const stats = scan?.stats;
+  const asof = scan?.asof ?? "";
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -132,6 +135,20 @@ export default function AnomaliesPage() {
             </span>
           </button>
         </div>
+
+        {/* stat zolağı — skan əhatəsi bir baxışda */}
+        {status === "ready" && stats && (
+          <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <StatCard label={t("anom.statUniverse")} value={stats.universe} />
+            <StatCard
+              label={t("anom.statAnomalies")}
+              value={stats.anomalies}
+              accent={stats.anomalies > 0}
+            />
+            <StatCard label={t("anom.statWatch")} value={stats.near} />
+            <StatCard label={t("anom.statAsof")} value={asof || "—"} mono />
+          </div>
+        )}
 
         {/* skeleton */}
         {status === "loading" && (
@@ -225,8 +242,98 @@ export default function AnomaliesPage() {
             </p>
           </div>
         )}
+
+        {/* müşahidə altında — sub-həddi erkən siqnallar */}
+        {status === "ready" && near.length > 0 && (
+          <section className="mt-8">
+            <div className="mb-1 flex items-center gap-2">
+              <Eye size={16} className="text-accent" />
+              <h2 className="font-mono text-xs uppercase tracking-[0.2em] text-accent">
+                {t("anom.watchTitle")}
+              </h2>
+            </div>
+            <p className="mb-3 text-sm text-muted">{t("anom.watchSub")}</p>
+
+            <div className="space-y-2">
+              {near.map((n) => (
+                <WatchRow key={n.key} n={n} />
+              ))}
+            </div>
+
+            <p className="pt-3 text-center text-[11px] text-muted/70">
+              {t("anom.watchFootnote")}
+            </p>
+          </section>
+        )}
       </main>
       <Footer />
+    </div>
+  );
+}
+
+/** Stat kartı — skan əhatəsi (powerlaw/brief üslubu ilə uyğun). */
+function StatCard({
+  label,
+  value,
+  accent,
+  mono,
+}: {
+  label: string;
+  value: number | string;
+  accent?: boolean;
+  mono?: boolean;
+}) {
+  return (
+    <div className="rounded-card border border-border bg-surface px-4 py-2.5">
+      <div className="font-mono text-[10px] uppercase tracking-wider text-muted">
+        {label}
+      </div>
+      <div
+        className={`mt-0.5 font-semibold tabular-nums ${
+          mono ? "font-mono text-sm" : "font-mono text-lg"
+        } ${accent ? "text-accent" : "text-text"}`}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+/** Müşahidə sətri — anomaliya kartının yüngül variantı (eyni σ-qauç). */
+function WatchRow({ n }: { n: NearMove }) {
+  const { t } = useI18n();
+  const up = n.change_pct >= 0;
+  return (
+    <div className="rounded-card border border-border bg-surface transition-colors hover:bg-surface-hover">
+      <div className="grid grid-cols-[1fr_auto] items-center gap-4 px-4 py-3 sm:grid-cols-[200px_1fr_120px]">
+        <div className="min-w-0">
+          <Link
+            href={`/asset/${n.key}`}
+            className="block truncate font-medium hover:text-accent"
+          >
+            {n.label}
+          </Link>
+          <span className="text-[11px] text-muted">{n.type}</span>
+        </div>
+
+        <div className="order-3 col-span-2 mt-1 sm:order-none sm:col-span-1 sm:mt-0">
+          <DeviationGauge z={n.price_z} up={up} />
+        </div>
+
+        <div className="text-right">
+          <div
+            className={`font-mono text-base font-semibold ${
+              up ? "text-up" : "text-down"
+            }`}
+          >
+            {n.change_pct > 0 ? "+" : ""}
+            {n.change_pct.toFixed(2)}%
+          </div>
+          <div className="mt-0.5 font-mono text-[11px] text-muted">
+            vol z {n.volume_z.toFixed(1)}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

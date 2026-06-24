@@ -373,26 +373,31 @@ export async function getAssetsOverview(
 
 /** Cari qiymət/həcm anomaliyaları (5 dəq keş; refresh məcburi yeniləyir). */
 // Anomaliya client-keşi — səhifə açılışı dərhal göstərsin (skeleton yanıb-sönməsin).
-let _anomCache: { ts: number; data: import("@/types").Anomaly[] } | null = null;
-let _anomInflight: Promise<import("@/types").Anomaly[]> | null = null;
+type AnomalyScan = import("@/types").AnomalyScan;
+const _emptyScan = (): AnomalyScan => ({
+  asof: "",
+  anomalies: [],
+  near: [],
+  stats: { universe: 0, anomalies: 0, near: 0 },
+});
+let _anomCache: { ts: number; data: AnomalyScan } | null = null;
+let _anomInflight: Promise<AnomalyScan> | null = null;
 const _ANOM_TTL = 60_000;
 
-export async function getAnomalies(
-  refresh = false,
-): Promise<import("@/types").Anomaly[]> {
+export async function getAnomalies(refresh = false): Promise<AnomalyScan> {
   if (!refresh && _anomCache && Date.now() - _anomCache.ts < _ANOM_TTL) {
     return _anomCache.data;
   }
   if (!refresh && _anomInflight) return _anomInflight;
   const run = (async () => {
     try {
-      const d = await apiGet<import("@/types").Anomaly[]>(
+      const d = await apiGet<AnomalyScan>(
         `/anomalies${refresh ? "?refresh=true" : ""}`,
       );
       _anomCache = { ts: Date.now(), data: d };
       return d;
     } catch {
-      return _anomCache?.data ?? [];
+      return _anomCache?.data ?? _emptyScan();
     } finally {
       _anomInflight = null;
     }

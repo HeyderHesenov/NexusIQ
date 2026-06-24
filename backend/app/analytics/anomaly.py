@@ -25,6 +25,8 @@ _MAD_SCALE = 0.6745
 _PRICE_Z = 3.0
 _VOLUME_Z = 2.0
 _WINDOW = 90  # gündəlik nöqtə
+_NEAR_Z = 1.5  # müşahidə astanası — bundan aşağı hərəkət "sakit"
+_NEAR_LIMIT = 8  # müşahidə siyahısında maksimum aktiv
 
 _TTL = 300.0  # 5 dəqiqə keş
 _cache: dict = {"ts": 0.0, "data": []}
@@ -68,32 +70,49 @@ def _severity(price_z: float) -> str:
 
 
 def _evaluate(key: str, label: str, typ: str, closes: list[float],
-              volumes: list[float], asof: str) -> dict | None:
-    """Bir aktivin son nöqtəsini yoxla — anomaliya varsa obyekt qaytar."""
+              volumes: list[float], asof: str) -> tuple[dict | None, dict | None]:
+    """Bir aktivin son nöqtəsini yoxla.
+
+    Qaytarır `(anomaly_or_None, meta_or_None)`:
+    - `meta` — z-balları hesablandısa (həcm təsdiqi var) ümumi ölçü obyekti;
+      None = data çatmır / həcmsiz aktiv (forex).
+    - `anomaly` — yalnız hədd keçilibsə (|price_z|≥3 VƏ volume_z≥2), `severity` ilə.
+    Beləcə sub-həddi "müşahidə" siyahısı təkrar hesablama olmadan qurulur (DRY).
+    """
     if len(closes) < 30:
-        return None
+        return None, None
     returns = [closes[i] / closes[i - 1] - 1.0
                for i in range(1, len(closes)) if closes[i - 1]]
     price_z = robust_z(returns[-_WINDOW:])
     volume_z = robust_z(volumes[-_WINDOW:]) if volumes else None
     if price_z is None or volume_z is None:
-        return None
-    if abs(price_z) < _PRICE_Z or volume_z < _VOLUME_Z:
-        return None
-    return {
+        return None, None
+    meta = {
         "key": key,
         "label": label,
         "type": typ,
         "price_z": round(price_z, 2),
         "volume_z": round(volume_z, 2),
         "change_pct": round(returns[-1] * 100, 2),
-        "severity": _severity(price_z),
         "last": round(closes[-1], 4),
         "asof": asof,
     }
+    if abs(price_z) < _PRICE_Z or volume_z < _VOLUME_Z:
+        return None, meta  # həddi keçməyib — müşahidə namizədi
+    return {**meta, "severity": _severity(price_z)}, meta
 
 
-def _scan_sync() -> list[dict]:
+def _empty() -> dict:
+    """Boş skan nəticəsi — endpoint forması həmişə sabit qalsın."""
+    return {
+        "asof": "",
+        "anomalies": [],
+        "near": [],
+        "stats": {"universe": len(ASSETS), "anomalies": 0, "near": 0},
+    }
+
+
+def _scan_sync() -> dict:
     """Reyestri toplu çək (tək yf çağırışı) və hər aktivi yoxla."""
     syms = [s for _, _, s, _, _ in ASSETS]
     try:
@@ -102,16 +121,17 @@ def _scan_sync() -> list[dict]:
             auto_adjust=True, progress=False, threads=True,
         )
     except Exception:  # noqa: BLE001
-        return []
+        return _empty()
     if df is None or df.empty:
-        return []
+        return _empty()
     closes = df.get("Close")
     volumes = df.get("Volume")
     if closes is None:
-        return []
+        return _empty()
 
     asof = str(closes.index[-1].date()) if len(closes.index) else ""
     out: list[dict] = []
+    near: list[dict] = []  # sub-həddi, lakin normadan uzaqlaşan (erkən siqnal)
     for key, label, sym, typ, _dec in ASSETS:
         try:
             c = closes[sym].dropna() if sym in closes else None
@@ -122,21 +142,35 @@ def _scan_sync() -> list[dict]:
             if volumes is not None and sym in volumes:
                 v = volumes[sym].dropna()
                 vl = [float(x) for x in v if x and float(x) > 0]
-            res = _evaluate(key, label, typ, cl, vl, asof)
+            res, meta = _evaluate(key, label, typ, cl, vl, asof)
             if res:
                 out.append(res)
+            elif meta is not None and abs(meta["price_z"]) >= _NEAR_Z:
+                near.append(meta)  # həcm təsdiqi var, hələ astanaya çatmayıb
         except (KeyError, IndexError, ValueError, TypeError):
             continue
     # Şiddətə görə sırala (ekstremal əvvəl), sonra |price_z|.
     rank = {"extreme": 0, "high": 1, "medium": 2}
     out.sort(key=lambda a: (rank[a["severity"]], -abs(a["price_z"])))
-    return out
+    # Müşahidə: ən kəskin hərəkətlər əvvəl, top N.
+    near.sort(key=lambda a: -abs(a["price_z"]))
+    near = near[:_NEAR_LIMIT]
+    return {
+        "asof": asof,
+        "anomalies": out,
+        "near": near,
+        "stats": {
+            "universe": len(ASSETS),
+            "anomalies": len(out),
+            "near": len(near),
+        },
+    }
 
 
-async def scan_all(force: bool = False) -> list[dict]:
+async def scan_all(force: bool = False) -> dict:
     """Bütün reyestri yoxla (SWR — köhnə keş dərhal, arxa planda yenilə)."""
-    return await swr.get(_cache, _TTL, _refresh, force=force) or []
+    return await swr.get(_cache, _TTL, _refresh, force=force) or _empty()
 
 
-async def _refresh() -> list[dict]:
+async def _refresh() -> dict:
     return await asyncio.to_thread(_scan_sync)

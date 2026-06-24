@@ -227,6 +227,17 @@ export interface Anomaly {
   asof: string;
 }
 
+/** Müşahidə altında — həddi keçməyən, lakin normadan uzaqlaşan aktiv (severity yox). */
+export type NearMove = Omit<Anomaly, "severity">;
+
+/** /anomalies cavabı — anomaliyalar + müşahidə siyahısı + statistika. */
+export interface AnomalyScan {
+  asof: string;
+  anomalies: Anomaly[];
+  near: NearMove[];
+  stats: { universe: number; anomalies: number; near: number };
+}
+
 export interface PowerLawProjection {
   years: number;
   date: string;

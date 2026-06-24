@@ -105,11 +105,12 @@ async def _anomaly_cycle() -> None:
     from app.analytics import anomaly
 
     try:
-        found = await anomaly.scan_all(force=True)
+        scan = await anomaly.scan_all(force=True)
     except Exception:  # noqa: BLE001
         logger.exception("Anomaliya skanı xətası")
         return
 
+    found = scan.get("anomalies", [])
     extreme_new = [
         a for a in found
         if a["severity"] == "extreme"
