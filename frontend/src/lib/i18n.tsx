@@ -244,7 +244,7 @@ const DICT: Record<Lang, Dict> = {
     "analog.ex2": "Yüksək CPI inflyasiyası",
     "analog.ex3": "Bitcoin ETF axını",
     "analog.ex4": "OPEC neft kəsintisi",
-    "analog.readTitle": "Nəticəni necə oxu",
+    "analog.readTitle": "Nəticəni necə oxumalısan?",
     "analog.read1t": "Orta hərəkət",
     "analog.read1d": "Bənzər hadisələrdən sonra aktivin orta gəliri.",
     "analog.read2t": "Uğur faizi",
