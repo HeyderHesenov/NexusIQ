@@ -54,10 +54,23 @@ async def ingest_cycle() -> None:
     # Yeni xəbərlər ingest_once daxilində drenaj olunur. Burada da çağırırıq ki,
     # keçən dövrdə gtx uğursuzluğundan tərcüməsiz qalan elementlər retry olunsun
     # (boşdursa ucuz — dərhal pending:0 qaytarır). Self-healing.
+    await _summary_cycle()
     await _translate_cycle()
     await _image_cycle()
     await _embed_cycle()
     await _anomaly_cycle()
+
+
+async def _summary_cycle() -> None:
+    """Təsvirsiz son xəbərlərə AI xülasə (yalnız ai_summary_max_age_days günü)."""
+    from app.agents.summarize_ai import summarize_all_pending
+
+    try:
+        stats = await summarize_all_pending()
+        if stats.get("summarized"):
+            logger.info("AI xülasə — %s xəbər", stats["summarized"])
+    except Exception:  # noqa: BLE001
+        logger.exception("AI xülasə dövrü xətası")
 
 
 async def _translate_cycle() -> None:
@@ -87,8 +100,16 @@ async def startup_catchup() -> None:
     """Başlanğıc tutması — restart-dan sonra interval gözləmədən tərcüməsiz
     backlog-u + keçmiş kilidlənmiş İngiliscəni + şəkilsizliyi dərhal təmizləyir
     (scheduler ilk dövrü 60 dəq sonra atır)."""
+    from app.agents.summarize_ai import summarize_all_pending
     from app.agents.translate_free import retranslate_stale, translate_all_pending
     from app.ingestion.enrich_images import backfill as image_backfill
+
+    try:
+        summ = await summarize_all_pending()
+        if summ.get("summarized"):
+            logger.info("Başlanğıc AI xülasə — %s xəbər", summ["summarized"])
+    except Exception:  # noqa: BLE001
+        logger.exception("Başlanğıc AI xülasə xətası")
 
     try:
         stats = await translate_all_pending()

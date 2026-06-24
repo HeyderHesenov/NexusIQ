@@ -35,9 +35,13 @@ async def ingest_once() -> dict[str, int]:
             stats["pushed"] = push_stats["sent"]
 
     if stats.get("added", 0) > 0:
+        from app.agents.summarize_ai import summarize_all_pending
         from app.agents.translate_free import translate_all_pending
         from app.ingestion.enrich_images import backfill as image_backfill
 
+        # Təsvirsiz yeni xəbərlərə AI xülasə (tərcümədən ƏVVƏL ki, yeni body də
+        # 4 dilə çevrilsin).
+        stats["summarized"] = (await summarize_all_pending()).get("summarized", 0)
         stats["translated"] = (await translate_all_pending()).get("translated", 0)
         # Şəkilsiz yeni xəbərlərə naşirin og:image-ini doldur — manual ingest də
         # thumbnail-li olsun (scheduler dövrünü gözləmədən).

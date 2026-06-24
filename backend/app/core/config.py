@@ -53,6 +53,16 @@ class Settings(BaseSettings):
     # "zəhərlənmə"yə (xəta→orijinal mətn saxlanır) gətirə bilər.
     free_translate_batch: int = 30
 
+    # ---- AI xülasə (təsvirsiz xəbərlər üçün, GPT — XƏRC) ----
+    # Bəzi mənbələr (məs. Yahoo) RSS-də təsvir vermir → kart boş görünür.
+    # Bu xəbərlər üçün GPT məqalə kontekstinə əsasən qısa, sadiq xülasə yazır.
+    # Halüsinasiyanı önləmək üçün əvvəl məqalə mətni çəkilir (pulsuz), sonra GPT.
+    ai_summary_enabled: bool = True
+    ai_summary_batch: int = 8
+    # Avtomatik dövr yalnız son N günün təsvirsiz xəbərlərini emal edir (xərc nəzarəti);
+    # köhnə backlog yalnız manual CLI ilə (python -m app.agents.summarize_ai).
+    ai_summary_max_age_days: int = 21
+
     # ---- Web Push (VAPID) ----
     vapid_private_key: str = ""
     vapid_public_key: str = ""
