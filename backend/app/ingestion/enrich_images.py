@@ -70,12 +70,17 @@ async def backfill(limit: int = 200) -> dict[str, int]:
         )
 
     found = 0
+    ids = [rid for rid, img in results if img]
     async with AsyncSessionLocal() as session:
+        by_id = {
+            n.id: n
+            for n in (
+                await session.scalars(select(News).where(News.id.in_(ids)))
+            ).all()
+        }
         for row_id, img in results:
-            if not img:
-                continue
-            news = await session.get(News, row_id)
-            if news:
+            news = by_id.get(row_id)
+            if img and news is not None:
                 news.image_url = img[:1000]
                 found += 1
         await session.commit()

@@ -1,6 +1,7 @@
 """Web Push xidməti — abunə saxla/sil + bildiriş göndər (pywebpush)."""
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 
@@ -73,10 +74,14 @@ async def send_to_all(session: AsyncSession, payload: dict) -> dict[str, int]:
         return {"sent": 0, "removed": 0, "total": 0}
 
     subs = (await session.scalars(select(PushSubscription))).all()
+    # Sinxron webpush çağırışlarını paralel thread-lərdə işlət — event loop
+    # bloklanmasın (əks halda N abunə serial göndərilir).
+    statuses = await asyncio.gather(
+        *(asyncio.to_thread(_send_raw, sub, payload) for sub in subs)
+    )
     sent = 0
     dead_endpoints: list[str] = []
-    for sub in subs:
-        status = _send_raw(sub, payload)
+    for sub, status in zip(subs, statuses):
         if status in _DEAD_STATUS:
             dead_endpoints.append(sub.endpoint)
         else:

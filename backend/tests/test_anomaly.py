@@ -49,7 +49,7 @@ def test_evaluate_requires_volume_confirmation() -> None:
         closes.append(closes[-1] * (1 + 0.001 * ((-1) ** i)))
     closes.append(closes[-1] * 1.12)  # böyük qiymət sıçrayışı
     quiet_vol = [1000.0 + ((-1) ** i) for i in range(len(closes))]
-    res = anomaly._evaluate("x", "X", "index", closes, quiet_vol, "2026-06-22")
+    res, _meta = anomaly._evaluate("x", "X", "index", closes, quiet_vol, "2026-06-22")
     assert res is None, "həcm təsdiqi olmadan anomaliya olmamalı"
 
 
@@ -60,11 +60,12 @@ def test_evaluate_full_anomaly() -> None:
     closes.append(closes[-1] * 1.12)  # qiymət sıçrayışı
     vols = [1000.0 + ((-1) ** i) for i in range(90)]
     vols.append(9000.0)  # həcm sıçrayışı
-    res = anomaly._evaluate("gold", "Gold", "metal", closes, vols, "2026-06-22")
+    res, meta = anomaly._evaluate("gold", "Gold", "metal", closes, vols, "2026-06-22")
     assert res is not None, "anomaliya gözlənilirdi"
     assert res["severity"] in ("high", "extreme")
     assert res["change_pct"] > 10
     assert res["volume_z"] >= 2
+    assert meta is not None and "severity" not in meta  # meta sub-həddi forması
 
 
 def test_severity_bands() -> None:

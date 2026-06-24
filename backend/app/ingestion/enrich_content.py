@@ -52,7 +52,9 @@ async def _fetch(sem, client, row_id, url):
         try:
             r = await client.get(url, timeout=15.0)
             r.raise_for_status()
-            return row_id, _extract(r.text[:400_000])
+            # CPU-tutumlu HTML parse-ı thread-ə ver — event loop bloklanmasın.
+            text = await asyncio.to_thread(_extract, r.text[:400_000])
+            return row_id, text
         except (httpx.HTTPError, httpx.TimeoutException):
             return row_id, None
 
@@ -79,12 +81,17 @@ async def backfill(limit: int = 300) -> dict[str, int]:
         )
 
     found = 0
+    ids = [rid for rid, text in results if text]
     async with AsyncSessionLocal() as session:
+        by_id = {
+            n.id: n
+            for n in (
+                await session.scalars(select(News).where(News.id.in_(ids)))
+            ).all()
+        }
         for row_id, text in results:
-            if not text:
-                continue
-            news = await session.get(News, row_id)
-            if news is None:
+            news = by_id.get(row_id)
+            if not text or news is None:
                 continue
             news.content = text
             found += 1

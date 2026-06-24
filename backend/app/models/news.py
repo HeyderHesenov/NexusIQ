@@ -72,6 +72,8 @@ class News(Base, TimestampMixin):
 
     __table_args__ = (
         Index("ix_news_category_published", "category", "published_at"),
+        # Trending/fallback sıralaması: impact_score DESC, published_at DESC.
+        Index("ix_news_impact_published", "impact_score", "published_at"),
     )
 
     def __repr__(self) -> str:

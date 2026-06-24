@@ -48,12 +48,17 @@ async def process_pending(limit: int = 12) -> dict[str, int]:
     )
 
     processed = 0
+    ids = [row_id for row_id, tr in results if tr]
     async with AsyncSessionLocal() as session:
+        by_id = {
+            n.id: n
+            for n in (
+                await session.scalars(select(News).where(News.id.in_(ids)))
+            ).all()
+        }
         for row_id, tr in results:
-            if not tr:
-                continue
-            news = await session.get(News, row_id)
-            if news is None:
+            news = by_id.get(row_id)
+            if not tr or news is None:
                 continue
             news.translations = tr
             az = tr.get("az") or {}

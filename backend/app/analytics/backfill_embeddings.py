@@ -49,9 +49,16 @@ async def embed_pending(limit: int | None = None) -> dict[str, int]:
     vectors = await embed.embed_texts([_text(t, s) for _, t, s in pending])
 
     embedded = 0
+    ids = [row_id for row_id, _, _ in pending]
     async with AsyncSessionLocal() as session:
+        by_id = {
+            n.id: n
+            for n in (
+                await session.scalars(select(News).where(News.id.in_(ids)))
+            ).all()
+        }
         for (row_id, _, _), vec in zip(pending, vectors):
-            news = await session.get(News, row_id)
+            news = by_id.get(row_id)
             if news is None:
                 continue
             news.embedding = [round(float(x), 6) for x in vec.tolist()]

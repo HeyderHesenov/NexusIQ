@@ -14,7 +14,10 @@ from app.core.config import settings
 engine = create_async_engine(
     settings.database_url,
     echo=False,
-    pool_pre_ping=True,
+    pool_pre_ping=True,  # köhnəlmiş bağlantıları sorğudan əvvəl yoxla
+    pool_size=10,  # daimi bağlantı hovuzu
+    max_overflow=20,  # yük zamanı əlavə bağlantılar
+    pool_recycle=1800,  # 30 dəq sonra bağlantını yenilə (idle timeout)
     future=True,
 )
 

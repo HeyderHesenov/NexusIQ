@@ -87,12 +87,19 @@ async def translate_pending(limit: int | None = None) -> dict[str, int]:
         return {"pending": 0, "translated": 0}
 
     translated = 0
+    ids = [row_id for row_id, _, _, _ in pending]
     async with AsyncSessionLocal() as session:
+        by_id = {
+            n.id: n
+            for n in (
+                await session.scalars(select(News).where(News.id.in_(ids)))
+            ).all()
+        }
         for row_id, title, summary, lang in pending:
-            tr = await translate_news(title, summary, source_lang=lang or "en")
-            news = await session.get(News, row_id)
+            news = by_id.get(row_id)
             if news is None:
                 continue
+            tr = await translate_news(title, summary, source_lang=lang or "en")
             news.translations = tr
             az = tr.get("az") or {}
             news.title_az = az.get("title")

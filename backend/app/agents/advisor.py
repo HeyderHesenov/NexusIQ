@@ -16,7 +16,7 @@ import json
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import defer, selectinload
 
 from app.agents.llm import (
     anthropic_client,
@@ -98,7 +98,7 @@ async def _rag_context(session: AsyncSession, question: str, lang: str) -> str:
         rows = (
             await session.scalars(
                 select(News)
-                .options(selectinload(News.source))
+                .options(selectinload(News.source), defer(News.embedding))
                 .order_by(News.published_at.desc().nullslast())
                 .limit(_RAG_TOPK)
             )
@@ -109,7 +109,7 @@ async def _rag_context(session: AsyncSession, question: str, lang: str) -> str:
         candidates = (
             await session.scalars(
                 select(News)
-                .options(selectinload(News.source))
+                .options(selectinload(News.source), defer(News.embedding))
                 .where(or_(*conds))
                 .order_by(News.published_at.desc().nullslast())
                 .limit(_RAG_CANDIDATES)
