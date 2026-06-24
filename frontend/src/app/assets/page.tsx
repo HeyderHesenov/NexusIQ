@@ -24,6 +24,7 @@ export default function AssetsPage() {
   const [showAll, setShowAll] = useState(false);
   const [collapsing, setCollapsing] = useState(false);
   const tableRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     getAssetsOverview().then((d) => {
@@ -38,55 +39,84 @@ export default function AssetsPage() {
     setCollapsing(false);
   }, [filter, q]);
 
-  // Cədvəlin başına YALNIZ yuxarı yumşaq scroll — sticky header qədər boşluq.
-  // `top` qaytarır ki, çağıran scroll-un nə vaxt bitdiyini bilsin.
-  function scrollToTableTop(): number | null {
+  // Açıq rAF-i unmount-da təmizlə.
+  useEffect(
+    () => () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    },
+    [],
+  );
+
+  // Cədvəlin başının hədəf scroll-Y-i (sticky header qədər boşluq buraxır).
+  function tableTopY(): number {
     const el = tableRef.current;
-    if (!el) return null;
+    if (!el) return window.scrollY;
     const header = document.querySelector("header");
     const offset = (header?.offsetHeight ?? 64) + 12;
-    const top = el.getBoundingClientRect().top + window.scrollY - offset;
-    if (window.scrollY > top + 1) {
-      window.scrollTo({ top, behavior: "smooth" });
-      return top;
+    return el.getBoundingClientRect().top + window.scrollY - offset;
+  }
+
+  // Sabit-müddətli, eased (easeInOutCubic) yuxarı scroll — native smooth-scroll-un
+  // uzun məsafədə "atma" hissini aradan qaldırır (sürət ramp-up/ramp-down). rAF.
+  function animateScrollTo(targetY: number, duration: number, onDone: () => void) {
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    const startY = window.scrollY;
+    const dist = targetY - startY;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce || Math.abs(dist) < 2) {
+      window.scrollTo(0, targetY);
+      onDone();
+      return;
     }
-    return null;
+    const ease = (t: number) =>
+      t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    let startT: number | null = null;
+    const step = (ts: number) => {
+      if (startT === null) startT = ts;
+      const p = Math.min(1, (ts - startT) / duration);
+      window.scrollTo(0, startY + dist * ease(p));
+      if (p < 1) {
+        rafRef.current = requestAnimationFrame(step);
+      } else {
+        rafRef.current = null;
+        onDone();
+      }
+    };
+    rafRef.current = requestAnimationFrame(step);
   }
 
   // Aç → dərhal göstər (fade-up).
-  // Bağla → əvvəlcə sıralar fade-out + EYNİ VAXTDA yumşaq yuxarı scroll
-  // (sıralar hələ yerindədir → kəskin "klamp" atma olmur), scroll/effekt
-  // bitəndən SONRA sıralar silinir.
+  // Bağla → sıralar fade-out + EYNİ VAXTDA cədvəl başına yumşaq, eased qayıdış
+  // (vahid hərəkət); scroll bitəndə sıralar silinir. Silinən sıralar viewport-un
+  // altında qaldığı üçün sonda görünən sıçrayış olmur.
   function toggleShowAll() {
     if (collapsing) return;
-    if (showAll) {
-      setCollapsing(true);
-      const scrolled = scrollToTableTop();
-
-      const remove = () => {
-        setShowAll(false);
-        setCollapsing(false);
-      };
-
-      if (scrolled === null) {
-        // Scroll lazım deyildi (artıq yuxarıdayıq) — sadəcə fade-out gözlə.
-        window.setTimeout(remove, 320);
-        return;
-      }
-
-      // Scroll bitəndə sil (scrollend), dəstəklənmirsə fallback.
-      let done = false;
-      const finish = () => {
-        if (done) return;
-        done = true;
-        window.removeEventListener("scrollend", finish);
-        remove();
-      };
-      window.addEventListener("scrollend", finish);
-      window.setTimeout(finish, 900);
-    } else {
+    if (!showAll) {
       setShowAll(true);
+      return;
     }
+    setCollapsing(true);
+    // `remove` yalnız bir dəfə işləsin — rAF tamamlanması VƏ təhlükəsizlik
+    // taymeri eyni vaxtda çağıra bilər (rAF gizli tab-da dayanarsa kilidlənmə yox).
+    let done = false;
+    const remove = () => {
+      if (done) return;
+      done = true;
+      setShowAll(false);
+      setCollapsing(false);
+    };
+    const target = tableTopY();
+    const dist = window.scrollY - target;
+    if (dist < 2) {
+      // Artıq yuxarıdayıq — scroll lazım deyil, fade oynasın, sonra sil.
+      window.setTimeout(remove, 300);
+      return;
+    }
+    // Yumşaq, məsafəyə görə amma klamplı müddət — heç vaxt "uçmur".
+    const duration = Math.min(560, 300 + dist * 0.22);
+    animateScrollTo(target, duration, remove);
+    // rAF dayanarsa (tab gizli/throttle) UI ilişməsin — zəmanətli sil.
+    window.setTimeout(remove, duration + 250);
   }
 
   const query = q.trim().toLowerCase();
