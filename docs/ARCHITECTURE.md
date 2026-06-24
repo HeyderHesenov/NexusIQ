@@ -7,14 +7,22 @@
 
 ## Qatlar
 ```
- ingestion/   →  xam xəbər toplama (RSS / API / scrape)
- services/    →  biznes məntiqi (dedup, store, query)
- agents/      →  AI modulları (tək məsuliyyət hər biri)
- analytics/   →  korrelyasiya + chart generasiyası
- api/v1/      →  HTTP təbəqəsi (yalnız servisləri çağırır)
+ ingestion/   →  xam xəbər toplama (RSS / API / scrape) + og:image backfill
+ services/    →  biznes məntiqi (dedup, store, query, push)
+ agents/      →  AI modulları (tək məsuliyyət hər biri) + pulsuz tərcümə
+ analytics/   →  korrelyasiya, anomaliya, Power Law, analoq, radar kəşf, SWR keş
+ api/v1/      →  HTTP təbəqəsi (yalnız servisləri çağırır) + /health, /health/db
  models/      →  SQLAlchemy ORM
  schemas/     →  Pydantic giriş/çıxış
+ scheduler    →  APScheduler (saatlıq ingestion + self-healing dövrlər)
 ```
+
+## Planlayıcı + self-healing (APScheduler)
+Saatlıq dövr və başlanğıc tutması (`startup_catchup`) hər ingestion-dan sonra:
+tərcüməsiz/uğursuz xəbərləri drenaj edir (gtx retry + backoff; uğursuzluq daimi
+İngiliscə kilidləmir — `title_az` NULL qalır, növbəti dövrdə retry), şəkilsiz
+xəbərlərə `og:image` backfill edir, yeni embedding/anomaliya skanı işlədir.
+Performans: ağır analitika SWR keş + startup prewarm ilə (endpoint-lər isti ~1ms).
 
 ## AI Agentləri (modul dizayn)
 | Agent | Məsuliyyət |

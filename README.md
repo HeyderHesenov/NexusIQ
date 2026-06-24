@@ -94,3 +94,15 @@ Bax: [`docs/SETUP.md`](docs/SETUP.md)
 - [x] Peşəkar footer + ikonlu dropdown naviqasiya
 - [x] Performans: SWR keş + startup prewarm (endpoint-lər isti ~1ms),
       watchlist tək-overview optimallaşması, route prewarm (keçid donması yox)
+- [x] **Tarixi Analoq motoru** — embedding + kNN ilə bənzər keçmiş xəbərlər və
+      onlardan sonrakı bazar hərəkəti (`/analogs`)
+- [x] **Anomaliya ↔ xəbər bağlantısı** — anomaliya üçün "ehtimal olunan səbəb"
+      (pulsuz, AI-siz korrelyasiya)
+- [x] **RAG bilik bazası + router** — sual info-dursa RAG, chart/müzakirədirsə AI debate
+- [x] AI Assistant qlobal FAB — bütün səhifələrdə
+- [x] Forecast/ssenari brif səhifələri + çoxdilli AI xülasə (4 dil)
+- [x] Asset registry genişlənməsi — 14 forex cütü, Binance top-50 coin
+- [x] **Self-healing data pipeline** — tərcümə uğursuzluğu (gtx retry/backoff) və
+      şəkilsiz xəbər (og:image backfill) avtomatik bərpa, daimi İngiliscə kilidlənmə yox
+- [x] SPA daxili naviqasiya (tam reload hissi yox) + yumşaq eased collapse effektləri
+- [x] Light mode isti-neytral (greige) kalibrlənmə — parıltısız, AA kontrast, dərinlik
