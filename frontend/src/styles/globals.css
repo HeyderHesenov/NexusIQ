@@ -23,29 +23,31 @@ html.dark {
   --header-bg: rgba(10, 10, 11, 0.8);
 }
 
-/* Açıq tema — soyuq-slate: parıltısız off-white səth, yumşaldılmış dərin-slate
-   mətn (~14:1, sərt 17 yox). Dərinlik boz-slabdan yox, yumşaq kölgə+hairline-dan. */
+/* Açıq tema — isti-neytral (greige): səth stark-ağ deyil, yumşaq isti off-white
+   (gözə dəymir); dərin-slate mətn (~14:1, sərt 17 yox). Dərinlik boz-slabdan yox,
+   yumşaq kölgə+hairline-dan. */
 html.light {
-  --bg: #eef0f3;
-  --surface: #fbfcfd;
-  --surface-hover: #f1f3f6;
-  --border: #dde1e8;
+  --bg: #edebe6;
+  --surface: #f7f5f0;
+  --surface-hover: #efece5;
+  --border: #ddd8cf;
   --accent: #e8650a;
   --accent-soft: rgba(232, 101, 10, 0.1);
-  --text: #1c2330;
-  --muted: #5a6070;
+  --text: #242220;
+  --muted: #6a655c;
   --up: #15a34a;
   --down: #dc2626;
-  --shadow: rgba(30, 41, 59, 0.08);
-  --bar-weak: #cdd2db;
-  --header-bg: rgba(251, 252, 253, 0.85);
+  --shadow: rgba(60, 50, 35, 0.09);
+  --bar-weak: #d4cfc5;
+  --header-bg: rgba(247, 245, 240, 0.85);
 }
 
-/* Light-da kartlar fona qarışmasın — surface/bg fərqi kiçik, dərinliyi kölgə daşıyır. */
+/* Light-da kartlar fona qarışmasın — surface/bg fərqi kiçik, dərinliyi kölgə daşıyır
+   (isti tonlu kölgə, greige fonla kohesiv). */
 html.light .rounded-card {
   box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.05),
-    0 8px 20px -10px rgba(15, 23, 42, 0.12);
+    0 1px 2px rgba(60, 50, 35, 0.05),
+    0 8px 20px -10px rgba(60, 50, 35, 0.13);
 }
 
 * {
