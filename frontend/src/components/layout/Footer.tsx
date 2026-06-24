@@ -28,6 +28,7 @@ const COLUMNS: Col[] = [
     titleKey: "foot.more",
     links: [
       { href: "/", labelKey: "nav.news" },
+      { href: "/radar", labelKey: "nav.radar" },
       { href: "/alerts", labelKey: "nav.alerts" },
       { href: "/saved", labelKey: "bm.title" },
     ],
