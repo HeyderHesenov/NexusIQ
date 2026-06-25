@@ -147,6 +147,16 @@ export async function getNewsCount(category: string): Promise<number> {
   }
 }
 
+/** Bütün kateqoriyalar üzrə ümumi xəbər sayı (login stat-ı üçün). */
+export async function getTotalNewsCount(): Promise<number> {
+  try {
+    const d = await apiGet<{ total: number }>(`/news/count`);
+    return d.total ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 /** Orijinal xəbər mətninin seçilmiş dilə tərcüməsi (lazy, keşlənir). */
 export async function getTranslatedContent(
   id: string,

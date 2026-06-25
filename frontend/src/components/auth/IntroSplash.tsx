@@ -1,7 +1,9 @@
 "use client";
 
-import { ArrowRight, Sparkles, Newspaper, Activity } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowRight, Sparkles, Newspaper, Activity, CalendarDays } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
+import { getTotalNewsCount } from "@/lib/api";
 import { Ticker } from "@/components/market/Ticker";
 
 /**
@@ -68,7 +70,15 @@ function ChartTile() {
 }
 
 export function IntroSplash({ onEnter }: { onEnter: () => void }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const [total, setTotal] = useState<number | null>(null);
+
+  useEffect(() => {
+    getTotalNewsCount().then(setTotal);
+  }, []);
+
+  // real xəbər sayı, yüzə yuvarlanmış (1623 → 1600); yüklənənə qədər təvazökar fallback
+  const newsCount = total && total > 0 ? Math.floor(total / 100) * 100 : 1500;
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6">
@@ -141,6 +151,7 @@ export function IntroSplash({ onEnter }: { onEnter: () => void }) {
             { icon: <Sparkles size={15} />, key: "intro.feat1" },
             { icon: <Newspaper size={15} />, key: "intro.feat2" },
             { icon: <Activity size={15} />, key: "intro.feat3" },
+            { icon: <CalendarDays size={15} />, key: "intro.feat4" },
           ].map((f) => (
             <span
               key={f.key}
@@ -157,7 +168,7 @@ export function IntroSplash({ onEnter }: { onEnter: () => void }) {
           className="fade-up mt-7 font-mono text-sm tracking-wide text-muted"
           style={{ animationDelay: "1.9s" }}
         >
-          {t("intro.stats")}
+          {t("intro.stats").replace("{n}", newsCount.toLocaleString(lang))}
         </p>
       </div>
     </div>
