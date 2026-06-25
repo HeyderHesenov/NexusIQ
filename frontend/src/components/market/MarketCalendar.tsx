@@ -5,38 +5,9 @@ import Link from "next/link";
 import { CalendarDays, Check, ChevronDown, Search } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useClickOutside } from "@/lib/useClickOutside";
-import { SaveEventButton } from "@/components/market/SaveEventButton";
-import type { CalCategory, CalKind } from "@/lib/marketCategories";
-import type {
-  CalEvent,
-  CryptoUnlock,
-  Earning,
-  MajorEvent,
-  Quote,
-  SavedEvent,
-} from "@/types";
-
-type SavedPayload = Omit<SavedEvent, "savedAt">;
-
-/** Kart + (təqvim hadisəsidirsə) hover-də görünən saxla düyməsi. */
-function SaveWrap({
-  saved,
-  children,
-}: {
-  saved: SavedPayload | null;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="group relative shrink-0">
-      {children}
-      {saved && (
-        <div className="absolute bottom-1.5 right-1.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
-          <SaveEventButton event={saved} />
-        </div>
-      )}
-    </div>
-  );
-}
+import { CalendarLedger } from "@/components/market/CalendarLedger";
+import type { CalCategory } from "@/lib/marketCategories";
+import type { Quote } from "@/types";
 
 /** Kiçik trend qrafiki — son qiymətlərdən SVG polyline. */
 function Sparkline({ data }: { data: number[] }) {
@@ -68,33 +39,35 @@ function Sparkline({ data }: { data: number[] }) {
   );
 }
 
-/** "YYYY-MM-DD" → "DD.MM". */
-const fromISO = (d: string) => {
-  const [, m, day] = d.split("-");
-  return m && day ? `${day}.${m}` : d;
-};
-/** "MM-DD-YYYY" → "DD.MM". */
-const fromUS = (d: string) => {
-  const [m, day] = d.split("-");
-  return m && day ? `${day}.${m}` : d;
-};
-
-const RAIL =
-  "flex gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
-const CARD =
-  "flex shrink-0 flex-col gap-1.5 rounded-xl border border-border bg-bg/40 px-3.5 py-3 transition-colors duration-150 hover:border-accent/60";
-
-/** /brief səhifəsinə link qurur. */
 function briefHref(params: Record<string, string>): string {
   return "/brief?" + new URLSearchParams(params).toString();
 }
 
-/** Element üzərində axtarış üçün mətn (növ üzrə). */
-function itemText(kind: CalKind, it: unknown): string {
-  const o = it as Record<string, unknown>;
-  if (kind === "earnings") return `${o.sym} ${o.name}`;
-  if (kind === "events") return `${o.title} ${o.country}`;
-  return `${o.sym ?? ""}`;
+/** Canlı qiymət kartı (metallar / əmtəələr) — tarixsiz, grid-də. */
+function PriceCard({ q }: { q: Quote }) {
+  return (
+    <Link
+      href={briefHref({
+        kind: "asset",
+        name: q.sym,
+        sym: q.sym,
+        badge: q.sym,
+        sub: `${q.val}  ${q.chg}`,
+      })}
+      className="flex flex-col gap-1.5 rounded-xl border border-border bg-bg/40 px-3.5 py-3 transition-colors duration-150 hover:border-accent/60"
+    >
+      <div className="flex items-center justify-between">
+        <span className="font-mono text-[11px] font-semibold tracking-wider text-text/80">
+          {q.sym}
+        </span>
+        <span className={`font-mono text-[12px] ${q.up ? "text-emerald-400" : "text-rose-400"}`}>
+          {q.chg}
+        </span>
+      </div>
+      <span className="font-mono text-lg font-semibold tabular-nums text-text">{q.val}</span>
+      {q.spark && <Sparkline data={q.spark} />}
+    </Link>
+  );
 }
 
 export function MarketCalendar({ categories }: { categories: CalCategory[] }) {
@@ -105,7 +78,6 @@ export function MarketCalendar({ categories }: { categories: CalCategory[] }) {
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
 
-  // tab dəyişəndə ilk kateqoriyaya qayıt
   useEffect(() => {
     setIdx(0);
   }, [categories]);
@@ -122,16 +94,19 @@ export function MarketCalendar({ categories }: { categories: CalCategory[] }) {
     };
   }, [active]);
 
-  const q = query.trim().toLowerCase();
-  const shown =
-    items && q
-      ? items.filter((it) => itemText(active.kind, it).toLowerCase().includes(q))
-      : items;
-
   useClickOutside(ref, () => setOpen(false));
 
+  const isPrices = active.kind === "prices";
+  const prices = (items as Quote[] | null) ?? null;
+  const q = query.trim().toLowerCase();
+  const shownPrices =
+    prices && q
+      ? prices.filter((p) => p.sym.toLowerCase().includes(q))
+      : prices;
+
   return (
-    <section className="mb-6 rounded-card border border-border bg-surface px-5 py-4">
+    <section>
+      {/* başlıq + kateqoriya seçici */}
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1.5">
           <CalendarDays size={14} className="text-accent" />
@@ -140,7 +115,6 @@ export function MarketCalendar({ categories }: { categories: CalCategory[] }) {
           </span>
         </div>
 
-        {/* kateqoriya seçici — dil seçici stilində */}
         <div ref={ref} className="relative">
           <button
             onClick={() => setOpen((v) => !v)}
@@ -149,9 +123,7 @@ export function MarketCalendar({ categories }: { categories: CalCategory[] }) {
             <span className="font-medium">{t(active.labelKey)}</span>
             <ChevronDown
               size={14}
-              className={`text-muted transition-transform duration-200 ${
-                open ? "rotate-180" : ""
-              }`}
+              className={`text-muted transition-transform duration-200 ${open ? "rotate-180" : ""}`}
             />
           </button>
 
@@ -177,249 +149,53 @@ export function MarketCalendar({ categories }: { categories: CalCategory[] }) {
         </div>
       </div>
 
-      {/* axtarış qutusu — çoxlu elementli kateqoriyalarda */}
-      {active.searchable && items && items.length > 0 && (
-        <div className="mb-3 flex items-center gap-2 rounded-lg border border-border bg-bg/40 px-3 py-2">
-          <Search size={14} className="text-muted" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t("market.searchPh").replace("{x}", active.searchEx ?? "")}
-            className="w-full bg-transparent text-sm text-text placeholder:text-muted/60 focus:outline-none"
-          />
-        </div>
-      )}
-
       {/* yüklənir */}
       {!items && (
-        <div className={RAIL}>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-[64px] w-44 shrink-0 animate-pulse rounded-xl border border-border bg-surface-hover"
+        <div className="rounded-card border border-border bg-surface p-4">
+          <div className="space-y-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-11 w-full animate-pulse rounded-lg border border-border bg-surface-hover"
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* canlı qiymətlər — grid */}
+      {items && isPrices && (
+        <div className="rounded-card border border-border bg-surface p-4">
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-border bg-bg/40 px-3 py-2">
+            <Search size={14} className="text-muted" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t("market.searchPh").replace("{x}", active.searchEx ?? "")}
+              className="w-full bg-transparent text-sm text-text placeholder:text-muted/60 focus:outline-none"
             />
-          ))}
+          </div>
+          {shownPrices && shownPrices.length > 0 ? (
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
+              {shownPrices.map((p, i) => (
+                <PriceCard key={i} q={p} />
+              ))}
+            </div>
+          ) : (
+            <p className="px-3.5 py-8 text-center text-sm text-muted">{t("market.calEmpty")}</p>
+          )}
         </div>
       )}
 
-      {/* boş */}
-      {shown && shown.length === 0 && (
-        <p className="rounded-lg border border-dashed border-border px-3.5 py-4 text-center text-xs text-muted">
-          {t("market.calEmpty")}
-        </p>
-      )}
-
-      {/* məzmun */}
-      {shown && shown.length > 0 && (
-        <div className={RAIL}>
-          {shown.map((it, i) => (
-            <Card key={i} kind={active.kind} item={it} t={t} />
-          ))}
-        </div>
+      {/* tarix-əsaslı — ForexFactory cədvəli */}
+      {items && !isPrices && (
+        <CalendarLedger
+          kind={active.kind}
+          items={items}
+          withRange={active.kind === "events"}
+          withImpact={active.kind === "events"}
+        />
       )}
     </section>
-  );
-}
-
-function Card({
-  kind,
-  item,
-  t,
-}: {
-  kind: CalKind;
-  item: unknown;
-  t: (k: string) => string;
-}) {
-  if (kind === "earnings") {
-    const e = item as Earning;
-    const sub = `${fromISO(e.date)} · ${e.time}`;
-    const href = briefHref({
-      kind: "earnings",
-      name: e.name,
-      sym: e.sym,
-      badge: e.sym,
-      sub,
-      meta: e.date,
-    });
-    return (
-      <SaveWrap
-        saved={{ id: `earn:${e.sym}:${e.date}`, name: e.name, badge: e.sym, sub, href }}
-      >
-        <Link href={href} className={`${CARD} w-44`}>
-          <div className="flex items-center justify-between">
-            <span className="rounded bg-accent/15 px-1.5 py-0.5 font-mono text-[11px] font-bold tracking-wider text-accent">
-              {e.sym}
-            </span>
-            <span className="font-mono text-[11px] text-muted">
-              {fromISO(e.date)} · {e.time}
-            </span>
-          </div>
-          <span className="truncate text-[13px] font-medium text-text/90">{e.name}</span>
-        </Link>
-      </SaveWrap>
-    );
-  }
-
-  if (kind === "unlocks") {
-    const u = item as CryptoUnlock;
-    const sub = `${fromISO(u.date)} · ${u.tokens} ${t("market.unlock")}`;
-    const href = briefHref({
-      kind: "unlock",
-      name: u.sym,
-      sym: u.sym,
-      badge: u.sym,
-      sub,
-      meta: `${u.tokens} tokens, ${u.category}`,
-    });
-    return (
-      <SaveWrap
-        saved={{ id: `unlock:${u.sym}:${u.date}`, name: u.sym, badge: u.sym, sub, href }}
-      >
-        <Link href={href} className={`${CARD} w-44`}>
-          <div className="flex items-center justify-between">
-            <span className="rounded bg-accent/15 px-1.5 py-0.5 font-mono text-[11px] font-bold tracking-wider text-accent">
-              {u.sym}
-            </span>
-            <span className="font-mono text-[11px] text-muted">{fromISO(u.date)}</span>
-          </div>
-          <div className="flex items-baseline gap-1.5">
-            <span className="font-mono text-sm font-semibold tabular-nums text-text/90">
-              {u.tokens}
-            </span>
-            <span className="text-[11px] text-muted">{t("market.unlock")}</span>
-          </div>
-          {u.category && (
-            <span className="truncate font-mono text-[10px] uppercase tracking-wider text-muted/70">
-              {u.category}
-            </span>
-          )}
-        </Link>
-      </SaveWrap>
-    );
-  }
-
-  if (kind === "prices") {
-    // canlı qiymət — təqvim hadisəsi deyil, saxlanmır.
-    const q = item as Quote;
-    return (
-      <SaveWrap saved={null}>
-        <Link
-          href={briefHref({
-            kind: "asset",
-            name: q.sym,
-            sym: q.sym,
-            badge: q.sym,
-            sub: `${q.val}  ${q.chg}`,
-          })}
-          className={`${CARD} w-44`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-[11px] font-semibold tracking-wider text-text/80">
-              {q.sym}
-            </span>
-            <span
-              className={`font-mono text-[12px] ${q.up ? "text-emerald-400" : "text-rose-400"}`}
-            >
-              {q.chg}
-            </span>
-          </div>
-          <span className="font-mono text-lg font-semibold tabular-nums text-text">
-            {q.val}
-          </span>
-          {q.spark && <Sparkline data={q.spark} />}
-        </Link>
-      </SaveWrap>
-    );
-  }
-
-  if (kind === "cryptoEvents") {
-    const e = item as MajorEvent;
-    const name = `${e.sym} — ${t(`market.ev.${e.type}`)}`;
-    const sub = `${t(`market.ev.${e.type}`)} · ${fromISO(e.date)}`;
-    const href = briefHref({
-      kind: "cryptoEvent",
-      name,
-      sym: e.sym,
-      badge: e.sym,
-      sub,
-      meta: `${e.type}, ${e.note}`,
-    });
-    return (
-      <SaveWrap
-        saved={{ id: `cevent:${e.sym}:${e.date}:${e.type}`, name, badge: e.sym, sub, href }}
-      >
-        <Link href={href} className={`${CARD} w-44`}>
-          <div className="flex items-center justify-between">
-            <span className="rounded bg-accent/15 px-1.5 py-0.5 font-mono text-[11px] font-bold tracking-wider text-accent">
-              {e.sym}
-            </span>
-            <span className="font-mono text-[11px] text-muted">{fromISO(e.date)}</span>
-          </div>
-          <span className="text-[13px] font-medium text-text/90">
-            {t(`market.ev.${e.type}`)}
-          </span>
-          {e.note && (
-            <span className="font-mono text-[11px] text-muted">{e.note}</span>
-          )}
-        </Link>
-      </SaveWrap>
-    );
-  }
-
-  // events — klikləndə hadisə analiz səhifəsi açılır (yeni tab)
-  const e = item as CalEvent;
-  const sub = `${e.country} · ${e.impact} · ${fromUS(e.date)} ${e.time}`;
-  const href = briefHref({
-    kind: "event",
-    name: e.title,
-    badge: e.country,
-    sub,
-    meta: `${e.country}, impact ${e.impact}`,
-    forecast: e.forecast,
-    previous: e.previous,
-  });
-  return (
-    <SaveWrap
-      saved={{
-        id: `event:${e.country}:${e.date}:${e.time}:${e.title}`,
-        name: e.title,
-        badge: e.country,
-        sub,
-        href,
-      }}
-    >
-      <Link href={href} className={`${CARD} w-48`}>
-        <div className="flex items-center justify-between">
-          <span className="rounded bg-surface-hover px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-wider text-text/80">
-            {e.country}
-          </span>
-          <span className="flex items-center gap-1.5 font-mono text-[11px] text-muted">
-            <span
-              className={`inline-block h-1.5 w-1.5 rounded-full ${
-                e.impact === "High" ? "bg-rose-400" : "bg-amber-400"
-              }`}
-            />
-            {fromUS(e.date)} · {e.time}
-          </span>
-        </div>
-        <p className="line-clamp-2 text-[13px] font-medium leading-snug text-text/90">
-          {e.title}
-        </p>
-        {(e.forecast || e.previous) && (
-          <div className="flex gap-3 font-mono text-[11px] text-muted">
-            {e.forecast && (
-              <span>
-                {t("market.fc")}: <span className="text-text/80">{e.forecast}</span>
-              </span>
-            )}
-            {e.previous && (
-              <span>
-                {t("market.prev")}: <span className="text-text/80">{e.previous}</span>
-              </span>
-            )}
-          </div>
-        )}
-      </Link>
-    </SaveWrap>
   );
 }

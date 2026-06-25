@@ -21,7 +21,7 @@ _TV_HEADERS = {
     "Referer": "https://www.tradingview.com/",
 }
 _COUNTRIES = "US,EU,GB,JP,CA,AU,CN,CH,NZ"
-_WINDOW_DAYS = 21  # bugündən ~3 həftə irəli
+_WINDOW_DAYS = 31  # bugündən ~1 ay irəli
 _IMPACT = {1: "High", 0: "Medium"}  # -1 (Low) atılır
 
 # Fallback — ForexFactory (yalnız bu həftə)
@@ -31,7 +31,7 @@ _UA = {"User-Agent": "Mozilla/5.0 (NexusIQ)"}
 _TTL = 1800.0
 _cache: list | None = None
 _cache_at = 0.0
-_CAP = 150
+_CAP = 300
 
 _KEEP = {"High", "Medium"}
 
@@ -79,6 +79,7 @@ def _parse_tv(payload: dict) -> list[dict]:
                 "date": date,
                 "time": dt.strftime("%I:%M%p").lstrip("0").lower(),
                 "impact": impact,
+                "actual": _fmt(ev.get("actual"), ev.get("unit"), ev.get("scale")),
                 "forecast": _fmt(ev.get("forecast"), ev.get("unit"), ev.get("scale")),
                 "previous": _fmt(ev.get("previous"), ev.get("unit"), ev.get("scale")),
                 "_ts": dt.timestamp(),
@@ -108,6 +109,7 @@ def _parse(xml: str) -> list[dict]:
                 "date": date,
                 "time": (ev.findtext("time") or "").strip(),
                 "impact": impact,
+                "actual": "",
                 "forecast": (ev.findtext("forecast") or "").strip(),
                 "previous": (ev.findtext("previous") or "").strip(),
             }

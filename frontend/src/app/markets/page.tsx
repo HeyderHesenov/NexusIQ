@@ -29,6 +29,7 @@ export default function MarketsPage() {
             <h1 className="mt-1 text-2xl font-semibold tracking-tight">
               {t("markets.title")}
             </h1>
+            <p className="mt-1 max-w-md text-sm text-muted">{t("markets.subtitle")}</p>
           </div>
           <CategorySelect active={active} onChange={setActive} />
         </div>

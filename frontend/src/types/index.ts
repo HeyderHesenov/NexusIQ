@@ -75,6 +75,7 @@ export interface CalEvent {
   date: string;
   time: string;
   impact: string;
+  actual?: string;
   forecast: string;
   previous: string;
 }
