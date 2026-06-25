@@ -42,6 +42,10 @@ function BriefView() {
   const [brief, setBrief] = useState<Brief | null>(null);
 
   useEffect(() => {
+    if (!name.trim()) {
+      setBrief({ ready: false }); // hadisə seçilməyib — etibarsız sorğu atma
+      return;
+    }
     let alive = true;
     setBrief(null);
     getBrief(kind, name, sym, meta, lang).then((d) => alive && setBrief(d));
