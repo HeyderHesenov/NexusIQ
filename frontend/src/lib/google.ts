@@ -41,7 +41,7 @@ export async function signInWithGoogle(): Promise<GoogleUser> {
     const tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
       scope: "openid email profile",
-      callback: async (resp: any) => {
+      callback: async (resp: { error?: string; access_token?: string }) => {
         if (resp.error) {
           reject(new Error(resp.error));
           return;

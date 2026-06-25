@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { NewsItem, Category } from "@/types";
+import type { NewsItem } from "@/types";
 import { formatDateTime, localizedNews } from "@/lib/utils";
 import { prefetchForecast } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
@@ -9,16 +9,9 @@ import { NewsImage } from "@/components/news/NewsImage";
 import { NewsBadges } from "@/components/news/NewsBadges";
 import { BookmarkButton } from "@/components/news/BookmarkButton";
 
-const CAT_LABEL: Record<Category, string> = {
-  forex: "Forex",
-  us: "US",
-  crypto: "Crypto",
-  commodities: "Commodities",
-};
-
 /** Bir xəbər kartı — şəkil, kateqoriya, başlıq, xülasə, mənbə + tarix. */
 export function NewsCard({ news }: { news: NewsItem }) {
-  const { lang } = useI18n();
+  const { t, lang } = useI18n();
   const { title, body } = localizedNews(news, lang);
   return (
     <Link
@@ -36,7 +29,7 @@ export function NewsCard({ news }: { news: NewsItem }) {
           className="h-full w-full transition-transform duration-500 group-hover:scale-105"
         />
         <span className="absolute left-3 top-3 rounded-md bg-bg/80 px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wider text-accent backdrop-blur">
-          {CAT_LABEL[news.category]}
+          {t(`news.cat.${news.category}`)}
         </span>
         {/* desktop: yalnız hover/fokusda görünür */}
         <div className="absolute right-3 top-3 hidden opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100 sm:block">

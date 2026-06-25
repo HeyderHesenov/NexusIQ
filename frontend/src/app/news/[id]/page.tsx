@@ -11,14 +11,7 @@ import { NewsImage } from "@/components/news/NewsImage";
 import { AIForecast } from "@/components/news/AIForecast";
 import { HistoricalAnalogs } from "@/components/news/HistoricalAnalogs";
 import { OriginalText } from "@/components/news/OriginalText";
-import type { NewsItem, Category } from "@/types";
-
-const CAT_LABEL: Record<Category, string> = {
-  forex: "Forex",
-  us: "US Markets",
-  crypto: "Crypto",
-  commodities: "Commodities",
-};
+import type { NewsItem } from "@/types";
 
 export default function NewsDetailPage({
   params,
@@ -78,7 +71,7 @@ export default function NewsDetailPage({
             {/* meta */}
             <div className="flex flex-wrap items-center gap-3 text-xs">
               <span className="rounded-md bg-accent/15 px-2.5 py-1 font-mono uppercase tracking-wider text-accent">
-                {CAT_LABEL[news.category]}
+                {t(`news.cat.${news.category}`)}
               </span>
               {news.source && (
                 <span className="font-medium text-muted">{news.source}</span>

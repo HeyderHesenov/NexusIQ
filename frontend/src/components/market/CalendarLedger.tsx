@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Calendar, ChevronDown, Search, SlidersHorizontal } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useClickOutside } from "@/lib/useClickOutside";
+import { briefHref } from "@/lib/brief";
 import { SaveEventButton } from "@/components/market/SaveEventButton";
 import type { CalKind } from "@/lib/marketCategories";
 import type {
@@ -88,10 +89,6 @@ function itemText(kind: CalKind, it: Record<string, unknown>): string {
   if (kind === "earnings") return `${it.sym} ${it.name}`;
   if (kind === "events") return `${it.title} ${it.country}`;
   return `${it.sym ?? ""} ${it.category ?? ""} ${it.note ?? ""}`;
-}
-
-function briefHref(params: Record<string, string>): string {
-  return "/brief?" + new URLSearchParams(params).toString();
 }
 
 /* ---------- impact göstəricisi (gücü zolaqla) ---------- */

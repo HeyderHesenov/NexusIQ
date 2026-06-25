@@ -5,43 +5,11 @@ import Link from "next/link";
 import { CalendarDays, Check, ChevronDown, Search } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useClickOutside } from "@/lib/useClickOutside";
+import { briefHref } from "@/lib/brief";
 import { CalendarLedger } from "@/components/market/CalendarLedger";
+import { Sparkline } from "@/components/charts/Sparkline";
 import type { CalCategory } from "@/lib/marketCategories";
 import type { Quote } from "@/types";
-
-/** Kiçik trend qrafiki — son qiymətlərdən SVG polyline. */
-function Sparkline({ data }: { data: number[] }) {
-  if (!data || data.length < 2) return null;
-  const w = 72;
-  const h = 22;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const span = max - min || 1;
-  const pts = data
-    .map((v, i) => {
-      const x = (i / (data.length - 1)) * w;
-      const y = h - ((v - min) / span) * h;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
-  const up = data[data.length - 1] >= data[0];
-  return (
-    <svg width={w} height={h} className="mt-0.5 overflow-visible">
-      <polyline
-        points={pts}
-        fill="none"
-        stroke={up ? "#34d399" : "#f43f5e"}
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function briefHref(params: Record<string, string>): string {
-  return "/brief?" + new URLSearchParams(params).toString();
-}
 
 /** Canlı qiymət kartı (metallar / əmtəələr) — tarixsiz, grid-də. */
 function PriceCard({ q }: { q: Quote }) {
@@ -65,7 +33,7 @@ function PriceCard({ q }: { q: Quote }) {
         </span>
       </div>
       <span className="font-mono text-lg font-semibold tabular-nums text-text">{q.val}</span>
-      {q.spark && <Sparkline data={q.spark} />}
+      {q.spark && <Sparkline values={q.spark} width={72} height={22} />}
     </Link>
   );
 }

@@ -95,7 +95,7 @@ async def explain(label_a: str, label_b: str, value: float, lang: str = "az") ->
         text = (resp.choices[0].message.content or "").strip()
         if not text:
             text = _fallback(label_a, label_b, value, lang)
-    except Exception:
+    except Exception:  # noqa: BLE001 — LLM xətası → deterministik fallback
         text = _fallback(label_a, label_b, value, lang)
 
     _cache[cache_key] = text
