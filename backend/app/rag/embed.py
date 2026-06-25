@@ -6,8 +6,9 @@ from pathlib import Path
 import numpy as np
 
 from app.agents.llm import primary_client
+from app.core.config import settings
 
-EMBED_MODEL = "text-embedding-3-small"
+EMBED_MODEL = settings.llm_embed_model
 _BATCH = 128
 
 KNOWLEDGE_DIR = Path(__file__).resolve().parent / "knowledge"

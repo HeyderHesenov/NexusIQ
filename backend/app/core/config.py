@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     llm_primary_model: str = ""
     llm_secondary_key: str = ""
     llm_secondary_model: str = ""
+    llm_embed_model: str = ""
 
     # ---- Ingestion ----
     ingest_interval_minutes: int = 60
@@ -42,7 +43,7 @@ class Settings(BaseSettings):
     scheduler_ai_batch: int = 8
     # Pulsuz maşın tərcüməsi (Google free endpoint) — xəbərləri 4 dilə
     # SADİQ tərcümə edir (AI kimi yenidən YAZMIR). Xərcsiz → default aktiv.
-    # Tarixi Analoq motoru — xəbər embedding-i (text-embedding-3-small, ucuz).
+    # Tarixi Analoq motoru — xəbər embedding-i (embedding modeli, ucuz).
     # AI açarı lazımdır; söndürülsə motor boş nəticə qaytarır (UI sınmır).
     embed_enabled: bool = True
     embed_batch: int = 32

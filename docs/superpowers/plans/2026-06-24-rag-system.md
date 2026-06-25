@@ -4,9 +4,9 @@
 
 **Goal:** Replace keyword news-search in the AI Assistant with a real vector RAG over a curated finance knowledge base, plus a router that sends simple questions to a cheap RAG path and charts/news-discussion to the existing dual-AI debate.
 
-**Architecture:** Curated markdown knowledge base → `##`-chunked → OpenAI `text-embedding-3-small` → numpy `.npz` store loaded in-process. A GPT router classifies each question (`info` / `chart` / `discussion`); `info` uses a single-GPT RAG answer, the others use the existing GPT+Claude debate now enriched with retrieved chunks. Same NDJSON stream protocol — frontend unchanged.
+**Architecture:** Curated markdown knowledge base → `##`-chunked → AI `embedding modeli` → numpy `.npz` store loaded in-process. A model router classifies each question (`info` / `chart` / `discussion`); `info` uses a tək-model RAG answer, the others use the existing iki model debate now enriched with retrieved chunks. Same NDJSON stream protocol — frontend unchanged.
 
-**Tech Stack:** Python 3.13, FastAPI, OpenAI SDK (chat + embeddings), numpy (already installed). Tests: plain-assert modules run via `python -m tests.test_X` (project convention, no pytest).
+**Tech Stack:** Python 3.13, FastAPI, LLM SDK (chat + embeddings), numpy (already installed). Tests: plain-assert modules run via `python -m tests.test_X` (project convention, no pytest).
 
 ## Global Constraints
 
@@ -15,7 +15,7 @@
 - No secrets in git: `knowledge.npz` and `.env` git-ignored.
 - Terse code, no dead code, no over-engineering.
 - Tests are plain-assert modules with a `_run()` + `__main__` block, run via `backend/.venv/bin/python -m tests.test_X` (match `tests/test_anomaly.py`).
-- Embedding model: `text-embedding-3-small`. Vector store: numpy in-process. Knowledge base authored as curated markdown.
+- Embedding model: `embedding modeli`. Vector store: numpy in-process. Knowledge base authored as curated markdown.
 - Run python via `backend/.venv/bin/python` from inside `backend/`.
 
 ---
@@ -175,7 +175,7 @@ git push
 - Consumes: `chunk.load_chunks` (Task 1).
 - Produces: `backend/app/rag/knowledge/` directory of curated markdown. Each file uses `# Title` then repeated `## entry` blocks.
 
-Content is authored by Claude (curated). `terms.md`: ≥40 finance terms (P/E, EPS, RSI, MACD, hedge, liquidity, inflation, CPI, yield curve, beta, volatility, market cap, dividend, short selling, leverage, etc.) each as `## Term` + 2-4 sentence meaning. `assets.md`: each asset class (stocks, indices, forex, commodities, crypto) — what it is and what moves it; reference the NexusIQ asset registry (`app/analytics/assets.py`). `impact.md`: event→asset rules with direction, strength, reason (Fed rate ↑ → DXY ↑ / gold ↓; OPEC cut → oil ↑; high CPI → indices ↓; risk-off → VIX ↑, BTC ↓).
+Content is authored by AI (curated). `terms.md`: ≥40 finance terms (P/E, EPS, RSI, MACD, hedge, liquidity, inflation, CPI, yield curve, beta, volatility, market cap, dividend, short selling, leverage, etc.) each as `## Term` + 2-4 sentence meaning. `assets.md`: each asset class (stocks, indices, forex, commodities, crypto) — what it is and what moves it; reference the NexusIQ asset registry (`app/analytics/assets.py`). `impact.md`: event→asset rules with direction, strength, reason (Fed rate ↑ → DXY ↑ / gold ↓; OPEC cut → oil ↑; high CPI → indices ↓; risk-off → VIX ↑, BTC ↓).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -428,29 +428,29 @@ git push
 - Modify: `backend/.gitignore` (create if absent) — add `app/rag/knowledge.npz`
 
 **Interfaces:**
-- Consumes: `openai_client` (`app/agents/llm.py`), `chunk.load_chunks`, `store.save`.
+- Consumes: `primary_client` (`app/agents/llm.py`), `chunk.load_chunks`, `store.save`.
 - Produces:
   - `embed_texts(texts: list[str]) -> np.ndarray` (async, batched, shape `[n, 1536]`).
   - `embed_query(text: str) -> np.ndarray` (async, shape `[1536]`).
   - `KNOWLEDGE_DIR` and `NPZ_PATH` path constants (re-used by Task 5).
   - `build.py` `__main__`: loads chunks, embeds, saves `knowledge.npz`.
 
-No unit test (requires live OpenAI). Verified by running the build CLI manually in Step 3.
+No unit test (requires live AI). Verified by running the build CLI manually in Step 3.
 
 - [ ] **Step 1: Write the embedding module**
 
 ```python
 # backend/app/rag/embed.py
-"""OpenAI text-embedding-3-small ilə chunk/sorğu embed-i."""
+"""AI embedding modeli ilə chunk/sorğu embed-i."""
 from __future__ import annotations
 
 from pathlib import Path
 
 import numpy as np
 
-from app.agents.llm import openai_client
+from app.agents.llm import primary_client
 
-EMBED_MODEL = "text-embedding-3-small"
+EMBED_MODEL = "embedding modeli"
 _BATCH = 128
 
 KNOWLEDGE_DIR = Path(__file__).resolve().parent / "knowledge"
@@ -462,7 +462,7 @@ async def embed_texts(texts: list[str]) -> np.ndarray:
     out: list[list[float]] = []
     for i in range(0, len(texts), _BATCH):
         batch = texts[i : i + _BATCH]
-        resp = await openai_client().embeddings.create(model=EMBED_MODEL, input=batch)
+        resp = await primary_client().embeddings.create(model=EMBED_MODEL, input=batch)
         out.extend(d.embedding for d in resp.data)
     return np.array(out, dtype=np.float32)
 
@@ -544,20 +544,20 @@ git push
 - Test: `backend/tests/test_rag_router.py`
 
 **Interfaces:**
-- Consumes: `embed.embed_query`, `embed.NPZ_PATH`, `store.load`, existing `_GUARD`, `_classify_finance`, `_detect_chart`, `_synth_messages`, `_gpt_pass`, `_claude_pass`, `_rag_context`.
+- Consumes: `embed.embed_query`, `embed.NPZ_PATH`, `store.load`, existing `_GUARD`, `_classify_finance`, `_detect_chart`, `_synth_messages`, `_primary_pass`, `_secondary_pass`, `_rag_context`.
 - Produces:
   - `_parse_route(raw: str) -> str` — maps router JSON to `"info" | "chart" | "discussion"`; defaults to `"discussion"` on bad input. **Pure, unit-tested.**
-  - `_route(question: str) -> str` — async GPT classifier wrapping `_parse_route`.
+  - `_route(question: str) -> str` — async model klassifikator wrapping `_parse_route`.
   - `_kb_chunks(question: str, k: int) -> list[dict]` — async; embeds query, searches lazily-loaded module-level store; returns `[]` if store missing or embed fails.
   - `_kb_context(chunks: list[dict]) -> str` — formats chunks as bullet context.
-  - `_rag_answer_messages(question, lang, kb_context) -> list[dict]` — single-GPT RAG answer messages.
+  - `_rag_answer_messages(question, lang, kb_context) -> list[dict]` — tək-model RAG answer messages.
   - Updated `answer_stream` / `answer` using the router.
 
 - [ ] **Step 1: Write the failing test (pure route parser)**
 
 ```python
 # backend/tests/test_rag_router.py
-"""Router parse testi — GPT sorğusuz (sırf parse məntiqi).
+"""Router parse testi — AI sorğusuz (sırf parse məntiqi).
 
 İşlət: backend/.venv/bin/python -m tests.test_rag_router
 """
@@ -637,10 +637,10 @@ def _parse_route(raw: str) -> str:
 
 
 async def _route(question: str) -> str:
-    """GPT ilə sualı təsnif edir: info | chart | discussion."""
+    """AI ilə sualı təsnif edir: info | chart | discussion."""
     try:
-        resp = await openai_client().chat.completions.create(
-            model=settings.openai_model,
+        resp = await primary_client().chat.completions.create(
+            model=settings.llm_primary_model,
             messages=[
                 {
                     "role": "system",
@@ -707,7 +707,7 @@ async def answer_stream(question: str, lang: str, session: AsyncSession):
     import asyncio
 
     lang = lang if lang in LANG_NAMES else "az"
-    if not has_openai() or not await _classify_finance(question):
+    if not has_primary() or not await _classify_finance(question):
         yield {"type": "delta", "text": _REFUSAL[lang]}
         yield {"type": "done", "refused": True}
         return
@@ -716,8 +716,8 @@ async def answer_stream(question: str, lang: str, session: AsyncSession):
     kb_ctx = _kb_context(kb)
 
     if path == "info":
-        stream = await openai_client().chat.completions.create(
-            model=settings.openai_model,
+        stream = await primary_client().chat.completions.create(
+            model=settings.llm_primary_model,
             messages=_rag_answer_messages(question, lang, kb_ctx),
             temperature=0.3,
             max_tokens=400,
@@ -741,12 +741,12 @@ async def answer_stream(question: str, lang: str, session: AsyncSession):
     if chart is not None:
         yield {"type": "chart", "chart": chart}
     context = f"{news_ctx}\n\nKNOWLEDGE:\n{kb_ctx}"
-    gpt_take, claude_take = await asyncio.gather(
-        _gpt_pass(question, context), _claude_pass(question, context)
+    primary_take, secondary_take = await asyncio.gather(
+        _primary_pass(question, context), _secondary_pass(question, context)
     )
-    stream = await openai_client().chat.completions.create(
-        model=settings.openai_model,
-        messages=_synth_messages(question, lang, gpt_take, claude_take, corr_note),
+    stream = await primary_client().chat.completions.create(
+        model=settings.llm_primary_model,
+        messages=_synth_messages(question, lang, primary_take, secondary_take, corr_note),
         temperature=0.4,
         max_tokens=600,
         stream=True,
@@ -762,14 +762,14 @@ async def answer_stream(question: str, lang: str, session: AsyncSession):
     yield {"type": "done"}
 ```
 
-Update the non-stream `answer` the same way (router → `info` returns single-GPT RAG answer, else debate with combined context):
+Update the non-stream `answer` the same way (router → `info` returns tək-model RAG answer, else debate with combined context):
 
 ```python
 async def answer(question: str, lang: str, session: AsyncSession) -> dict:
     import asyncio
 
     lang = lang if lang in LANG_NAMES else "az"
-    if not has_openai():
+    if not has_primary():
         return {"answer": _REFUSAL[lang], "refused": True}
     if not await _classify_finance(question):
         return {"answer": _REFUSAL[lang], "refused": True}
@@ -778,8 +778,8 @@ async def answer(question: str, lang: str, session: AsyncSession) -> dict:
     kb_ctx = _kb_context(kb)
 
     if path == "info":
-        resp = await openai_client().chat.completions.create(
-            model=settings.openai_model,
+        resp = await primary_client().chat.completions.create(
+            model=settings.llm_primary_model,
             messages=_rag_answer_messages(question, lang, kb_ctx),
             temperature=0.3,
             max_tokens=400,
@@ -790,10 +790,10 @@ async def answer(question: str, lang: str, session: AsyncSession) -> dict:
         _rag_context(session, question, lang), _detect_chart(question)
     )
     context = f"{news_ctx}\n\nKNOWLEDGE:\n{kb_ctx}"
-    gpt_take, claude_take = await asyncio.gather(
-        _gpt_pass(question, context), _claude_pass(question, context)
+    primary_take, secondary_take = await asyncio.gather(
+        _primary_pass(question, context), _secondary_pass(question, context)
     )
-    final = await _synthesize(question, lang, gpt_take, claude_take, corr_note)
+    final = await _synthesize(question, lang, primary_take, secondary_take, corr_note)
     return {"answer": final or _REFUSAL[lang], "refused": False}
 ```
 
@@ -809,7 +809,7 @@ Expected: every module prints `N/N keçdi.`
 
 ```bash
 git add backend/app/agents/advisor.py backend/tests/test_rag_router.py
-git commit -m "feat(rag): question router + single-GPT RAG path in advisor"
+git commit -m "feat(rag): question router + tək-model RAG path in advisor"
 git push
 ```
 
@@ -852,13 +852,13 @@ Expected: `knowledge.npz` is ignored; working tree clean.
 
 - [ ] **Step 5: Log to memory**
 
-Create `memory/rag-system.md` (project type) summarizing: numpy in-process RAG over curated `app/rag/knowledge/*.md`, `text-embedding-3-small`, router (`info`→RAG, `chart`/`discussion`→debate), rebuild via `python -m app.rag.build`, `knowledge.npz` git-ignored. Add a one-line pointer in `memory/MEMORY.md`.
+Create `memory/rag-system.md` (project type) summarizing: numpy in-process RAG over curated `app/rag/knowledge/*.md`, `embedding modeli`, router (`info`→RAG, `chart`/`discussion`→debate), rebuild via `python -m app.rag.build`, `knowledge.npz` git-ignored. Add a one-line pointer in `memory/MEMORY.md`.
 
 ---
 
 ## Self-Review
 
-**Spec coverage:** RAG path (Task 5), debate path with KB enrichment (Task 5), curated knowledge base authored by Claude (Task 2), numpy store (Task 3), OpenAI embedding (Task 4), router classification (Task 5), latency verification (Task 6), error fallbacks — store-missing/embed-fail/router-fail all default safely (Tasks 3, 5). Same NDJSON protocol preserved (Task 5). All spec sections covered.
+**Spec coverage:** RAG path (Task 5), debate path with KB enrichment (Task 5), curated knowledge base authored by AI (Task 2), numpy store (Task 3), AI embedding (Task 4), router classification (Task 5), latency verification (Task 6), error fallbacks — store-missing/embed-fail/router-fail all default safely (Tasks 3, 5). Same NDJSON protocol preserved (Task 5). All spec sections covered.
 
 **Placeholder scan:** No TBD/TODO; all code blocks are complete. Knowledge content is authored in Task 2 (curation, not a placeholder).
 

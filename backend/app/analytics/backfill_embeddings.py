@@ -1,6 +1,6 @@
 """Xəbərlərə embedding yazır — Tarixi Analoq motoru üçün.
 
-text-embedding-3-small (app/rag/embed.py). Həm birdəfəlik backfill, həm də
+embedding modeli (app/rag/embed.py). Həm birdəfəlik backfill, həm də
 scheduler hook (`embed_pending`) bunu işlədir.
 
 İstifadə (backend/ qovluğundan):
