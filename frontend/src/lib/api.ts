@@ -5,9 +5,15 @@
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8001/api/v1";
 
+// Backend assa, sorğu əbədi gözləməsin — timeout-dan sonra throw edib
+// UI-ya xəta state-i ver (donmuş skeleton əvəzinə).
+const REQUEST_TIMEOUT_MS = 10_000;
+
 export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
+    // Timeout `...init`-dən sonra — heç vaxt səssizcə üstələnməsin (əbədi asma riski).
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
     cache: "no-store",
   });
@@ -26,6 +32,8 @@ export async function apiPost<T>(
     method: "POST",
     body: JSON.stringify(body),
     ...init,
+    // Timeout `...init`-dən sonra — heç vaxt səssizcə üstələnməsin (əbədi asma riski).
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
   });
   if (!res.ok) {

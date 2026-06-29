@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AppNav } from "@/components/layout/AppNav";
 import { Footer } from "@/components/layout/Footer";
 import { Ticker } from "@/components/market/Ticker";
@@ -21,17 +21,41 @@ export default function HomePage() {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
-  const load = useCallback(async (cat: Category, pg: number) => {
+  // Backend qısa müddət əlçatmaz olsa, feed özü sağalsın — geriçəkilmə ilə
+  // avtomatik yenidən cəhd (3s, 6s, 12s). Uğurda və ya tab/səhifə dəyişəndə sıfırlanır.
+  const retryRef = useRef<{ timer?: ReturnType<typeof setTimeout>; n: number }>({
+    n: 0,
+  });
+  // Hər yükləmə "nəsil" nömrəsi alır. Tab/səhifə dəyişəndə və ya unmount-da nömrə
+  // artır; gec gələn (köhnə) sorğu/retry nəticəsi atılır — stale state yazılmasın.
+  const genRef = useRef(0);
+
+  const cancelRetry = useCallback(() => {
+    if (retryRef.current.timer) clearTimeout(retryRef.current.timer);
+    retryRef.current = { n: 0 };
+  }, []);
+
+  const load = useCallback(async (cat: Category, pg: number, gen: number) => {
+    if (gen !== genRef.current) return; // stale (köhnə retry/keçid)
     setStatus("loading");
     try {
       const offset = (pg - 1) * PAGE_SIZE;
       const data = await apiGet<NewsItem[]>(
         `/news?category=${cat}&limit=${PAGE_SIZE}&offset=${offset}`,
       );
+      if (gen !== genRef.current) return; // bu arada keçid oldu — nəticəni at
       setItems(data);
       setStatus("ready");
+      retryRef.current.n = 0; // uğur — sayğacı sıfırla
     } catch {
+      if (gen !== genRef.current) return; // stale xəta — state/retry yazma
       setStatus("error");
+      const n = retryRef.current.n;
+      if (n < 3) {
+        const delay = 3000 * 2 ** n; // 3s, 6s, 12s
+        retryRef.current.n = n + 1;
+        retryRef.current.timer = setTimeout(() => load(cat, pg, gen), delay);
+      }
     }
   }, []);
 
@@ -40,10 +64,17 @@ export default function HomePage() {
     getNewsCount(active).then(setTotal);
   }, [active]);
 
-  // kateqoriya və ya səhifə dəyişəndə xəbərləri çək
+  // kateqoriya və ya səhifə dəyişəndə xəbərləri çək (köhnə retry/sorğuları ləğv et)
   useEffect(() => {
-    load(active, page);
-  }, [active, page, load]);
+    cancelRetry();
+    const gen = ++genRef.current;
+    load(active, page, gen);
+    // unmount/keçiddə nəsli artır — gec gələn sorğu/retry stale sayılıb atılır
+    return () => {
+      genRef.current++;
+      cancelRetry();
+    };
+  }, [active, page, load, cancelRetry]);
 
   function changeTab(c: Category) {
     setActive(c);
@@ -89,7 +120,10 @@ export default function HomePage() {
           <EmptyState
             title={t("home.error")}
             hint={t("home.errorHint")}
-            onRetry={() => load(active, page)}
+            onRetry={() => {
+              cancelRetry();
+              load(active, page, ++genRef.current);
+            }}
             retryLabel={t("home.retry")}
           />
         )}
