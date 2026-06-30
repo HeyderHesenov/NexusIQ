@@ -28,7 +28,7 @@ export function TrendingStrip({ category }: { category: Category }) {
           {t("home.trending")}
         </h2>
       </div>
-      <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:thin]">
+      <div className="no-scrollbar flex gap-3 overflow-x-auto pb-2">
         {items.map((n, i) => (
           <TrendCard key={n.id} news={n} rank={i + 1} />
         ))}

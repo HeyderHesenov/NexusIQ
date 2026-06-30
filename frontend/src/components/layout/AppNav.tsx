@@ -222,7 +222,7 @@ export function AppNav() {
       </div>
 
       {/* mobil — bütün keçidlər düz sıra, alt-xətt göstəricili */}
-      <nav className="flex items-center gap-1 overflow-x-auto border-t border-border px-3 py-2 md:hidden">
+      <nav className="no-scrollbar flex items-center gap-1 overflow-x-auto border-t border-border px-3 py-2 md:hidden">
         {ALL_LEAVES.map((l) => {
           const Icon = l.icon;
           const active = isActive(pathname, l.href);

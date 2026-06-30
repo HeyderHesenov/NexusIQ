@@ -49,7 +49,7 @@ export function PairChart({
   const last = series[series.length - 1].date;
 
   return (
-    <div className="w-full overflow-x-auto">
+    <div className="no-scrollbar w-full overflow-x-auto">
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className={`w-full ${compact ? "" : "min-w-[600px]"}`}

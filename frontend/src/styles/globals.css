@@ -117,6 +117,16 @@ html {
   background: var(--selection);
 }
 
+/* Carousel/scroll-zolaq üçün scrollbar-ı gizlət (scroll funksiyası qalır) —
+   görünən boz/qara xət olmasın (məs. TrendingStrip). */
+.no-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* köhnə Edge */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
 /* Mono rəqəmlər (market datası üçün) */
 .tabular {
   font-variant-numeric: tabular-nums;

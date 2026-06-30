@@ -35,7 +35,7 @@ export function CorrelationMatrix({
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="no-scrollbar overflow-x-auto">
       <table className="border-separate border-spacing-1">
         <thead>
           <tr>

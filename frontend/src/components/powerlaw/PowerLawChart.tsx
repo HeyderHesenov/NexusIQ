@@ -53,7 +53,7 @@ export function PowerLawChart({ series }: { series: PowerLawPoint[] }) {
   const lastI = series.length - 1;
 
   return (
-    <div className="w-full overflow-x-auto">
+    <div className="no-scrollbar w-full overflow-x-auto">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[640px]" role="img">
         {/* dəstək–müqavimət dəhlizi */}
         <path d={corridor} fill="#ff7a1a" opacity={0.08} />
