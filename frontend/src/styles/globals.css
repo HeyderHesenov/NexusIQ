@@ -25,6 +25,8 @@
    ============================================================ */
 :root,
 html.dark {
+  color-scheme: dark;
+  --selection: rgba(255, 122, 26, 0.28);
   --bg: #0a0a0b;
   --surface: #161618;
   --surface-hover: #1f1f22;
@@ -44,6 +46,8 @@ html.dark {
    (gözə dəymir); dərin-slate mətn (~14:1, sərt 17 yox). Dərinlik boz-slabdan yox,
    yumşaq kölgə+hairline-dan. */
 html.light {
+  color-scheme: light;
+  --selection: rgba(232, 101, 10, 0.2);
   --bg: #edebe6;
   --surface: #f7f5f0;
   --surface-hover: #efece5;
@@ -83,12 +87,23 @@ body {
   width: 10px;
   height: 10px;
 }
+::-webkit-scrollbar-track {
+  background: transparent;
+}
 ::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 6px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--muted);
+}
+
+/* Mətn seçimi — brendə uyğun (default açıq-mavi əvəzinə narıncı tint) */
+::selection {
+  background: var(--selection);
+}
+::-moz-selection {
+  background: var(--selection);
 }
 
 /* Mono rəqəmlər (market datası üçün) */
