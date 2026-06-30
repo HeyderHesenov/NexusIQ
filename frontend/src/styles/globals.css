@@ -85,37 +85,22 @@ body {
 }
 
 /* Root scroller davranışı:
-   - overflow-y: scroll → şaquli scrollbar HƏMİŞƏ var → qısa↔uzun səhifə keçidində toggle/
-     10px sürüşmə yox; həm də html-i açıq şaquli scroll-konteyner saxlayır (sticky sınmır).
-   - overflow-x: clip → üfüqi scrollbar/scroll HEÇ vaxt (keçici overflow da klipslənir → alt boz
-     xət olmaz). clip ≠ hidden; overflow-y:scroll ilə birlikdə hər ox öz dəyəri ilə işləyir. */
+   - overflow-y: scroll → şaquli scroll həmişə mümkün; html-i scroll-konteyner saxlayır (sticky OK).
+   - overflow-x: clip → üfüqi overflow heç vaxt scroll yaratmasın. */
 html {
   overflow-x: clip;
   overflow-y: scroll;
 }
-/* Belt-and-suspenders: ÜFÜQİ scrollbar-ı qlobal gizlət — document, carousel və ya hər hansı
-   keçici overflow-da alt boz xət bir daha görünməsin (şaquli scrollbar toxunulmur). */
-::-webkit-scrollbar:horizontal {
-  display: none;
-}
 
-/* İncə scrollbar */
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+/* BÜTÜN scrollbar-lar tam gizli (Chrome overlay scrollbar daxil). Səbəb: Chrome overlay
+   scrollbar custom ::-webkit-scrollbar stilini və :horizontal pseudo-nu tam idarə etmir;
+   keçici üfüqi overflow-da sistem-mavi nazik zolaq (alt xət) göstərirdi. Hamısını gizlədirik →
+   heç bir rəngdə zolaq görünməz. Scroll wheel/trackpad/klaviatura ilə işləyir. */
+* {
+  scrollbar-width: none; /* Firefox + standart */
 }
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-corner {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 6px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--muted);
+*::-webkit-scrollbar {
+  display: none; /* Chrome/Safari (overlay daxil) */
 }
 
 /* Mətn seçimi — brendə uyğun (default açıq-mavi əvəzinə narıncı tint) */
