@@ -51,7 +51,7 @@ export default function NewsDetailPage({
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl px-5 py-8">
+      <main className="mx-auto w-full max-w-3xl px-5 py-8 flex-1">
         {status === "loading" && <DetailSkeleton />}
 
         {status === "error" && (

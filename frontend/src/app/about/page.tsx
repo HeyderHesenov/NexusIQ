@@ -32,7 +32,7 @@ export default function AboutPage() {
   return (
     <div className="flex min-h-screen flex-col">
       <AppNav />
-      <main className="mx-auto w-full max-w-4xl px-5 py-12">
+      <main className="mx-auto w-full max-w-4xl px-5 py-12 flex-1">
         {/* hero — tezis */}
         <header className="border-b border-border pb-10">
           <p className="mb-4 inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.22em] text-muted">

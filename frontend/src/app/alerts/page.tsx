@@ -36,7 +36,7 @@ export default function AlertsPage() {
   return (
     <div className="flex min-h-screen flex-col">
       <AppNav />
-      <main className="mx-auto w-full max-w-3xl px-5 py-8">
+      <main className="mx-auto w-full max-w-3xl px-5 py-8 flex-1">
         <div className="mb-2 flex items-center gap-2">
           <Target size={18} className="text-accent" />
           <h1 className="text-2xl font-semibold tracking-tight">

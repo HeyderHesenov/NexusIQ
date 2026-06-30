@@ -100,7 +100,7 @@ export default function RadarPage() {
   return (
     <div className="flex min-h-screen flex-col">
       <AppNav />
-      <main className="mx-auto w-full max-w-4xl px-5 py-8">
+      <main className="mx-auto w-full max-w-4xl px-5 py-8 flex-1">
         {/* başlıq */}
         <div className="mb-5">
           <div className="mb-1.5 flex items-center gap-2">

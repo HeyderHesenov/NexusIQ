@@ -80,7 +80,7 @@ export default function CorrelationPage() {
     <div className="flex min-h-screen flex-col">
       <AppNav />
 
-      <main className="mx-auto w-full max-w-app px-5 lg:px-8 py-8">
+      <main className="mx-auto w-full max-w-7xl px-5 py-8 flex-1">
         <div className="mb-3 flex items-center gap-2">
           <Activity size={18} className="text-accent" />
           <h1 className="text-2xl font-semibold tracking-tight">

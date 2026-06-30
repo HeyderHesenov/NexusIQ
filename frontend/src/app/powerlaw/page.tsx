@@ -39,7 +39,7 @@ export default function PowerLawPage() {
   return (
     <div className="flex min-h-screen flex-col">
       <AppNav />
-      <main className="mx-auto w-full max-w-5xl px-5 py-8">
+      <main className="mx-auto w-full max-w-5xl px-5 py-8 flex-1">
         {/* eyebrow */}
         <p className="font-mono text-xs uppercase tracking-[0.25em] text-accent">
           {label} · {t("pl.title")}

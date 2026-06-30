@@ -28,11 +28,6 @@ const config: Config = {
       borderRadius: {
         card: "14px",
       },
-      maxWidth: {
-        // Terminal məzmun eni — geniş monitorda ekranı doldurur, ultra-genişdə
-        // sətirlər oxunaqlı qalsın deyə sərhəd. Nav/Footer/data səhifələri paylaşır.
-        app: "1760px",
-      },
     },
   },
   plugins: [],

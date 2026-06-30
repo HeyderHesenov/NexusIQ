@@ -130,7 +130,7 @@ export default function RadarDetailPage() {
   return (
     <div className="flex min-h-screen flex-col">
       <AppNav />
-      <main className="mx-auto w-full max-w-3xl px-5 py-8">
+      <main className="mx-auto w-full max-w-3xl px-5 py-8 flex-1">
         <Link
           href="/radar"
           className="mb-5 inline-flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-text"

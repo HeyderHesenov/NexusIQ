@@ -93,7 +93,7 @@ export default function HomePage() {
       <AppNav />
       <Ticker />
 
-      <main className="mx-auto w-full max-w-app px-5 lg:px-8 py-8">
+      <main className="mx-auto w-full max-w-7xl px-5 py-8 flex-1">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-accent">
@@ -110,7 +110,7 @@ export default function HomePage() {
 
         {status === "loading" && (
           <NewsGrid>
-            {Array.from({ length: 12 }).map((_, i) => (
+            {Array.from({ length: 9 }).map((_, i) => (
               <NewsCardSkeleton key={i} />
             ))}
           </NewsGrid>
@@ -218,7 +218,7 @@ function Pagination({
 
 function NewsGrid({ children }: { children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
       {children}
     </div>
   );

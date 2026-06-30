@@ -110,7 +110,7 @@ export function AppNav() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-[var(--header-bg)] backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-app items-center gap-6 px-5 lg:px-8">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-5">
         <Link href="/" className="flex shrink-0 items-center gap-2.5">
           <span className="pulse-dot h-2.5 w-2.5 rounded-full bg-accent" />
           <span className="text-lg font-semibold tracking-tight">
