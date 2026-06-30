@@ -84,18 +84,19 @@ body {
   overscroll-behavior: none;
 }
 
-/* scrollbar-gutter:stable — şaquli scrollbar yerini həmişə rezerv et ki, qısa↔uzun
-   səhifə keçidində scrollbar açılıb-bağlanmasın (boz xət "gəlib-gedir" + 10px sürüşmə).
-   DİQQƏT: overflow-x:clip ilə EYNİ elementdə olmamalıdır — clip elementi scroll-konteyner
-   OLMAYAN edir və scrollbar-gutter iqnor olunur. Ona görə overflow-x:clip body-yə köçdü. */
+/* Root scroller davranışı:
+   - overflow-y: scroll → şaquli scrollbar HƏMİŞƏ var → qısa↔uzun səhifə keçidində toggle/
+     10px sürüşmə yox; həm də html-i açıq şaquli scroll-konteyner saxlayır (sticky sınmır).
+   - overflow-x: clip → üfüqi scrollbar/scroll HEÇ vaxt (keçici overflow da klipslənir → alt boz
+     xət olmaz). clip ≠ hidden; overflow-y:scroll ilə birlikdə hər ox öz dəyəri ilə işləyir. */
 html {
-  overflow-y: scroll;
-  scrollbar-gutter: stable;
-}
-/* Phantom üfüqi scrollbar guard — body-də. clip (≠ hidden) scroll-konteyner yaratmır,
-   ona görə position:sticky (AppNav) sınmır; body overflow-y visible qalır → viewport scroll. */
-body {
   overflow-x: clip;
+  overflow-y: scroll;
+}
+/* Belt-and-suspenders: ÜFÜQİ scrollbar-ı qlobal gizlət — document, carousel və ya hər hansı
+   keçici overflow-da alt boz xət bir daha görünməsin (şaquli scrollbar toxunulmur). */
+::-webkit-scrollbar:horizontal {
+  display: none;
 }
 
 /* İncə scrollbar */
