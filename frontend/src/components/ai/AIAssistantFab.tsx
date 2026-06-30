@@ -79,21 +79,24 @@ export function AIAssistantFab() {
         <Sparkles size={22} className="relative" />
       </button>
 
-      {/* Panel YALNIZ açıq ikən render olunur. Bağlı ikən off-canvas (translate-x-full) saxlamaq
-          Chrome-da fixed üfüqi overlay scrollbar (mavi alt zolaq) yaradırdı — overflow-x:clip
-          fixed elementi tutmur, overlay scrollbar isə CSS ilə gizlədilə bilmir. */}
-      {open && (
-        <div className="fixed inset-0 z-50 overflow-hidden" role="presentation">
-          <div
-            onClick={() => setOpen(false)}
-            className="fade-up absolute inset-0 bg-black/50 backdrop-blur-sm"
-          />
+      <div
+        className={`fixed inset-0 z-50 overflow-hidden ${open ? "" : "pointer-events-none"}`}
+        aria-hidden={!open}
+      >
+        <div
+          onClick={() => setOpen(false)}
+          className={`absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${
+            open ? "opacity-100" : "opacity-0"
+          }`}
+        />
 
-          <aside
-            className="ai-panel-in absolute right-0 top-0 flex h-full w-full max-w-[420px] flex-col border-l border-border bg-surface shadow-2xl"
-            role="dialog"
-            aria-label={t("ai.title")}
-          >
+        <aside
+          className={`absolute right-0 top-0 flex h-full w-[min(100vw,420px)] flex-col border-l border-border bg-surface shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            open ? "translate-x-0" : "translate-x-full"
+          }`}
+          role="dialog"
+          aria-label={t("ai.title")}
+        >
           <header className="flex items-center justify-between border-b border-border px-5 py-4">
             <div className="flex items-center gap-3">
               <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-accent to-amber-500 text-black">
@@ -180,9 +183,8 @@ export function AIAssistantFab() {
               <ArrowUp size={18} />
             </button>
           </form>
-          </aside>
-        </div>
-      )}
+        </aside>
+      </div>
     </>
   );
 }
