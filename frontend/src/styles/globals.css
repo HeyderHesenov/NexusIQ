@@ -80,6 +80,14 @@ body {
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
+  /* macOS elastik overscroll/bounce söndür (Chrome-da var, webview-də yox) — kənar flash olmasın */
+  overscroll-behavior: none;
+}
+
+/* Phantom üfüqi scrollbar-ı qarşısını al. clip (≠ hidden) scroll-konteyner yaratmır,
+   ona görə position:sticky (AppNav, brief/news mini-header) sınmır. */
+html {
+  overflow-x: clip;
 }
 
 /* İncə scrollbar */
@@ -88,6 +96,9 @@ body {
   height: 10px;
 }
 ::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-corner {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
