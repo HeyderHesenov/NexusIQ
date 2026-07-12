@@ -11,6 +11,7 @@ gözlənilməz API xərcinin qarşısını alır.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta, timezone
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -99,7 +100,7 @@ async def _image_cycle() -> None:
 async def startup_catchup() -> None:
     """Başlanğıc tutması — restart-dan sonra interval gözləmədən tərcüməsiz
     backlog-u + keçmiş kilidlənmiş İngiliscəni + şəkilsizliyi dərhal təmizləyir
-    (scheduler ilk dövrü 60 dəq sonra atır)."""
+    (scheduler-in ilk planlı dövrü ~2 dəq sonra başlayır)."""
     from app.agents.summarize_ai import summarize_all_pending
     from app.agents.translate_free import retranslate_stale, translate_all_pending
     from app.ingestion.enrich_images import backfill as image_backfill
@@ -203,6 +204,9 @@ def start_scheduler() -> None:
         max_instances=1,
         coalesce=True,
         replace_existing=True,
+        # İlk dövr boot-dan ~2 dəq sonra — uzun fasilədən sonra xəbər boşluğu
+        # 60 dəq yox, dəqiqələr içində dolsun (startup_catchup ilə yarışmasın).
+        next_run_time=datetime.now(timezone.utc) + timedelta(seconds=120),
     )
     _scheduler.start()
     logger.info("Scheduler başladı — hər %s dəqiqədə ingestion.", minutes)

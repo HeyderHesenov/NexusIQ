@@ -9,17 +9,71 @@ const API_BASE =
 // UI-ya xəta state-i ver (donmuş skeleton əvəzinə).
 const REQUEST_TIMEOUT_MS = 10_000;
 
-export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    // Timeout `...init`-dən sonra — heç vaxt səssizcə üstələnməsin (əbədi asma riski).
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
-    cache: "no-store",
-  });
+// ---- Backend sağlamlıq siqnalı ----
+// Fərdi funksiyalar xətanı udub boş data qaytarır (səhifə sınmasın deyə) —
+// amma "server ümumiyyətlə əlçatmazdır" halı görünməz qalmamalıdır.
+// Şəbəkə səviyyəsində uğursuzluq buradan qlobal bannerə ötürülür.
+type BackendListener = (down: boolean) => void;
+let _backendDown = false;
+const _backendListeners = new Set<BackendListener>();
+
+function _setBackendDown(down: boolean): void {
+  if (_backendDown === down) return;
+  _backendDown = down;
+  _backendListeners.forEach((cb) => cb(down));
+}
+
+/** Backend əlçatanlıq dəyişikliklərinə abunə — dərhal cari vəziyyətlə çağırılır. */
+export function onBackendStatus(cb: BackendListener): () => void {
+  _backendListeners.add(cb);
+  cb(_backendDown);
+  return () => {
+    _backendListeners.delete(cb);
+  };
+}
+
+/** Banner üçün yüngül health yoxlaması — nəticəni siqnala da ötürür. */
+export async function pingHealth(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/health`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(3_000),
+    });
+    _setBackendDown(!res.ok);
+    return res.ok;
+  } catch {
+    _setBackendDown(true);
+    return false;
+  }
+}
+
+// Şəbəkə xətası (server ölü) ilə HTTP xətasını (server canlı, cavab xəta)
+// ayırır: yalnız birincisi qlobal "down" sayılır.
+async function _tracked(path: string, req: () => Promise<Response>): Promise<Response> {
+  let res: Response;
+  try {
+    res = await req();
+  } catch (e) {
+    _setBackendDown(true);
+    throw e;
+  }
+  _setBackendDown(false);
   if (!res.ok) {
     throw new Error(`API ${res.status}: ${path}`);
   }
+  return res;
+}
+
+export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await _tracked(path, () =>
+    fetch(`${API_BASE}${path}`, {
+      ...init,
+      // Timeout `...init`-dən sonra — heç vaxt səssizcə üstələnməsin (əbədi asma riski).
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
+      cache: "no-store",
+    }),
+  );
   return res.json() as Promise<T>;
 }
 
@@ -28,17 +82,16 @@ export async function apiPost<T>(
   body: unknown,
   init?: RequestInit,
 ): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: "POST",
-    body: JSON.stringify(body),
-    ...init,
-    // Timeout `...init`-dən sonra — heç vaxt səssizcə üstələnməsin (əbədi asma riski).
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
-  });
-  if (!res.ok) {
-    throw new Error(`API ${res.status}: ${path}`);
-  }
+  const res = await _tracked(path, () =>
+    fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      body: JSON.stringify(body),
+      ...init,
+      // Timeout `...init`-dən sonra — heç vaxt səssizcə üstələnməsin (əbədi asma riski).
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
+    }),
+  );
   return res.json() as Promise<T>;
 }
 

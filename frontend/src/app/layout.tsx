@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/lib/theme";
 import { AlertWatcher } from "@/components/alerts/AlertWatcher";
 import { RoutePrewarm } from "@/components/layout/RoutePrewarm";
 import { AIAssistantFab } from "@/components/ai/AIAssistantFab";
+import { BackendStatusBanner } from "@/components/system/BackendStatusBanner";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -65,6 +66,7 @@ export default function RootLayout({
             </AuthGate>
             <AlertWatcher />
             <RoutePrewarm />
+            <BackendStatusBanner />
           </LanguageProvider>
         </ThemeProvider>
       </body>
