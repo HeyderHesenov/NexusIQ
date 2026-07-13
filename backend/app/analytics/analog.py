@@ -21,7 +21,7 @@ import pandas as pd
 import yfinance as yf
 from sqlalchemy import select
 
-from app.analytics import correlation
+from app.analytics import correlation, swr
 from app.db.session import AsyncSessionLocal
 from app.models import News
 from app.rag import store
@@ -35,8 +35,8 @@ _DUP_SIM = 0.985  # bundan yüksək oxşarlıq ~ eyni xəbər → at
 _BENCHMARK = {"forex": "dxy", "us": "spx", "crypto": "btc", "commodities": "gold"}
 _KEY_TO_SYM = correlation._KEY_TO_SYM  # 9 aktivin Yahoo simvolu
 
-# ---- yaddaşda kNN indeksi ----
-_index_cache: dict = {"ts": 0.0, "store": None}
+# ---- yaddaşda kNN indeksi (SWR: köhnə dəyəri dərhal ver, fonda yenilə) ----
+_index_cache: dict = {"ts": 0.0, "data": None}
 _INDEX_TTL = 1800.0  # 30 dəqiqə
 
 # ---- aktiv qiymət tarixçəsi keşi ----
@@ -45,30 +45,15 @@ _CLOSES_TTL = 3600.0  # 1 saat
 
 
 def reset_index() -> None:
-    """Embedding dövrü yeni xəbər əlavə edəndə indeksi köhnəlt."""
+    """Embedding dövrü yeni xəbər əlavə edəndə indeksi köhnəlt (fonda yenilənəcək)."""
     _index_cache["ts"] = 0.0
 
 
-async def _build_index() -> store.VectorStore | None:
-    """Nəticəsi məlum (kifayət köhnə) embedding-li xəbərlərdən kNN indeksi."""
-    cutoff = datetime.now(timezone.utc).timestamp() - _MIN_AGE_DAYS * 86400
-    cutoff_dt = datetime.fromtimestamp(cutoff, tz=timezone.utc)
-    async with AsyncSessionLocal() as s:
-        rows = (
-            await s.execute(
-                select(
-                    News.id,
-                    News.title,
-                    News.published_at,
-                    News.category,
-                    News.translations,
-                    News.embedding,
-                )
-                .where(News.embedding.is_not(None))
-                .where(News.published_at.is_not(None))
-                .where(News.published_at <= cutoff_dt)
-            )
-        ).all()
+def _rows_to_store(rows) -> store.VectorStore | None:
+    """Sətirlərdən meta + np.array → VectorStore. CPU-tutumlu (2.5M float) —
+
+    event loop-u bloklamamaq üçün to_thread-də çağırılır.
+    """
     if not rows:
         return None
     meta = []
@@ -92,15 +77,34 @@ async def _build_index() -> store.VectorStore | None:
     return store.VectorStore(meta, vectors)
 
 
+async def _build_index() -> store.VectorStore | None:
+    """Nəticəsi məlum (kifayət köhnə) embedding-li xəbərlərdən kNN indeksi."""
+    cutoff = datetime.now(timezone.utc).timestamp() - _MIN_AGE_DAYS * 86400
+    cutoff_dt = datetime.fromtimestamp(cutoff, tz=timezone.utc)
+    async with AsyncSessionLocal() as s:
+        rows = (
+            await s.execute(
+                select(
+                    News.id,
+                    News.title,
+                    News.published_at,
+                    News.category,
+                    News.translations,
+                    News.embedding,
+                )
+                .where(News.embedding.is_not(None))
+                .where(News.published_at.is_not(None))
+                .where(News.published_at <= cutoff_dt)
+            )
+        ).all()
+    # ~25MB embedding → meta qurma + np.array event loop-dan kənarda.
+    return await asyncio.to_thread(_rows_to_store, rows)
+
+
 async def _index() -> store.VectorStore | None:
-    now = time.time()
-    if _index_cache["store"] is not None and now - _index_cache["ts"] < _INDEX_TTL:
-        return _index_cache["store"]
-    st = await _build_index()
-    if st is not None:
-        _index_cache["store"] = st
-        _index_cache["ts"] = now
-    return _index_cache["store"]
+    """kNN indeksi — SWR: köhnəlsə köhnəni dərhal ver, fonda yenilə; soyuq
+    startda paralel sorğular tək build-də birləşir (lock coalescing)."""
+    return await swr.get(_index_cache, _INDEX_TTL, _build_index)
 
 
 # ---- aktiv qiymət tarixçəsi ----
