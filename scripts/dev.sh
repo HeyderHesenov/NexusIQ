@@ -43,8 +43,10 @@ else
   fi
   echo "==> Frontend başladılır (:$FRONTEND_PORT)"
   # npm-siz (.bin/next) + exec — pidfile real next-server PID-ini göstərsin
+  # --hostname 127.0.0.1: yalnız loopback. /backend rewrite bütün backend API-ni
+  # proksiləyir; 0.0.0.0 bind LAN-a bütün API-ni açır (backend loopback qorumasını sıfırlayır).
   ( cd "$ROOT/frontend" && exec nohup ./node_modules/.bin/next start \
-      --port "$FRONTEND_PORT" >> "$LOG_DIR/frontend.log" 2>&1 ) &
+      --hostname 127.0.0.1 --port "$FRONTEND_PORT" >> "$LOG_DIR/frontend.log" 2>&1 ) &
   echo $! > "$LOG_DIR/frontend.pid"
   for _ in $(seq 1 60); do frontend_up && break; sleep 1; done
   frontend_up && echo "   frontend hazır" || { echo "   XƏTA: frontend qalxmadı — $LOG_DIR/frontend.log"; exit 1; }

@@ -20,7 +20,18 @@ _LANG_NAMES = {
 }
 _DIR = {"up", "down", "mixed"}
 _BIAS = {"up", "down", "mixed"}
+# Sadə LRU-vari keş — açar user-controlled (name/sym), ona görə tavan qoyulur
+# (limitsiz artım = memory-DoS). Tavan aşılanda ən köhnə açar atılır.
 _cache: dict[str, dict] = {}
+_CACHE_MAX = 512
+
+
+def _cache_put(key: str, value: dict) -> None:
+    if key in _cache:
+        del _cache[key]
+    elif len(_cache) >= _CACHE_MAX:
+        _cache.pop(next(iter(_cache)), None)  # ən köhnə (FIFO)
+    _cache[key] = value
 
 # Hər növ üçün xüsusi təlimat (modelə İngiliscə, çıxış seçilmiş dildə).
 _KIND_INSTR = {
@@ -152,5 +163,5 @@ async def market_brief(
         "pairsNote": (data.get("pairsNote") or "").strip(),
         "pairs": pairs[:4],
     }
-    _cache[key] = out
+    _cache_put(key, out)
     return out

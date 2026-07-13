@@ -43,7 +43,7 @@ _BASE = select(News).options(selectinload(News.source), *_HEAVY)
 async def list_news(
     category: Category | None = Query(None, description="Tab filtri"),
     limit: int = Query(30, ge=1, le=100),
-    offset: int = Query(0, ge=0),
+    offset: int = Query(0, ge=0, le=100_000),
     db: AsyncSession = Depends(get_db),
 ) -> list[NewsOut]:
     """Xəbər siyahısı — ən yenidən köhnəyə. category verilsə filtrlənir."""
@@ -69,7 +69,7 @@ async def count_news(
 
 @router.get("/search", response_model=list[NewsOut])
 async def search_news(
-    q: str = Query(..., min_length=1, description="Axtarış sözü"),
+    q: str = Query(..., min_length=1, max_length=100, description="Axtarış sözü"),
     limit: int = Query(20, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
 ) -> list[NewsOut]:

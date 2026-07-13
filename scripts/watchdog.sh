@@ -44,8 +44,10 @@ start_backend() {
   echo $! > "$LOG_DIR/backend.pid"
 }
 start_frontend() {
+  # --hostname 127.0.0.1: yalnız loopback (dev.sh ilə sinxron — /backend rewrite
+  # bütün API-ni proksiləyir, 0.0.0.0 onu LAN-a açardı).
   ( cd "$ROOT/frontend" && exec nohup ./node_modules/.bin/next start \
-      --port "$FRONTEND_PORT" >> "$LOG_DIR/frontend.log" 2>&1 ) &
+      --hostname 127.0.0.1 --port "$FRONTEND_PORT" >> "$LOG_DIR/frontend.log" 2>&1 ) &
   echo $! > "$LOG_DIR/frontend.pid"
 }
 

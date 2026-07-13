@@ -13,6 +13,7 @@ import re
 import httpx
 from sqlalchemy import select
 
+from app.core import netguard
 from app.db.session import AsyncSessionLocal, engine
 from app.models import News
 
@@ -50,7 +51,10 @@ def _extract(page: str) -> str | None:
 async def _fetch(sem, client, row_id, url):
     async with sem:
         try:
-            r = await client.get(url, timeout=15.0)
+            # SSRF-təhlükəsiz — daxili/metadata ünvanlara redirect bloklanır.
+            r = await netguard.safe_get(client, url, timeout=15.0)
+            if r is None:
+                return row_id, None
             r.raise_for_status()
             # CPU-tutumlu HTML parse-ı thread-ə ver — event loop bloklanmasın.
             text = await asyncio.to_thread(_extract, r.text[:400_000])
@@ -75,7 +79,7 @@ async def backfill(limit: int = 300) -> dict[str, int]:
         return {"checked": 0, "found": 0}
 
     sem = asyncio.Semaphore(_CONCURRENCY)
-    async with httpx.AsyncClient(headers=_UA, follow_redirects=True) as client:
+    async with httpx.AsyncClient(headers=_UA, follow_redirects=False) as client:
         results = await asyncio.gather(
             *(_fetch(sem, client, rid, url) for rid, url in targets)
         )

@@ -83,10 +83,10 @@ _LANGS = {"az", "en", "ru", "tr"}
 
 @router.get("/brief", dependencies=[Depends(rate_limit("brief", limit=30, window=60.0))])
 async def brief_route(
-    kind: str = Query("event"),
-    name: str = Query(..., min_length=1),
-    sym: str = Query(""),
-    meta: str = Query(""),
+    kind: str = Query("event", max_length=24),
+    name: str = Query(..., min_length=1, max_length=120),
+    sym: str = Query("", max_length=24),
+    meta: str = Query("", max_length=200),
     lang: str = Query("az"),
 ) -> dict:
     """İstənilən təqvim elementi üçün AI analizi — nədir, ssenarilər, instrumentlər."""
