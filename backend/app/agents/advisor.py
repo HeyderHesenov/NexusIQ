@@ -98,18 +98,32 @@ async def _rag_context(session: AsyncSession, question: str, lang: str) -> str:
         rows = (
             await session.scalars(
                 select(News)
-                .options(selectinload(News.source), defer(News.embedding))
+                .options(
+                    selectinload(News.source),
+                    defer(News.embedding),
+                    defer(News.content),
+                )
                 .order_by(News.published_at.desc().nullslast())
                 .limit(_RAG_TOPK)
             )
         ).all()
     else:
-        fields = (News.title, News.summary, News.content, News.title_az, News.summary_az)
+        # `content` (böyük Text) ILIKE-dan çıxarıldı — summary/başlıq kifayətdir;
+        # multi-KB mətn üzrə seq scan-ı önləyir. Son 90 günə də limitlə.
+        from datetime import datetime, timedelta, timezone
+
+        since = datetime.now(timezone.utc) - timedelta(days=90)
+        fields = (News.title, News.summary, News.title_az, News.summary_az)
         conds = [f.ilike(f"%{w}%") for w in words for f in fields]
         candidates = (
             await session.scalars(
                 select(News)
-                .options(selectinload(News.source), defer(News.embedding))
+                .options(
+                    selectinload(News.source),
+                    defer(News.embedding),
+                    defer(News.content),
+                )
+                .where(News.published_at >= since)
                 .where(or_(*conds))
                 .order_by(News.published_at.desc().nullslast())
                 .limit(_RAG_CANDIDATES)
@@ -117,8 +131,9 @@ async def _rag_context(session: AsyncSession, question: str, lang: str) -> str:
         ).all()
 
         def score(n: News) -> int:
+            # content deferred — lazy-load N+1 olmasın deyə blob-a daxil edilmir.
             blob = " ".join(
-                filter(None, [n.title, n.summary, n.content, n.title_az, n.summary_az,
+                filter(None, [n.title, n.summary, n.title_az, n.summary_az,
                               json.dumps(n.translations or {}, ensure_ascii=False)])
             ).lower()
             return sum(1 for w in words if w in blob)
@@ -129,7 +144,8 @@ async def _rag_context(session: AsyncSession, question: str, lang: str) -> str:
     for n in rows:
         tr = (n.translations or {}).get(lang) or {}
         title = tr.get("title") or n.title
-        body = tr.get("body") or n.summary or n.content or ""
+        # content deferred → summary istifadə et (deferred sütun lazy-load olmasın)
+        body = tr.get("body") or n.summary or ""
         src = n.source.name if n.source else "?"
         lines.append(f"- [{n.category}] ({src}) {title} — {body[:200]}")
     return "\n".join(lines) if lines else "(no relevant NexusIQ news found)"

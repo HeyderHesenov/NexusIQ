@@ -11,11 +11,12 @@ ona görə yalnız BTC saxlanılır.
 from __future__ import annotations
 
 import asyncio
-import time
 from datetime import date, timedelta
 
 import numpy as np
 import yfinance as yf
+
+from app.analytics import swr
 
 # key → (label, Yahoo simvolu). Power law yalnız BTC üçün etibarlı işləyir
 # (R² ~0.92, genesis 2009-dan eksponensial trend). Digər coinlərdə qanun
@@ -25,8 +26,8 @@ ASSETS: dict[str, tuple[str, str]] = {
 }
 _BTC_GENESIS = date(2009, 1, 3)
 
-_cache: dict[str, dict] = {}
-_cache_ts: dict[str, float] = {}
+# Per-key SWR store: key → {"ts","data"} (stale-serve + lock coalescing).
+_stores: dict[str, dict] = {}
 _TTL = 6 * 3600.0
 
 
@@ -125,13 +126,11 @@ def _fit_sync(key: str) -> dict | None:
 
 
 async def get_power_law(key: str = "btc") -> dict | None:
-    """Seçilmiş coinin power-law modeli (6 saat keş)."""
+    """Seçilmiş coinin power-law modeli — SWR (stale-serve + coalesce, 6 saat).
+
+    Fit ağırdır (period=max yükləmə + polyfit, bir neçə saniyə) — SWR köhnə
+    dəyəri dərhal verir, fonda yeniləyir; soyuq sorğular tək fit-də birləşir.
+    """
     key = key if key in ASSETS else "btc"
-    now = time.time()
-    if _cache.get(key) and now - _cache_ts.get(key, 0) < _TTL:
-        return _cache[key]
-    data = await asyncio.to_thread(_fit_sync, key)
-    if data:
-        _cache[key] = data
-        _cache_ts[key] = now
-    return _cache.get(key)
+    store = _stores.setdefault(key, {"ts": 0.0, "data": None})
+    return await swr.get(store, _TTL, lambda: asyncio.to_thread(_fit_sync, key))

@@ -7,11 +7,12 @@ rəsmi olmayan açıq lentlərdir. Nəticə 30 dəqiqə keşlənir.
 """
 from __future__ import annotations
 
-import time
 from datetime import datetime, timedelta, timezone
 from xml.etree import ElementTree as ET
 
 import httpx
+
+from app.analytics import swr
 
 # Primary — TradingView (çoxhəftəlik, importance + forecast/previous)
 _TV_URL = "https://economic-calendar.tradingview.com/events"
@@ -29,8 +30,7 @@ _URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.xml"
 _UA = {"User-Agent": "Mozilla/5.0 (NexusIQ)"}
 
 _TTL = 1800.0
-_cache: list | None = None
-_cache_at = 0.0
+_cache: dict = {"ts": 0.0, "data": None}
 _CAP = 300
 
 _KEEP = {"High", "Medium"}
@@ -139,15 +139,13 @@ async def _fetch() -> list[dict]:
         return _parse(r.text)
 
 
-async def get_calendar() -> list[dict]:
-    """Gələcək ~3 həftənin yüksək/orta təsirli hadisələri. Xəta → son keş / boş."""
-    global _cache, _cache_at
-    now = time.monotonic()
-    if _cache is not None and now - _cache_at < _TTL:
-        return _cache
+async def _safe_fetch() -> list[dict]:
     try:
-        events = await _fetch()
+        return await _fetch()
     except Exception:  # noqa: BLE001
-        return _cache or []
-    _cache, _cache_at = events, now
-    return events
+        return []
+
+
+async def get_calendar() -> list[dict]:
+    """Gələcək ~3 həftənin yüksək/orta təsirli hadisələri. SWR (stale-serve+coalesce)."""
+    return await swr.get(_cache, _TTL, _safe_fetch) or []

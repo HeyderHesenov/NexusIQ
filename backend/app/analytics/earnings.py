@@ -6,10 +6,11 @@ Hər iri şirkət üçün ən yaxın GƏLƏCƏK earnings tarixi. 6 saat keşlən
 from __future__ import annotations
 
 import asyncio
-import time
 from datetime import datetime, timezone
 
 import yfinance as yf
+
+from app.analytics import swr
 
 # (ticker, şirkət adı, AI-səhmidirmi) — iri kapitallı US şirkətləri.
 # ai=True → "AI Səhmləri" kateqoriyasında da görünür.
@@ -39,8 +40,9 @@ _TICKERS = [
 ]
 
 _TTL = 21600.0  # 6 saat
-_cache: list | None = None
-_cache_at = 0.0
+# SWR: köhnə dəyəri dərhal ver, fonda yenilə; soyuq sorğular lock ilə birləşir —
+# yoxsa hər soyuq çağırış 21 paralel yfinance thread açıb pool-u boğur.
+_cache: dict = {"ts": 0.0, "data": None}
 
 
 def _next_earning(sym: str, name: str, ai: bool) -> dict | None:
@@ -65,19 +67,16 @@ def _next_earning(sym: str, name: str, ai: bool) -> dict | None:
         return None
 
 
-async def get_earnings() -> list[dict]:
-    """Yaxın earnings hesabatları, tarixə görə sıralı. Xəta → son keş / boş."""
-    global _cache, _cache_at
-    now = time.monotonic()
-    if _cache is not None and now - _cache_at < _TTL:
-        return _cache
+async def _fetch_earnings() -> list[dict]:
     try:
         results = await asyncio.gather(
             *(asyncio.to_thread(_next_earning, s, n, ai) for s, n, ai in _TICKERS)
         )
     except Exception:  # noqa: BLE001
-        return _cache or []
-    items = sorted((r for r in results if r), key=lambda x: x["date"])
-    if items:
-        _cache, _cache_at = items, now
-    return items
+        return []
+    return sorted((r for r in results if r), key=lambda x: x["date"])
+
+
+async def get_earnings() -> list[dict]:
+    """Yaxın earnings hesabatları, tarixə görə sıralı. SWR (stale-serve+coalesce)."""
+    return await swr.get(_cache, _TTL, _fetch_earnings) or []

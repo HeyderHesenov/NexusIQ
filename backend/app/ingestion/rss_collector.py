@@ -5,6 +5,7 @@ Saxlama məntiqi services/news_service.py-dədir (məsuliyyət ayrılığı).
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import re
 from dataclasses import dataclass
@@ -117,7 +118,8 @@ async def fetch_feed(
     except (httpx.HTTPError, httpx.TimeoutException):
         return []
 
-    parsed = feedparser.parse(resp.content)
+    # feedparser saf-Python və yavaşdır (~30-200ms) — event loop-u bloklamasın.
+    parsed = await asyncio.to_thread(feedparser.parse, resp.content)
     items: list[NormalizedNews] = []
     for entry in parsed.entries:
         item = _normalize_entry(entry, source)
@@ -127,15 +129,19 @@ async def fetch_feed(
 
 
 async def collect_all() -> list[NormalizedNews]:
-    """Bütün mənbələri çəkir, feed daxilində dublikatları təmizləyir."""
+    """Bütün mənbələri PARALEL çəkir, feed daxilində dublikatları təmizləyir."""
     headers = {"User-Agent": _USER_AGENT}
     seen: set[str] = set()
     out: list[NormalizedNews] = []
     async with httpx.AsyncClient(headers=headers, follow_redirects=True) as client:
-        for source in FEEDS:
-            for item in await fetch_feed(client, source):
-                if item.dedup_hash in seen:
-                    continue
-                seen.add(item.dedup_hash)
-                out.append(item)
+        # Ardıcıl deyil paralel — dövr sum(latency) yox max(latency) çəkir.
+        results = await asyncio.gather(
+            *(fetch_feed(client, source) for source in FEEDS)
+        )
+    for items in results:
+        for item in items:
+            if item.dedup_hash in seen:
+                continue
+            seen.add(item.dedup_hash)
+            out.append(item)
     return out
