@@ -6,13 +6,14 @@ import asyncio
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import defer, selectinload, undefer
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.agents.forecast_ai import forecast_impact
 from app.agents.llm import has_primary
 from app.agents.news_ai import translate_full
 from app.core.constants import Category
+from app.core.ratelimit import rate_limit
 from app.db.session import get_db
 from app.models import News
 from app.schemas.news import NewsOut, _excerpt
@@ -26,7 +27,16 @@ _forecast_inflight: dict[tuple[int, str], "asyncio.Future[dict | None]"] = {}
 router = APIRouter()
 
 # selectinload — source adını lazy-load xətası olmadan gətirir.
-_BASE = select(News).options(selectinload(News.source))
+# Siyahıda istifadə olunmayan ağır JSONB sütunlarını (1536-float embedding,
+# forecast, content_tr, tam content) TƏXİRƏ SAL — hər sətir üçün megabaytlarla
+# lazımsız JSON detoast/decode etmə (event loop-u bloklayır).
+_HEAVY = (
+    defer(News.embedding),
+    defer(News.forecast),
+    defer(News.content_tr),
+    defer(News.content),
+)
+_BASE = select(News).options(selectinload(News.source), *_HEAVY)
 
 
 @router.get("", response_model=list[NewsOut])
@@ -116,13 +126,18 @@ async def get_news(
     news_id: int, db: AsyncSession = Depends(get_db)
 ) -> NewsOut:
     """Tək xəbər (tam səhifə üçün)."""
-    news = (await db.scalars(_BASE.where(News.id == news_id))).first()
+    # Tək element content göstərir → onu geri undefer et (embedding təxirdə qalır).
+    stmt = _BASE.where(News.id == news_id).options(undefer(News.content))
+    news = (await db.scalars(stmt)).first()
     if news is None:
         raise HTTPException(status_code=404, detail="Xəbər tapılmadı")
     return NewsOut.from_model(news, with_content=True)
 
 
-@router.get("/{news_id}/content")
+@router.get(
+    "/{news_id}/content",
+    dependencies=[Depends(rate_limit("news_ai", limit=20, window=60.0))],
+)
 async def get_translated_content(
     news_id: int,
     lang: str = Query("az"),
@@ -181,7 +196,10 @@ async def get_analogs(
     return await analog.analogs_for_news(news, k=k, lang=lang)
 
 
-@router.get("/{news_id}/forecast")
+@router.get(
+    "/{news_id}/forecast",
+    dependencies=[Depends(rate_limit("news_ai", limit=20, window=60.0))],
+)
 async def get_forecast(
     news_id: int,
     lang: str = Query("az"),

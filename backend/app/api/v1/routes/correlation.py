@@ -1,10 +1,11 @@
 """Korrelyasiya route-ları — matris (heatmap) + cüt analizi (chart + AI izah)."""
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.agents import correlation_ai
 from app.analytics import correlation
+from app.core.ratelimit import rate_limit
 
 router = APIRouter()
 
@@ -34,7 +35,10 @@ async def pair(
     return result
 
 
-@router.get("/pair/explain")
+@router.get(
+    "/pair/explain",
+    dependencies=[Depends(rate_limit("corr_explain", limit=20, window=60.0))],
+)
 async def pair_explain(
     a: str = Query(..., min_length=1),
     b: str = Query(..., min_length=1),

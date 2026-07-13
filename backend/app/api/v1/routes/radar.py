@@ -1,11 +1,12 @@
 """Radar route-ları — fürsət sıralaması + on-demand AI izahı (hibrid)."""
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 from app.agents import radar_ai
 from app.analytics import radar
+from app.core.ratelimit import rate_limit
 
 router = APIRouter()
 
@@ -23,7 +24,10 @@ async def radar_list(
     return await radar.get_radar(category, force=refresh)
 
 
-@router.get("/{key}/explain")
+@router.get(
+    "/{key}/explain",
+    dependencies=[Depends(rate_limit("radar_ai", limit=20, window=60.0))],
+)
 async def radar_explain(key: str, lang: str = Query("az")) -> dict:
     """Aktivin niyə radarda olduğunu AI ilə izah edir (yalnız istəklə)."""
     lang = lang if lang in _LANGS else "az"
@@ -34,7 +38,10 @@ async def radar_explain(key: str, lang: str = Query("az")) -> dict:
     return {"ready": text is not None, "text": text or ""}
 
 
-@router.get("/{key}/about")
+@router.get(
+    "/{key}/about",
+    dependencies=[Depends(rate_limit("radar_ai", limit=20, window=60.0))],
+)
 async def radar_about(key: str, lang: str = Query("az")) -> StreamingResponse:
     """Aktiv haqqında icmalı seçilmiş dildə token-token axıdır (keşli).
 

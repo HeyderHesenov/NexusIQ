@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     environment: str = "development"
     api_v1_prefix: str = "/api/v1"
     backend_cors_origins: str = "http://localhost:3000"
+    # X-Forwarded-For başlığına YALNIZ etibarlı reverse-proxy arxasında inan.
+    # Tək-proses lokal işləmədə proksi yoxdur → default False (spoofing bağlıdır).
+    trusted_proxy: bool = False
 
     # ---- Database ----
     database_url: str = (
