@@ -31,6 +31,18 @@ _OG_REV = re.compile(
 )
 
 
+def _head_html(html: str) -> str:
+    """og:image/twitter:image HƏMİŞƏ <head>-dədir. Bəzi naşirlərin <head>-i çox
+    şişikdir (məs. FXStreet ~200KB preload/meta) və og:image sabit 200KB kəsimdən
+    KƏNARDA qalır → tapılmır. Ona görə bütün <head>-i götür (</head>-ə qədər),
+    tapılmasa pataloji səhifələr üçün 1MB təhlükəsiz tavan.
+    """
+    end = html.lower().find("</head>")
+    if end != -1:
+        return html[: end + 7]
+    return html[:1_000_000]
+
+
 def _extract(html: str) -> str | None:
     m = _OG.search(html) or _OG_REV.search(html)
     if not m:
@@ -47,7 +59,7 @@ async def _fetch(sem, client, row_id, url):
             if r is None:
                 return row_id, None
             r.raise_for_status()
-            return row_id, _extract(r.text[:200_000])
+            return row_id, _extract(_head_html(r.text))
         except (httpx.HTTPError, httpx.TimeoutException):
             return row_id, None
 
