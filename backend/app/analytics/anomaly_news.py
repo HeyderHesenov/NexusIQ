@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import defer, selectinload
 
 from app.analytics.assets import ASSETS
 from app.analytics.correlation import _ALIASES
@@ -61,7 +61,13 @@ async def news_for_asset(
     rows = (
         await session.scalars(
             select(News)
-            .options(selectinload(News.source))
+            .options(
+                selectinload(News.source),
+                defer(News.embedding),
+                defer(News.forecast),
+                defer(News.content_tr),
+                defer(News.content),
+            )
             .where(News.published_at >= since)
             .where(or_(*conds))
             .order_by(
