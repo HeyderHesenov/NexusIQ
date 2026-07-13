@@ -109,12 +109,12 @@ export default function WatchlistPage() {
 
   useEffect(() => {
     let stop = false;
-    const load = () =>
-      getAssetsOverview(true).then((d) => {
+    const load = (force: boolean) =>
+      getAssetsOverview(force).then((d) => {
         if (!stop) setOverview(d);
       });
-    load();
-    const id = window.setInterval(load, 60_000);
+    load(false); // mount: keşdən (naviqasiyada təkrar fetch yox, 30s TTL)
+    const id = window.setInterval(() => load(true), 60_000); // canlı: hər 60s təzə
     return () => {
       stop = true;
       window.clearInterval(id);

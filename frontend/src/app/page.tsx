@@ -13,6 +13,10 @@ import type { Category, NewsItem } from "@/types";
 
 const PAGE_SIZE = 30;
 
+// Modul-səviyyə keş (naviqasiyalar arası yaşayır) — '/'-ə qayıdanda 9 skeleton
+// yerinə dərhal əvvəlki xəbərləri göstər, sonra fonda təzələ (reload hissi yox).
+const _newsCache = new Map<string, NewsItem[]>();
+
 export default function HomePage() {
   const { t } = useI18n();
   const [active, setActive] = useState<Category>("forex");
@@ -37,18 +41,28 @@ export default function HomePage() {
 
   const load = useCallback(async (cat: Category, pg: number, gen: number) => {
     if (gen !== genRef.current) return; // stale (köhnə retry/keçid)
-    setStatus("loading");
+    const cacheKey = `${cat}:${pg}`;
+    const cached = _newsCache.get(cacheKey);
+    if (cached) {
+      // Keşdən dərhal göstər (skeleton yox), aşağıda fonda təzələ.
+      setItems(cached);
+      setStatus("ready");
+    } else {
+      setStatus("loading");
+    }
     try {
       const offset = (pg - 1) * PAGE_SIZE;
       const data = await apiGet<NewsItem[]>(
         `/news?category=${cat}&limit=${PAGE_SIZE}&offset=${offset}`,
       );
       if (gen !== genRef.current) return; // bu arada keçid oldu — nəticəni at
+      _newsCache.set(cacheKey, data);
       setItems(data);
       setStatus("ready");
       retryRef.current.n = 0; // uğur — sayğacı sıfırla
     } catch {
       if (gen !== genRef.current) return; // stale xəta — state/retry yazma
+      if (cached) return; // köhnə keş göstərilir — xəta ekranına keçmə
       setStatus("error");
       const n = retryRef.current.n;
       if (n < 3) {

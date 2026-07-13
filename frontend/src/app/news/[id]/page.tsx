@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Footer } from "@/components/layout/Footer";
 import { ArrowLeft, ExternalLink, Sparkles } from "lucide-react";
-import { apiGet } from "@/lib/api";
+import { apiGet, prefetchForecast, prefetchNewsAnalogs } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { formatDateTime, localizedNews } from "@/lib/utils";
 import { NewsImage } from "@/components/news/NewsImage";
@@ -32,6 +32,14 @@ export default function NewsDetailPage({
       alive = false;
     };
   }, [id]);
+
+  // Proqnoz + analoqları məqalə yüklənməsi ilə PARALEL isit (server keşini
+  // doldur) — AIForecast/HistoricalAnalogs məqalədən sonra mount olur, onların
+  // sorğusu ardıcıl deyil, hazır keşə düşsün (deduplikasiyalı).
+  useEffect(() => {
+    prefetchForecast(id, lang);
+    prefetchNewsAnalogs(id, lang);
+  }, [id, lang]);
 
   return (
     <div className="flex min-h-screen flex-col">

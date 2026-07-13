@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Sparkline } from "@/components/charts/Sparkline";
@@ -36,8 +37,11 @@ export function SkeletonRow() {
   );
 }
 
-/** Bir CMC sətri — rank, ad, qiymət, 24s, sparkline, izlə düyməsi. */
-export function AssetRow({
+/** Bir CMC sətri — rank, ad, qiymət, 24s, sparkline, izlə düyməsi.
+ *
+ * memo: axtarış qutusuna yazarkən valideyn siyahını filtrləyir — dəyişməyən
+ * sətirlər (və hər Sparkline hesablaması) təkrar render olunmasın. */
+export const AssetRow = memo(function AssetRow({
   row,
   rank,
   animClass = "",
@@ -78,4 +82,4 @@ export function AssetRow({
       </td>
     </tr>
   );
-}
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { Sparkles, X, ArrowUp } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { streamChat } from "@/lib/api";
@@ -189,8 +189,11 @@ export function AIAssistantFab() {
   );
 }
 
-/** AI cavabı ilə birlikdə gələn korrelyasiya qrafiki kartı. */
-function ChatChart({ pair }: { pair: CorrPair }) {
+/** AI cavabı ilə birlikdə gələn korrelyasiya qrafiki kartı.
+ *
+ * memo: axın zamanı hər token setMessages tetikləyir; `pair` dəyişməyibsə
+ * PairChart (bahalı SVG) yenidən render olunmasın. */
+const ChatChart = memo(function ChatChart({ pair }: { pair: CorrPair }) {
   const v = pair.value;
   const color = v >= 0.1 ? "text-up" : v <= -0.1 ? "text-down" : "text-muted";
   return (
@@ -212,10 +215,13 @@ function ChatChart({ pair }: { pair: CorrPair }) {
       />
     </div>
   );
-}
+});
 
-/** Söhbət baloncuğu — istifadəçi sağda, AI solda. **bold** dəstəklənir. */
-function Bubble({
+/** Söhbət baloncuğu — istifadəçi sağda, AI solda. **bold** dəstəklənir.
+ *
+ * memo: axın yalnız SON mesajı dəyişir; əvvəlki baloncuqların `children` (mətn)
+ * referansı sabit qalır → renderRich təkrar işləməsin. */
+const Bubble = memo(function Bubble({
   role,
   children,
 }: {
@@ -236,7 +242,7 @@ function Bubble({
       </div>
     </div>
   );
-}
+});
 
 /** Sətir-sətir: ## başlıqlar, --- ayırıcı, **qalın** mətn. */
 function renderRich(text: string) {
