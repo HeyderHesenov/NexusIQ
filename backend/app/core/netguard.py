@@ -67,7 +67,7 @@ async def safe_get(
     url: str,
     *,
     timeout: float = 15.0,
-    max_redirects: int = 4,
+    max_redirects: int = 8,
 ) -> httpx.Response | None:
     """SSRF-təhlükəsiz GET — redirect-ləri əl ilə izləyir, hər hopu yoxlayır.
 

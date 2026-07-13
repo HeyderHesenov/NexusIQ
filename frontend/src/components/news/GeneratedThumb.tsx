@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { Bitcoin, DollarSign, TrendingUp, Fuel, Newspaper } from "lucide-react";
 import type { Category } from "@/types";
 
@@ -28,7 +29,7 @@ function hashStr(s: string): number {
   return h >>> 0;
 }
 
-export function GeneratedThumb({
+export const GeneratedThumb = memo(function GeneratedThumb({
   seed,
   category,
   className,
@@ -116,4 +117,4 @@ export function GeneratedThumb({
       </span>
     </div>
   );
-}
+});
