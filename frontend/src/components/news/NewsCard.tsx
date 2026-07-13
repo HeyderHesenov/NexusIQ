@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { NewsItem } from "@/types";
 import { formatDateTime, localizedNews } from "@/lib/utils";
 import { prefetchForecast } from "@/lib/api";
+import { warmRoute } from "@/lib/prewarm";
 import { useI18n } from "@/lib/i18n";
 import { NewsImage } from "@/components/news/NewsImage";
 import { NewsBadges } from "@/components/news/NewsBadges";
@@ -12,12 +14,18 @@ import { BookmarkButton } from "@/components/news/BookmarkButton";
 /** Bir xəbər kartı — şəkil, kateqoriya, başlıq, xülasə, mənbə + tarix. */
 export function NewsCard({ news }: { news: NewsItem }) {
   const { t, lang } = useI18n();
+  const router = useRouter();
   const { title, body } = localizedNews(news, lang);
+  // Hover/fokus: həm route-u qızdır (donma yox), həm proqnoz datasını çək.
+  const warm = () => {
+    warmRoute(router, `/news/${news.id}`);
+    prefetchForecast(news.id, lang);
+  };
   return (
     <Link
       href={`/news/${news.id}`}
-      onMouseEnter={() => prefetchForecast(news.id, lang)}
-      onFocus={() => prefetchForecast(news.id, lang)}
+      onMouseEnter={warm}
+      onFocus={warm}
       className="group flex flex-col overflow-hidden rounded-card border border-border bg-surface transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-[0_12px_30px_-12px_var(--shadow)]"
     >
       {/* real şəkil (alınmasa generativ fallback) */}

@@ -28,6 +28,8 @@ const ROUTES = [
   "/powerlaw",
   "/alerts",
   "/saved",
+  "/about",
+  "/brief",
 ];
 
 const isDev = process.env.NODE_ENV !== "production";

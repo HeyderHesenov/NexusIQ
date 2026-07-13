@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Sparkline } from "@/components/charts/Sparkline";
 import { WatchButton } from "@/components/assets/WatchButton";
+import { warmRoute } from "@/lib/prewarm";
 import { useI18n } from "@/lib/i18n";
 import type { AssetOverview } from "@/types";
 
@@ -44,13 +46,19 @@ export function AssetRow({
   rank: number;
   animClass?: string;
 }) {
+  const router = useRouter();
   return (
     <tr
       className={`group border-t border-border transition-colors hover:bg-surface-hover ${animClass}`}
     >
       <td className="px-3 py-2.5 text-right font-mono text-xs text-muted">{rank}</td>
       <td className="px-3 py-2.5">
-        <Link href={`/asset/${row.key}`} className="font-medium hover:text-accent">
+        <Link
+          href={`/asset/${row.key}`}
+          onMouseEnter={() => warmRoute(router, `/asset/${row.key}`)}
+          onFocus={() => warmRoute(router, `/asset/${row.key}`)}
+          className="font-medium hover:text-accent"
+        >
           {row.label}
         </Link>
       </td>

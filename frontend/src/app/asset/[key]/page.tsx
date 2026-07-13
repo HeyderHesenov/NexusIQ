@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { AppNav } from "@/components/layout/AppNav";
 import { Footer } from "@/components/layout/Footer";
@@ -22,14 +22,25 @@ export default function AssetPage() {
   const [range, setRange] = useState("3mo");
   const [data, setData] = useState<AssetDetail | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [refreshing, setRefreshing] = useState(false);
   const [news, setNews] = useState<AssetNewsItem[]>([]);
+
+  // İlk yükləmə (yeni aktiv) → tam skeleton; sadəcə dövr dəyişimi → yumşaq
+  // refresh (səhifə skeleton-a çevrilib donmasın, cari qrafik qalsın).
+  const firstForKey = useRef(true);
+  useEffect(() => {
+    firstForKey.current = true;
+  }, [key]);
 
   const load = useCallback(
     (r: string) => {
-      setStatus("loading");
+      if (firstForKey.current) setStatus("loading");
+      else setRefreshing(true);
       getAssetDetail(key, r).then((d) => {
         setData(d);
         setStatus(d && (d.quote || d.history) ? "ready" : "error");
+        setRefreshing(false);
+        firstForKey.current = false;
       });
     },
     [key],
@@ -96,23 +107,28 @@ export default function AssetPage() {
               ))}
             </div>
 
-            {/* qrafik */}
-            <section className="rounded-card border border-border bg-surface p-5">
-              {h && h.points.length > 1 ? (
-                <LineChart
-                  series={[
-                    {
-                      label: h.label,
-                      color: "#ff7a1a",
-                      points: h.points.map((p) => ({
-                        date: p.date,
-                        value: p.close,
-                      })),
-                    },
-                  ]}
-                />
-              ) : (
-                <p className="py-12 text-center text-sm text-muted">—</p>
+            {/* qrafik — dövr dəyişəndə cari qrafik qalır, sadəcə solğunlaşır */}
+            <section className="relative rounded-card border border-border bg-surface p-5">
+              <div className={refreshing ? "opacity-40 transition-opacity" : "transition-opacity"}>
+                {h && h.points.length > 1 ? (
+                  <LineChart
+                    series={[
+                      {
+                        label: h.label,
+                        color: "#ff7a1a",
+                        points: h.points.map((p) => ({
+                          date: p.date,
+                          value: p.close,
+                        })),
+                      },
+                    ]}
+                  />
+                ) : (
+                  <p className="py-12 text-center text-sm text-muted">—</p>
+                )}
+              </div>
+              {refreshing && (
+                <span className="absolute right-4 top-4 h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
               )}
             </section>
 

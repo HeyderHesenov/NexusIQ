@@ -19,6 +19,7 @@ export default function ComparePage() {
   const [selected, setSelected] = useState<string[]>(["btc", "spx"]);
   const [range, setRange] = useState("3mo");
   const [details, setDetails] = useState<Record<string, AssetDetail>>({});
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     getAssets().then(setRegistry);
@@ -26,6 +27,7 @@ export default function ComparePage() {
 
   useEffect(() => {
     let stop = false;
+    setLoading(true);
     Promise.all(selected.map((k) => getAssetDetail(k, range))).then((res) => {
       if (stop) return;
       const map: Record<string, AssetDetail> = {};
@@ -34,6 +36,7 @@ export default function ComparePage() {
         if (d) map[k] = d;
       });
       setDetails(map);
+      setLoading(false);
     });
     return () => {
       stop = true;
@@ -129,14 +132,21 @@ export default function ComparePage() {
         </div>
 
         {/* normallaşdırılmış qrafik — səhifənin əsas elementi */}
-        <section className="rounded-card border border-border bg-surface p-6">
+        <section className="relative rounded-card border border-border bg-surface p-6">
           <div className="mb-4 flex items-center justify-between gap-3">
             <p className="font-mono text-[10px] uppercase tracking-wider text-accent">
               {t("compare.normalized")}
             </p>
-            <span className="font-mono text-xs text-muted">{range}</span>
+            <span className="flex items-center gap-2 font-mono text-xs text-muted">
+              {loading && (
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+              )}
+              {range}
+            </span>
           </div>
-          <LineChart series={series} normalize height={460} />
+          <div className={loading ? "opacity-50 transition-opacity" : "transition-opacity"}>
+            <LineChart series={series} normalize height={460} />
+          </div>
         </section>
 
         {/* cədvəl */}
