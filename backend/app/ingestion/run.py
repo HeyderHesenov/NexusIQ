@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import asyncio
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.db.session import AsyncSessionLocal, engine
 from app.ingestion.rss_collector import collect_all
@@ -25,6 +25,9 @@ async def ingest_once() -> dict[str, int]:
     """
     items = await collect_all()
     async with AsyncSessionLocal() as session:
+        # Store-dan ƏVVƏLki ən böyük id — təzə əlavə olunanları (id > prev) ayırd etmək
+        # üçün. Şəkil backfill əvvəlcə məhz bu təzə batch-ı hədəfləyir (lag pəncərəsi yox).
+        prev_max_id = (await session.scalar(select(func.max(News.id)))) or 0
         stats = await store_news(session, items)
         if stats.get("added", 0) > 0:
             latest = await session.scalar(
@@ -44,8 +47,12 @@ async def ingest_once() -> dict[str, int]:
         stats["summarized"] = (await summarize_all_pending()).get("summarized", 0)
         stats["translated"] = (await translate_all_pending()).get("translated", 0)
         # Şəkilsiz yeni xəbərlərə naşirin og:image-ini doldur — manual ingest də
-        # thumbnail-li olsun (scheduler dövrünü gözləmədən).
-        stats["images"] = (await image_backfill()).get("found", 0)
+        # thumbnail-li olsun (scheduler dövrünü gözləmədən). ƏVVƏLcə təzə batch
+        # (id > prev_max_id) — ən yeni xəbərlər saniyələr içində şəkil alsın; SONRA
+        # qalan köhnə backloq. Backfill dayanıqlıdır (bir pis URL batch-i çökürtmür).
+        fresh = (await image_backfill(since_id=prev_max_id)).get("found", 0)
+        backlog = (await image_backfill()).get("found", 0)
+        stats["images"] = fresh + backlog
     return stats
 
 

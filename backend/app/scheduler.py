@@ -97,6 +97,27 @@ async def _image_cycle() -> None:
         logger.exception("Şəkil backfill xətası")
 
 
+async def _wait_for_db(attempts: int = 10, delay: float = 3.0) -> bool:
+    """DB hazır olana qədər qısa gözlə (SELECT 1). Backend DB-dən əvvəl qalxsa
+    (məs. pg 5433 hələ start olur), startup tutması səssiz uğursuz olmasın —
+    hazır olanda bütün fazalar (xülasə/tərcümə/şəkil) işləsin. False = hələ hazır
+    deyil (planlı dövr onsuz da sonra tutacaq)."""
+    import asyncio
+
+    from sqlalchemy import text
+
+    from app.db.session import AsyncSessionLocal
+
+    for _ in range(attempts):
+        try:
+            async with AsyncSessionLocal() as session:
+                await session.execute(text("SELECT 1"))
+            return True
+        except Exception:  # noqa: BLE001
+            await asyncio.sleep(delay)
+    return False
+
+
 async def startup_catchup() -> None:
     """Başlanğıc tutması — restart-dan sonra interval gözləmədən tərcüməsiz
     backlog-u + keçmiş kilidlənmiş İngiliscəni + şəkilsizliyi dərhal təmizləyir
@@ -104,6 +125,10 @@ async def startup_catchup() -> None:
     from app.agents.summarize_ai import summarize_all_pending
     from app.agents.translate_free import retranslate_stale, translate_all_pending
     from app.ingestion.enrich_images import backfill as image_backfill
+
+    if not await _wait_for_db():
+        logger.warning("Başlanğıc tutması: DB hazır deyil — planlı dövr sonra tutacaq")
+        return
 
     try:
         summ = await summarize_all_pending()

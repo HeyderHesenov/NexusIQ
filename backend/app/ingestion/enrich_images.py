@@ -60,18 +60,26 @@ async def _fetch(sem, client, row_id, url):
                 return row_id, None
             r.raise_for_status()
             return row_id, _extract(_head_html(r.text))
-        except (httpx.HTTPError, httpx.TimeoutException):
+        except Exception:
+            # BİR pis URL (SSL/timeout/SSRF-blok/parse) BÜTÜN batch-i çökürtməsin —
+            # həmişə (id, None) qaytar. Dayanıqlılıq: gather return_exceptions ilə birgə.
             return row_id, None
 
 
-async def backfill(limit: int = 1000) -> dict[str, int]:
+async def backfill(limit: int = 1000, since_id: int | None = None) -> dict[str, int]:
+    """Şəkilsiz xəbərlərə og:image doldurur.
+
+    since_id verilsə YALNIZ o id-dən böyük (təzə ingest olunmuş) sətirləri hədəfləyir —
+    ingest_once bunu əvvəlcə çağırır ki, ən yeni xəbərlər minlik backloqu gözləmədən
+    saniyələr içində şəkil alsın (newest-first səhifədə lag pəncərəsi olmasın).
+    """
     async with AsyncSessionLocal() as session:
+        q = select(News).where(News.image_url.is_(None))
+        if since_id is not None:
+            q = q.where(News.id > since_id)
         rows = (
             await session.scalars(
-                select(News)
-                .where(News.image_url.is_(None))
-                .order_by(News.published_at.desc().nullslast())
-                .limit(limit)
+                q.order_by(News.published_at.desc().nullslast()).limit(limit)
             )
         ).all()
         targets = [(n.id, n.url) for n in rows]
@@ -81,9 +89,13 @@ async def backfill(limit: int = 1000) -> dict[str, int]:
 
     sem = asyncio.Semaphore(_CONCURRENCY)
     async with httpx.AsyncClient(headers=_UA, follow_redirects=False) as client:
-        results = await asyncio.gather(
-            *(_fetch(sem, client, rid, url) for rid, url in targets)
+        raw = await asyncio.gather(
+            *(_fetch(sem, client, rid, url) for rid, url in targets),
+            return_exceptions=True,
         )
+    # return_exceptions=True → gözlənilməz istisnalar (məs. CancelledError) tuple deyil;
+    # onları at, yalnız düzgün (id, img) nəticələri saxla.
+    results = [r for r in raw if isinstance(r, tuple)]
 
     found = 0
     ids = [rid for rid, img in results if img]
