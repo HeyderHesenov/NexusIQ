@@ -24,8 +24,10 @@ class Settings(BaseSettings):
     trusted_proxy: bool = False
 
     # ---- Database ----
+    # Default = real lokal quraşdırma (pg@14 :5433). .env yüklənməsə belə,
+    # 5432-dəki YAD PostgreSQL 18-ə səssiz düşməsin (əvvəl bu gizli tələ idi).
     database_url: str = (
-        "postgresql+asyncpg://postgres:postgres@localhost:5432/nexusiq"
+        "postgresql+asyncpg://heyderhesenov@localhost:5433/nexusiq"
     )
 
     # ---- AI (provayder-agnostik — dəyərlər .env-dən) ----
