@@ -15,9 +15,18 @@ FRONTEND_PORT="${FRONTEND_PORT:-3000}"
 backend_up() { curl -fsS -m2 "http://localhost:$BACKEND_PORT/api/v1/health" >/dev/null 2>&1; }
 frontend_up() { [ "$(curl -s -m2 -o /dev/null -w '%{http_code}' "http://localhost:$FRONTEND_PORT" 2>/dev/null)" = "200" ]; }
 
-echo "==> Postgres (postgresql@14)"
-brew services start postgresql@14 >/dev/null 2>&1 || \
-  echo "   qeyd: brew postgres başlamadı — əl ilə yoxla (port 5433)"
+echo "==> Postgres (postgresql@14 → :5433)"
+# shellcheck source=./pg_ensure.sh
+source "$ROOT/scripts/pg_ensure.sh"
+if ensure_pg; then
+  echo "   postgres hazır (:5433)"
+else
+  # DB olmadan backend bütün xəbər route-larını 500 verər — səssiz deqradasiya etmə
+  echo "   XƏTA: Postgres 5433-də qalxmadı — backend başladılmır." >&2
+  echo "         Yoxla: '$PG_BIN/pg_isready -p 5433'; log: $PG_DATA/server.log" >&2
+  echo "         PG18 (5432) toqquşması ola bilər: 'lsof -iTCP:5432 -sTCP:LISTEN'" >&2
+  exit 1
+fi
 
 # ---- Backend ----
 if backend_up; then

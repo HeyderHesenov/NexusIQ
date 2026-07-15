@@ -10,7 +10,9 @@ LOG_DIR="$HOME/Library/Logs/nexusiq"; mkdir -p "$LOG_DIR"
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 BACKEND_PORT="${BACKEND_PORT:-8001}"
 FRONTEND_PORT="${FRONTEND_PORT:-3000}"
-PG_BIN="/opt/homebrew/opt/postgresql@14/bin"   # keg-only — tam yol lazımdır
+# pg_ensure.sh: PG_BIN/PG_DATA/PG_PORT + ensure_pg() (portu 5433-ə bərpa edir, qaldırır)
+# shellcheck source=./pg_ensure.sh
+source "$ROOT/scripts/pg_ensure.sh"
 INTERVAL=15        # yoxlama intervalı (san) — 30s daxilində dirilmə üçün
 CONFIRM_DELAY=3    # keçici xətanı süzmək üçün təkrar yoxlama gecikməsi
 BACKOFF_MAX=600    # restart-fırtınasına qarşı maksimum gözləmə (san)
@@ -100,10 +102,13 @@ log "watchdog başladı (pid $$, interval ${INTERVAL}s)"
 while true; do
   check backend  backend_up  start_backend  "$BACKEND_PORT"  BACKEND_STREAK  BACKEND_LAST
   check frontend frontend_up start_frontend "$FRONTEND_PORT" FRONTEND_STREAK FRONTEND_LAST
-  # Postgres: brew/launchd idarə edir — yalnız idempotent start cəhdi + log
-  "$PG_BIN/pg_isready" -q -h localhost -p 5433 2>/dev/null || \
-    { log "Postgres (5433) cavab vermir — brew services start cəhdi"; \
-      brew services start postgresql@14 >/dev/null 2>&1; }
+  # Postgres: 5433-də olmalıdır. Sadəcə brew start deyil — ensure_pg konfiq portunu da
+  # bərpa edir (brew upgrade 5432-yə sıfırlasa belə) və pg_ctl fallback-ı var.
+  if ! pg_ready; then
+    log "Postgres (5433) cavab vermir — ensure_pg (port bərpası + start)"
+    ensure_pg && log "Postgres (5433) bərpa olundu" \
+              || log "Postgres (5433) hələ də ölüdür — $PG_DATA/server.log yoxla"
+  fi
   # sleep arxa fonda + wait — TERM trap-ı sleep bitməsini gözləmədən dərhal işləsin
   sleep "$INTERVAL" & wait $! || true
 done
