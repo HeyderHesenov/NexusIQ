@@ -9,6 +9,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Index,
+    SmallInteger,
     String,
     Text,
 )
@@ -35,6 +36,14 @@ class News(Base, TimestampMixin):
     content: Mapped[str | None] = mapped_column(Text)
     url: Mapped[str] = mapped_column(String(1000), nullable=False)
     image_url: Mapped[str | None] = mapped_column(String(1000))
+    # Şəkil çəkmə cəhdləri — `enrich_images` backoff üçün. Bunsuz NULL sətirlər
+    # (markersiz) hər dövrdə yenidən çəkilirdi; zibil sətirləri isə heç.
+    image_attempts: Mapped[int] = mapped_column(
+        SmallInteger, server_default="0", nullable=False, default=0
+    )
+    image_attempted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # ---- Təsnifat ----

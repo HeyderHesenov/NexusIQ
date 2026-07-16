@@ -47,12 +47,13 @@ async def ingest_once() -> dict[str, int]:
         stats["summarized"] = (await summarize_all_pending()).get("summarized", 0)
         stats["translated"] = (await translate_all_pending()).get("translated", 0)
         # Şəkilsiz yeni xəbərlərə naşirin og:image-ini doldur — manual ingest də
-        # thumbnail-li olsun (scheduler dövrünü gözləmədən). ƏVVƏLcə təzə batch
-        # (id > prev_max_id) — ən yeni xəbərlər saniyələr içində şəkil alsın; SONRA
-        # qalan köhnə backloq. Backfill dayanıqlıdır (bir pis URL batch-i çökürtmür).
-        fresh = (await image_backfill(since_id=prev_max_id)).get("found", 0)
-        backlog = (await image_backfill()).get("found", 0)
-        stats["images"] = fresh + backlog
+        # thumbnail-li olsun (scheduler dövrünü gözləmədən). YALNIZ təzə batch
+        # (id > prev_max_id): ən yeni xəbərlər saniyələr içində şəkil alsın, yəni
+        # newest-first səhifədə lag pəncərəsi olmasın.
+        # Köhnə backloq QƏSDƏN burada çağırılmır — o, `scheduler._image_cycle`-ın
+        # işidir. Əvvəl hər ikisi çağırılırdı → eyni backloq saatda İKİ dəfə (üstəlik
+        # hər restartda startup_catchup ilə) skan olunurdu. Backfill dayanıqlıdır.
+        stats["images"] = (await image_backfill(since_id=prev_max_id)).get("found", 0)
     return stats
 
 

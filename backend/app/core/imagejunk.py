@@ -37,3 +37,15 @@ def is_junk_image(url: str | None) -> bool:
 def clean_image(url: str | None) -> str | None:
     """Zibil örtükləri `None`-a çevirir — qalanına toxunmur."""
     return None if is_junk_image(url) else url
+
+
+def junk_sql(col):
+    """`is_junk_image()`-in SQL güzgüsü — naxışlar yenə YALNIZ `_JUNK`-dandır.
+
+    `autoescape=True` HƏLLEDİCİDİR: `contains(p)` sadə `LIKE '%'||p||'%'` yaradır,
+    LIKE-da isə `_` bir simvolluq jokerdir. `world_news_` naxışı onsuz `worldXnewsY`
+    kimi sətirləri də tutardı.
+    """
+    from sqlalchemy import or_
+
+    return or_(*[col.contains(p, autoescape=True) for p in _JUNK])
