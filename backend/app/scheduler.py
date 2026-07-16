@@ -59,6 +59,7 @@ async def ingest_cycle() -> None:
     await _translate_cycle()
     await _image_cycle()
     await _embed_cycle()
+    await _link_cycle()
     await _anomaly_cycle()
 
 
@@ -170,6 +171,23 @@ async def _embed_cycle() -> None:
             analog.reset_index()  # yeni embedding-lər indeksə daxil olsun
     except Exception:  # noqa: BLE001
         logger.exception("Xəbər embedding xətası")
+
+
+async def _link_cycle() -> None:
+    """Son xəbərlərdə xəbər↔aktiv detected linklərini tamamlayır (self-heal, AI YOX).
+
+    İngest hook əsas işi görür; bu yalnız qaçanları (məs. flush xətası, feature-dən
+    əvvəlki köhnə xəbər) tutur. Məhdud pəncərə → ucuz."""
+    from app.db.session import AsyncSessionLocal
+    from app.services import link_service
+
+    try:
+        async with AsyncSessionLocal() as session:
+            linked = await link_service.self_heal_recent(session)
+        if linked:
+            logger.info("Link self-heal — %s yeni link", linked)
+    except Exception:  # noqa: BLE001
+        logger.exception("Link self-heal dövrü xətası")
 
 
 async def _anomaly_cycle() -> None:

@@ -8,6 +8,7 @@ from app.analytics.scoring import score_text
 from app.ingestion.rss_collector import NormalizedNews
 from app.ingestion.sources import FEEDS
 from app.models import News, Source
+from app.services import link_service
 
 # Mənbə adı → metadata (homepage, rss, default kateqoriya).
 _SOURCE_META = {f.name: f for f in FEEDS}
@@ -60,27 +61,34 @@ async def store_news(
     # 3) Yalnız yeni olanları əlavə et.
     added = 0
     batch_seen: set[str] = set()
+    new_objs: list[News] = []
     for it in items:
         if it.dedup_hash in known or it.dedup_hash in batch_seen:
             continue
         batch_seen.add(it.dedup_hash)
         sentiment, impact = score_text(it.title, it.summary, it.category.value)
-        session.add(
-            News(
-                title=it.title,
-                url=it.url,
-                summary=it.summary,
-                image_url=it.image_url,
-                published_at=it.published_at,
-                category=it.category.value,
-                dedup_hash=it.dedup_hash,
-                source_id=source_ids.get(it.source_name),
-                sentiment=sentiment,
-                impact_score=impact,
-                is_processed=False,
-            )
+        obj = News(
+            title=it.title,
+            url=it.url,
+            summary=it.summary,
+            image_url=it.image_url,
+            published_at=it.published_at,
+            category=it.category.value,
+            dedup_hash=it.dedup_hash,
+            source_id=source_ids.get(it.source_name),
+            sentiment=sentiment,
+            impact_score=impact,
+            is_processed=False,
         )
+        session.add(obj)
+        new_objs.append(obj)
         added += 1
+
+    # 4) Yeni xəbərlərə xəbər↔aktiv detected linklərini yaz (deterministik, AI YOX).
+    if new_objs:
+        await session.flush()  # id-lər üçün
+        for obj in new_objs:
+            await link_service.populate_detected(session, obj)
 
     await session.commit()
     return {"fetched": len(items), "added": added, "skipped": len(items) - added}

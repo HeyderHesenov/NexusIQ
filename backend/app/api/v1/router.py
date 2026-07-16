@@ -14,6 +14,7 @@ from app.api.v1.routes import (
     news,
     push,
     radar,
+    watchlist_intel,
 )
 
 api_router = APIRouter()
@@ -31,3 +32,6 @@ api_router.include_router(
 )
 api_router.include_router(radar.router, prefix="/radar", tags=["analytics"])
 api_router.include_router(analog.router, prefix="/analogs", tags=["analytics"])
+api_router.include_router(
+    watchlist_intel.router, prefix="/watchlist-intel", tags=["analytics"]
+)

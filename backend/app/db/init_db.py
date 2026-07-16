@@ -13,7 +13,7 @@ from app.core.constants import CATEGORY_LABELS
 from app.db.base import Base
 from app.db.session import AsyncSessionLocal, engine
 from app.models import Category  # noqa: F401  (metadata qeydiyyatı üçün)
-from app.models import News, Source  # noqa: F401
+from app.models import News, NewsAsset, Source  # noqa: F401
 
 
 async def create_tables() -> None:
