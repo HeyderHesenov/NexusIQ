@@ -16,6 +16,26 @@
 - Power Law modeli (BTC), bazar təqvimi, izləmə, siqnallar, müqayisə, asset səhifəsi.
 - **Radar — kəşf rejimi**: bilinməyən small-cap fürsətlər (kripto/səhm/əmtəə),
   fürsət balı + market cap + opensource link + on-demand AI izah.
+- **Mənə Aid — şəxsi kəşfiyyat (flaqman)**: generik ağıl artıq SƏNƏ yönəlir —
+  izlədiyin aktivlərə toxunan xəbərlərin şəxsi digesti, real P&L ilə portfel və
+  proqnozların açıq doğruluq kartı (aşağıda).
+
+## Mənə Aid — şəxsi kəşfiyyat (v3 flaqman)
+Bütün analitika artıq **generik yox, şəxsi VƏ sübutlu**. Hesab tələb olunmur —
+şəxsi vəziyyət localStorage-da qalır, server heç nə saxlamır; kəşfiyyat isə
+mövcud motorlardan hesablanır. Bünövrə: **`news_asset` bağlantı cədvəli** +
+`asset_map` normalizator (tam reyestr, dəqiqlik qorunması ilə xəbər→aktiv aşkarlama).
+
+- **① Mənə Aid** (`/`, hero + `/mene-aid/[key]`) — yalnız izlədiyin aktivlərə
+  toxunan xəbərlərin şəxsi digesti, əhval trendi, *"Sən yox ikən N xəbər toxundu"*
+  təzəlik nişanı. Login yox, AI xərci sıfır (deterministik aşkarlama).
+- **③ Mənim Portfelim** (`/portfel`) — mövqe (aktiv + miqdar + alış qiyməti) →
+  canlı P&L, çəki, və bugünkü xəbərlərin **pul-çəkili** sıralanması
+  (`relevance = Σ çəki · təsir`) — "bu xəbər MƏNİM puluma nə qədər təsir edir?".
+- **④ Doğruluq Kartı** (`/accuracy`) — açıq *"biz nə qədər doğru çıxdıq"*: hər
+  proqnoz real qiymət hərəkəti ilə avtomatik yoxlanır (point-in-time, LLM yox),
+  uğur nisbəti naiv baza ("həmişə ▲") ilə müqayisədə (**delta**), `n≥20` dürüstlük
+  qapısı. Per-aktiv güvən nişanı digestə də düşür.
 
 ## Texnologiya
 | Qat | Stack |
@@ -30,21 +50,25 @@
 
 ## Arxitektura
 ```
-RSS/API ─► NewsCollectorAgent ─► dedup/normalize ─► PostgreSQL
-                                                          │
-                            ┌─────────────────────────────┤
-                            ▼                              │
-                   AI Pipeline (per news)                 │
-          Translation / Summarization /                   │
-          Categorization / Sentiment / Impact             │
-                                                          ▼
-Yahoo / Binance / DefiLlama / CoinGecko ─► Analytics ─► Frontend (Next.js)
-   (qiymət, korrelyasiya, anomaliya,          │            │
-    Power Law, Radar kəşf)                     │            ▼
-                                               └──► AI Advisor Chat (çoxmodelli)
-                                                    + on-demand Radar/News izah
+RSS/API ─► NewsCollectorAgent ─► dedup/normalize ─► PostgreSQL ◄─┐
+                                          │               │       │
+                     ┌────────────────────┤               │  news_asset (link)
+                     ▼                    │               │  asset_map aşkarlama
+            AI Pipeline (per news)        │  ingest hook ─┘  (detected + forecast)
+   Translation / Summarization /          │               │
+   Categorization / Sentiment / Impact    │               ▼
+                                          ▼         forecast_scorer (point-in-time,
+Yahoo / Binance / DefiLlama / CoinGecko ─► Analytics       real qiymət ilə balla)
+   (qiymət, korrelyasiya, anomaliya,        │               │
+    Power Law, Radar, asset_map)            ▼               ▼
+                                     Frontend (Next.js) ◄─ Şəxsi qat (localStorage-first)
+                                          │           Mənə Aid / Portfel P&L / Doğruluq Kartı
+                                          └──► AI Advisor Chat (çoxmodelli)
+                                               + on-demand Radar/News izah
 ```
 Bütün ağır analitika SWR keş + startup prewarm ilə servis olunur (endpoint-lər isti ~1ms).
+Şəxsi qat server-də HEÇ NƏ saxlamır — klient localStorage vəziyyətini göndərir, kəşfiyyat
+`news_asset` bağlantı cədvəli + mövcud motorlardan (analog return riyaziyyatı, get_quote) hesablanır.
 
 ## Qovluq strukturu
 ```
@@ -53,13 +77,14 @@ NexusIQ/
 │   └── app/
 │       ├── core/        # config, settings
 │       ├── db/          # session, base
-│       ├── models/      # SQLAlchemy modelləri
+│       ├── models/      # SQLAlchemy modelləri (news, news_asset link, push…)
 │       ├── schemas/     # Pydantic sxemləri
-│       ├── api/v1/      # HTTP routes
-│       ├── services/    # biznes məntiqi
+│       ├── api/v1/      # HTTP routes (news, watchlist-intel, accuracy…)
+│       ├── services/    # biznes məntiqi (link_service, watchlist_intel…)
 │       ├── agents/      # AI agentləri (modul)
 │       ├── ingestion/   # RSS / scraping kollektorları
-│       ├── analytics/   # korrelyasiya, anomaliya, Power Law, Radar kəşf, SWR keş
+│       ├── analytics/   # korrelyasiya, anomaliya, Power Law, Radar, asset_map,
+│       │                #   forecast_scorer, accuracy, SWR keş
 │       └── utils/
 ├── frontend/         # Next.js + Tailwind UI
 └── docs/             # arxitektura + plan + spec sənədləri
@@ -113,3 +138,13 @@ Tək əmrlə işə salma:
       şəkilsiz xəbər (og:image backfill) avtomatik bərpa, daimi İngiliscə kilidlənmə yox
 - [x] SPA daxili naviqasiya (tam reload hissi yox) + yumşaq eased collapse effektləri
 - [x] Light mode isti-neytral (greige) kalibrlənmə — parıltısız, AA kontrast, dərinlik
+
+## Şəxsi kəşfiyyat (v3 — Mənə Aid flaqman)
+- [x] **`news_asset` bağlantı cədvəli + `asset_map` normalizator** — tam reyestr
+      üzrə xəbər→aktiv aşkarlama (söz-sərhədi + böyük-hərf-standalone + deny-context
+      dəqiqlik qorunması), ingest hook + backfill + scheduler self-heal, hamısı idempotent
+- [x] **① Mənə Aid** — izlədiyin aktivlərə toxunan xəbərlərin şəxsi hero digesti +
+      `/mene-aid/[key]`, əhval trendi, "sən yox ikən" təzəlik nişanı (login yox, AI xərci sıfır)
+- [x] **③ Mənim Portfelim** (`/portfel`) — mövqe → canlı P&L + çəki + pul-çəkili xəbər sıralaması
+- [x] **④ Doğruluq Kartı** (`/accuracy`) — proqnozların açıq doğruluğu, real qiymətlə
+      point-in-time ballama (LLM yox), naiv baza ilə delta, n≥20 dürüstlük qapısı, per-aktiv güvən nişanı
