@@ -40,6 +40,11 @@ html.dark {
   --shadow: rgba(0, 0, 0, 0.6);
   --bar-weak: #8a8a8f;
   --header-bg: rgba(10, 10, 11, 0.8);
+  /* Şəkilsiz xəbərin örtüyü (GeneratedThumb) — NEYTRAL, kateqoriya hue-su YOX.
+     Örtük fotonu əvəz edir, foto isə tema ilə invert olmur → hər iki temada tünd. */
+  --cover-a: #1b1b1f;
+  --cover-b: #111114;
+  --cover-c: #0a0a0b;
 }
 
 /* Açıq tema — isti-neytral (greige): səth stark-ağ deyil, yumşaq isti off-white
@@ -61,6 +66,11 @@ html.light {
   --shadow: rgba(60, 50, 35, 0.09);
   --bar-weak: #d4cfc5;
   --header-bg: rgba(247, 245, 240, 0.85);
+  /* Açıq temada da tünd, amma İSTİ tonda: greige səthin (#f7f5f0) üstündə soyuq
+     qara yamaq yad görünür, isti-tünd isə kohesivdir (bax --shadow eyni məntiq). */
+  --cover-a: #34322f;
+  --cover-b: #26241f;
+  --cover-c: #1c1a17;
 }
 
 /* Light-da kartlar fona qarışmasın — surface/bg fərqi kiçik, dərinliyi kölgə daşıyır

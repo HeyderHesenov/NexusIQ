@@ -6,24 +6,34 @@ import type { Category } from "@/types";
 
 /**
  * Brendli redaksiya örtüyü — şəkli olmayan və ya yüklənməyən xəbərlər üçün.
- * Çoxqatlı qradiyent + seed-dən deterministik market-chart motivi + kateqoriya
+ * Neytral tünd qradiyent + seed-dən deterministik market-chart motivi + kateqoriya
  * qlifi + wordmark. Eyni xəbər → eyni örtük. Placeholder yox, real örtük hissi.
  *
- * `compact` — kiçik siyahı örtüyü (96×64, aktiv səhifəsi). Bu ölçüdə kimlik
- * QRADİYENT HUE + CHART MOTİVİDİR; etiket ("COMMODITIES" ≈95px > 96px qutu) və
- * wordmark oxunmur, 104px qlif isə qutudan enlidir — ona görə düşürlər.
+ * FON NEYTRALDIR — kateqoriya hue-su QƏSDƏN yoxdur. Əvvəl fon kateqoriyadan rənglənirdi
+ * (us=yaşıl, commodities=sarı-yaşıl) və 96×64 kartda bu, "xəbərin şəkli" yox, "rəngli
+ * yamaq" kimi oxunurdu. Rəng indi yalnız ÖN PLANDADIR (chart + işıq ləkəsi, brend
+ * aksenti) — fon isə fotonun yerini tutan sakit səthdir. Kateqoriyanı qlif daşıyır.
+ *
+ * Hər iki temada TÜND: örtük fotonu əvəz edir, foto isə tema ilə invert olmur —
+ * açıq səthdə (#f7f5f0) açıq-boz qutu "şəkil çatışmır" kimi oxunardı.
+ * Rənglər `--cover-*` tokenlərindəndir, `useTheme()` YOX: ThemeProvider sinfi
+ * `useEffect`-də qoyur → SSR temasız render edir → hər örtükdə hidration flaşı olardı.
+ *
+ * `compact` — kiçik siyahı örtüyü (96×64, aktiv səhifəsi). Bu ölçüdə kimlik CHART
+ * MOTİVİ + QLİFDİR; etiket ("COMMODITIES" ≈95px > 96px qutu) və wordmark oxunmur,
+ * 104px qlif isə qutudan enlidir — ona görə düşürlər.
  * Ölçülər tam qatda deyil, bu proplada tənzimlənir (qutunu dəyişmə).
  */
-type Cfg = { hue: number; Icon: typeof Bitcoin; label: string };
+type Cfg = { Icon: typeof Bitcoin; label: string };
 
 const CFG: Record<string, Cfg> = {
-  forex: { hue: 205, Icon: DollarSign, label: "FOREX" },
-  us: { hue: 150, Icon: TrendingUp, label: "US MARKETS" },
-  crypto: { hue: 32, Icon: Bitcoin, label: "CRYPTO" },
-  commodities: { hue: 95, Icon: Fuel, label: "COMMODITIES" },
+  forex: { Icon: DollarSign, label: "FOREX" },
+  us: { Icon: TrendingUp, label: "US MARKETS" },
+  crypto: { Icon: Bitcoin, label: "CRYPTO" },
+  commodities: { Icon: Fuel, label: "COMMODITIES" },
 };
 // Naməlum/boş kateqoriyada crash etməsin (CFG[category] undefined olmasın).
-const DEFAULT_CFG: Cfg = { hue: 28, Icon: Newspaper, label: "MARKETS" };
+const DEFAULT_CFG: Cfg = { Icon: Newspaper, label: "MARKETS" };
 
 function hashStr(s: string): number {
   let h = 2166136261;
@@ -47,9 +57,9 @@ export const GeneratedThumb = memo(function GeneratedThumb({
 }) {
   const cfg = CFG[category as string] ?? DEFAULT_CFG;
   const s = hashStr(seed);
-  const hue = cfg.hue + ((s % 22) - 11);
+  // Seed yalnız FORMAYA təsir edir (bucaq + chart), rəngə YOX — məqalələr arası
+  // fərq qalır, rəngli fon isə qayıtmır.
   const angle = 115 + (s % 60);
-  const accent = `hsl(${hue} 82% 60%)`;
   const Icon = cfg.Icon;
 
   // Seed-dən deterministik chart nöqtələri (redaksiya market motivi).
@@ -67,7 +77,7 @@ export const GeneratedThumb = memo(function GeneratedThumb({
     <div
       className={`relative overflow-hidden ${className ?? ""}`}
       style={{
-        background: `linear-gradient(${angle}deg, hsl(${hue} 44% 17%), hsl(${hue} 52% 10%) 62%, #0a0a0b)`,
+        background: `linear-gradient(${angle}deg, var(--cover-a), var(--cover-b) 62%, var(--cover-c))`,
       }}
       aria-hidden
     >
@@ -78,7 +88,7 @@ export const GeneratedThumb = memo(function GeneratedThumb({
             ? "absolute -right-5 -top-6 h-20 w-20 rounded-full blur-2xl"
             : "absolute -right-12 -top-14 h-48 w-48 rounded-full blur-3xl"
         }
-        style={{ background: accent, opacity: 0.2 }}
+        style={{ background: "var(--accent)", opacity: 0.2 }}
       />
 
       {/* solğun nöqtə toxuması */}
@@ -90,11 +100,11 @@ export const GeneratedThumb = memo(function GeneratedThumb({
         }}
       />
 
-      {/* solğun kateqoriya qlifi (su nişanı) */}
+      {/* solğun kateqoriya qlifi (su nişanı) — neytral ağ: rəngi chart daşıyır,
+          qlif isə formadır. İkisi də aksent olsa kiçik qutu narıncıya boyanır. */}
       <Icon
         size={compact ? 40 : 104}
-        className="absolute -right-3 top-1/2 -translate-y-1/2 opacity-[0.12]"
-        style={{ color: accent }}
+        className="absolute -right-3 top-1/2 -translate-y-1/2 text-white opacity-[0.12]"
         strokeWidth={1.5}
       />
 
@@ -104,14 +114,23 @@ export const GeneratedThumb = memo(function GeneratedThumb({
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
       >
+        {/* `var()` presentation atributunda (stopColor=…) brauzerlər arası etibarlı
+            deyil — CSS kimi parse olunsun deyə inline `style` ilə verilir. */}
         <defs>
           <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={accent} stopOpacity="0.32" />
-            <stop offset="100%" stopColor={accent} stopOpacity="0" />
+            <stop offset="0%" style={{ stopColor: "var(--accent)", stopOpacity: 0.32 }} />
+            <stop offset="100%" style={{ stopColor: "var(--accent)", stopOpacity: 0 }} />
           </linearGradient>
         </defs>
         <path d={area} fill={`url(#${gid})`} />
-        <path d={line} fill="none" stroke={accent} strokeWidth="1.4" strokeOpacity="0.7" vectorEffect="non-scaling-stroke" />
+        <path
+          d={line}
+          fill="none"
+          style={{ stroke: "var(--accent)" }}
+          strokeWidth="1.4"
+          strokeOpacity="0.7"
+          vectorEffect="non-scaling-stroke"
+        />
       </svg>
 
       {/* kateqoriya etiketi + wordmark — yalnız iri örtükdə (kiçikdə kəsilir) */}
@@ -119,12 +138,12 @@ export const GeneratedThumb = memo(function GeneratedThumb({
         <>
           <span
             className="absolute left-3.5 top-3 font-mono text-[10px] font-semibold tracking-[0.18em]"
-            style={{ color: accent }}
+            style={{ color: "var(--accent)" }}
           >
             {cfg.label}
           </span>
           <span className="absolute bottom-2.5 left-3.5 font-mono text-[10px] font-semibold tracking-wider text-white/85">
-            Nexus<span style={{ color: accent }}>IQ</span>
+            Nexus<span style={{ color: "var(--accent)" }}>IQ</span>
           </span>
         </>
       )}
