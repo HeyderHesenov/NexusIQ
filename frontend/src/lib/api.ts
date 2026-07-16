@@ -573,18 +573,24 @@ export async function getAssetQuote(
 }
 
 export interface AssetNewsItem {
+  /** DB xəbəri → daxili `/news/{id}` linki; Yahoo ehtiyat xəbəri → null (xarici link). */
+  id: string | null;
   title: string;
   url: string | null;
   source: string | null;
   publishedAt: string | null;
-  image: string | null;
+  imageUrl: string | null;
+  category: import("@/types").Category;
   summary: string | null;
 }
 
-/** Aktivə aid xəbərlər (Yahoo Finance ticker xəbərləri). */
-export async function getAssetNews(key: string): Promise<AssetNewsItem[]> {
+/** Aktivə aid xəbərlər — DB-first (news_asset), boşluqda Yahoo ehtiyatı. */
+export async function getAssetNews(
+  key: string,
+  limit = 8,
+): Promise<AssetNewsItem[]> {
   try {
-    return await apiGet(`/assets/${key}/news`);
+    return await apiGet(`/assets/${key}/news?limit=${limit}`);
   } catch {
     return [];
   }

@@ -13,6 +13,7 @@ import yfinance as yf
 
 from app.analytics import swr
 from app.analytics.market import _live_last_prev
+from app.core.constants import ASSET_TYPE_CATEGORY, Category
 
 # (key, label, Yahoo simvolu, tip, dəqiqlik)
 ASSETS: list[tuple[str, str, str, str, int]] = [
@@ -403,8 +404,45 @@ async def _coin_spark(
             await client.aclose()
 
 
-_news_cache: dict[str, tuple[float, list]] = {}
+_news_stores: dict[str, dict] = {}
 _NEWS_TTL = 1800.0  # 30 dəqiqə
+
+_THUMB_TARGET_W = 192  # kart 96 CSS px @2x DPR
+_THUMB_MAX_W = 640  # bundan iri variant 96×64 qutu üçün israfdır
+
+
+def _pick_thumb(th: dict | None) -> str | None:
+    """96×64 qutuya uyğun ən yaxşı variant — EN BÜDCƏSİ ilə seçilir.
+
+    `originalUrl` seçmək olmaz: canlı payload-da o 1920×1080 gəlir, kart isə
+    96 px-dir (yavaş yüklənmənin kök səbəbi). `resolutions` original-ın özünü də
+    ehtiva edir və original 320..5120 arası ola bilər, ona görə "original =
+    həmişə iri" fərziyyəsi yanlışdır. Minimum-en qaydası da olmaz: Yahoo yalnız
+    `170x128` + `original` verir, ">=192" isə 170-i atıb 1920-ni seçərdi.
+    """
+    if not isinstance(th, dict):
+        return None
+    cands: list[tuple[int, str]] = []
+    for r in th.get("resolutions") or []:
+        if not isinstance(r, dict):
+            continue
+        u, w = r.get("url"), r.get("width")
+        if isinstance(u, str) and u and isinstance(w, int) and w > 0:
+            cands.append((w, u))
+    small = sorted(c for c in cands if c[0] <= _THUMB_MAX_W)
+    if not small:
+        return th.get("originalUrl")
+    fits = [c for c in small if c[0] >= _THUMB_TARGET_W]
+    return fits[0][1] if fits else small[-1][1]
+
+
+def category_for(key: str) -> str:
+    """Aktiv açarı → xəbər kateqoriyası (Yahoo xəbərinin örtüyü üçün)."""
+    if key.startswith("c_"):
+        return Category.CRYPTO.value
+    meta = _BY_KEY.get(key)
+    atype = meta[3] if meta else None
+    return ASSET_TYPE_CATEGORY.get(atype, Category.US).value
 
 
 def _yahoo_sym_for(key: str) -> str | None:
@@ -438,34 +476,37 @@ def _news_sync(sym: str) -> list[dict]:
         url = url or c.get("link")
         prov = c.get("provider")
         source = prov.get("displayName") if isinstance(prov, dict) else None
-        th = c.get("thumbnail")
-        image = th.get("originalUrl") if isinstance(th, dict) else None
         out.append({
             "title": title,
             "url": url,
             "source": source,
             "publishedAt": c.get("pubDate") or c.get("displayTime"),
-            "image": image,
+            "imageUrl": _pick_thumb(c.get("thumbnail")),
             "summary": c.get("summary") or c.get("description"),
         })
     return out
 
 
 async def get_asset_news(key: str) -> list[dict]:
-    """Aktivə aid xəbərlər (Yahoo Finance ticker xəbərləri, 30 dəq keş)."""
-    now = time.time()
-    cached = _news_cache.get(key)
-    if cached and now - cached[0] < _NEWS_TTL:
-        return cached[1]
+    """Aktivə aid Yahoo Finance ticker xəbərləri — SWR, 30 dəq.
+
+    SWR sorğunu yfinance-ə bağlamır (keş köhnəlsə arxa planda yenilənir).
+    """
     if key.startswith("c_"):
         await _ensure_coins()
-    sym = _yahoo_sym_for(key)
-    if not sym:
-        return []
-    data = await asyncio.to_thread(_news_sync, sym)
-    if data:
-        _news_cache[key] = (now, data)
-    return data
+    if not _yahoo_sym_for(key):
+        return []  # naməlum açar → store YARATMA (yoxsa yaddaş sonsuz şişər)
+    store = _news_stores.setdefault(key, {})
+
+    async def _refresh() -> dict:
+        sym = _yahoo_sym_for(key)
+        items = await asyncio.to_thread(_news_sync, sym) if sym else []
+        # dict-ə sarınır: `swr` yalnız truthy data saxlayır, `[]` isə falsy-dir →
+        # sarınmasa boş nəticə keşlənməz və hər sorğu yfinance-i təkrar döyərdi.
+        return {"items": items}
+
+    box = await swr.get(store, _NEWS_TTL, _refresh)
+    return (box or {}).get("items", [])
 
 
 async def get_overview() -> list[dict]:

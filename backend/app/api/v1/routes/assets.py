@@ -1,9 +1,13 @@
 """Aktiv route-ları — reyestr, canlı qiymət, tarixçə (watchlist/asset/compare)."""
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.analytics import assets
+from app.core.ratelimit import rate_limit
+from app.db.session import get_db
+from app.services import asset_news
 
 router = APIRouter()
 
@@ -29,10 +33,17 @@ async def asset_quote(key: str) -> dict:
     return q
 
 
-@router.get("/{key}/news")
-async def asset_news(key: str) -> list[dict]:
-    """Aktivə aid xəbərlər (Yahoo Finance)."""
-    return await assets.get_asset_news(key)
+@router.get(
+    "/{key}/news",
+    dependencies=[Depends(rate_limit("asset_news", limit=60, window=60.0))],
+)
+async def asset_news_route(
+    key: str,
+    limit: int = Query(8, ge=1, le=24),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """Aktivə aid xəbərlər — DB-first (news_asset), boşluqda Yahoo ehtiyatı."""
+    return await asset_news.for_asset(db, key.strip(), limit=limit)
 
 
 @router.get("/{key}")

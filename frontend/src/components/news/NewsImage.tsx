@@ -21,11 +21,14 @@ export function NewsImage({
   seed,
   category,
   className,
+  compact = false,
 }: {
   src: string | null;
   seed: string;
   category: Category;
   className?: string;
+  /** Kiçik siyahı örtüyü (96×64) — etiket/wordmark düşür, qlif kiçilir. */
+  compact?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -43,7 +46,12 @@ export function NewsImage({
     <div className={`relative overflow-hidden ${className ?? ""}`}>
       {/* zəmanətli örtük — həmişə arxada (bg-surface-hover flaşını da örtür) */}
       <div className="absolute inset-0">
-        <GeneratedThumb seed={seed} category={category} className="h-full w-full" />
+        <GeneratedThumb
+          seed={seed}
+          category={category}
+          className="h-full w-full"
+          compact={compact}
+        />
       </div>
 
       {/* real şəkil — üstdə, tam görünürlükdə; xəta/boş yüklənmə → gizlənir */}

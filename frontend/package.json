@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "lint:img": "! grep -rn '<img' src --include='*.tsx' | grep -v 'src/components/news/NewsImage.tsx'"
   },
   "dependencies": {
     "lucide-react": "0.469.0",

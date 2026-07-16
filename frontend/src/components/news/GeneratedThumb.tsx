@@ -8,6 +8,11 @@ import type { Category } from "@/types";
  * Brendli redaksiya örtüyü — şəkli olmayan və ya yüklənməyən xəbərlər üçün.
  * Çoxqatlı qradiyent + seed-dən deterministik market-chart motivi + kateqoriya
  * qlifi + wordmark. Eyni xəbər → eyni örtük. Placeholder yox, real örtük hissi.
+ *
+ * `compact` — kiçik siyahı örtüyü (96×64, aktiv səhifəsi). Bu ölçüdə kimlik
+ * QRADİYENT HUE + CHART MOTİVİDİR; etiket ("COMMODITIES" ≈95px > 96px qutu) və
+ * wordmark oxunmur, 104px qlif isə qutudan enlidir — ona görə düşürlər.
+ * Ölçülər tam qatda deyil, bu proplada tənzimlənir (qutunu dəyişmə).
  */
 type Cfg = { hue: number; Icon: typeof Bitcoin; label: string };
 
@@ -33,10 +38,12 @@ export const GeneratedThumb = memo(function GeneratedThumb({
   seed,
   category,
   className,
+  compact = false,
 }: {
   seed: string;
   category: Category | string;
   className?: string;
+  compact?: boolean;
 }) {
   const cfg = CFG[category as string] ?? DEFAULT_CFG;
   const s = hashStr(seed);
@@ -64,9 +71,13 @@ export const GeneratedThumb = memo(function GeneratedThumb({
       }}
       aria-hidden
     >
-      {/* yumşaq işıq ləkəsi */}
+      {/* yumşaq işıq ləkəsi — kompaktda kiçilir (192px ləkə 96px qutunu tam örtərdi) */}
       <div
-        className="absolute -right-12 -top-14 h-48 w-48 rounded-full blur-3xl"
+        className={
+          compact
+            ? "absolute -right-5 -top-6 h-20 w-20 rounded-full blur-2xl"
+            : "absolute -right-12 -top-14 h-48 w-48 rounded-full blur-3xl"
+        }
         style={{ background: accent, opacity: 0.2 }}
       />
 
@@ -75,13 +86,13 @@ export const GeneratedThumb = memo(function GeneratedThumb({
         className="absolute inset-0 opacity-[0.1]"
         style={{
           backgroundImage: "radial-gradient(rgba(255,255,255,.8) 1px, transparent 1px)",
-          backgroundSize: "18px 18px",
+          backgroundSize: compact ? "10px 10px" : "18px 18px",
         }}
       />
 
-      {/* iri solğun kateqoriya qlifi (su nişanı) */}
+      {/* solğun kateqoriya qlifi (su nişanı) */}
       <Icon
-        size={104}
+        size={compact ? 40 : 104}
         className="absolute -right-3 top-1/2 -translate-y-1/2 opacity-[0.12]"
         style={{ color: accent }}
         strokeWidth={1.5}
@@ -103,18 +114,20 @@ export const GeneratedThumb = memo(function GeneratedThumb({
         <path d={line} fill="none" stroke={accent} strokeWidth="1.4" strokeOpacity="0.7" vectorEffect="non-scaling-stroke" />
       </svg>
 
-      {/* kateqoriya etiketi */}
-      <span
-        className="absolute left-3.5 top-3 font-mono text-[10px] font-semibold tracking-[0.18em]"
-        style={{ color: accent }}
-      >
-        {cfg.label}
-      </span>
-
-      {/* wordmark */}
-      <span className="absolute bottom-2.5 left-3.5 font-mono text-[10px] font-semibold tracking-wider text-white/85">
-        Nexus<span style={{ color: accent }}>IQ</span>
-      </span>
+      {/* kateqoriya etiketi + wordmark — yalnız iri örtükdə (kiçikdə kəsilir) */}
+      {!compact && (
+        <>
+          <span
+            className="absolute left-3.5 top-3 font-mono text-[10px] font-semibold tracking-[0.18em]"
+            style={{ color: accent }}
+          >
+            {cfg.label}
+          </span>
+          <span className="absolute bottom-2.5 left-3.5 font-mono text-[10px] font-semibold tracking-wider text-white/85">
+            Nexus<span style={{ color: accent }}>IQ</span>
+          </span>
+        </>
+      )}
     </div>
   );
 });
