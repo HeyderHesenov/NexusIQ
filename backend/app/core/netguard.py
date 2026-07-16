@@ -49,7 +49,25 @@ def _is_blocked_ip(value: str) -> bool:
 
 
 def _host_is_safe(host: str) -> bool:
-    """Host adı/IP-si daxili şəbəkəyə işarə etmirsə True (DNS həll edərək)."""
+    """Host adı/IP-si daxili şəbəkəyə işarə etmirsə True (DNS həll edərək).
+
+    DNS-in ÖZÜ alınmasa `httpx.ConnectError` qaldırılır — `False` QAYTARILMIR.
+    `False` "bu host qadağandır" deməkdir (siyasət verdikti, host dəyişməyincə
+    dəyişməz); resolver nasazlığı isə keçici I/O xətasıdır. İkisini eyni dəyərə
+    yığmaq realdır və ağırdır: şəbəkə bir anlıq gedəndə HƏR host "qadağan"
+    görünür, çağıranlar isə bunu davamlı verdikt kimi yazır (`img_cache` neqativ
+    keşi: 15 dəq) → şəbəkə qayıdandan sonra da bütün şəkillər örtük altında
+    qalır. Eyni kök şərt TCP mərhələsində düzgün işlənirdi (`client.get` →
+    `ConnectError` → keçici), yalnız DNS yolu fərqlənirdi.
+
+    Məhz `ConnectError`, çünki biz httpx-in öz həllini ƏVƏZ edirik — o, hostu
+    özü həll etsəydi DNS xətasında elə bunu qaldırardı. Nəticədə hər üç çağıran
+    onu artıq düzgün tutur, imza dəyişmir.
+    NXDOMAIN də bura düşür (ayırd edilmir): errno platformadan asılıdır (macOS
+    oflayn ikən EAI_NONAME/EAI_NODATA verir), qiyməti isə cəmi resolver-in öz
+    neqativ keşinə 90 saniyədən bir dəyməkdir — naşirə sorğu getmir.
+    Təhlükəsizlik dəyişmir: istisna da çəkilişi dayandırır (fail-closed).
+    """
     host = host.strip().lower().strip(".")
     if not host or host in _BLOCKED_HOSTS:
         return False
@@ -57,8 +75,8 @@ def _host_is_safe(host: str) -> bool:
         return False
     try:
         infos = socket.getaddrinfo(host, None)
-    except socket.gaierror:
-        return False
+    except socket.gaierror as exc:
+        raise httpx.ConnectError(f"DNS həlli alınmadı: {host}") from exc
     # Bütün həll olunmuş IP-lər ictimai olmalıdır (DNS rebinding qoruması).
     for info in infos:
         if _is_blocked_ip(info[4][0]):
@@ -67,7 +85,10 @@ def _host_is_safe(host: str) -> bool:
 
 
 async def is_safe_url(url: str) -> bool:
-    """URL http/https-dir və host ictimai ünvana həll olunursa True."""
+    """URL http/https-dir və host ictimai ünvana həll olunursa True.
+
+    DNS həlli alınmasa `httpx.ConnectError` qaldırır (səbəb: `_host_is_safe`).
+    """
     try:
         parsed = urlparse(url)
     except ValueError:
@@ -88,8 +109,13 @@ async def safe_get(
 ) -> httpx.Response | None:
     """SSRF-təhlükəsiz GET — redirect-ləri əl ilə izləyir, hər hopu yoxlayır.
 
-    Client `follow_redirects=False` ilə yaradılmalıdır. Hər hansı hop daxili
-    ünvana işarə edərsə None qaytarır (çəkilmir).
+    Client `follow_redirects=False` ilə yaradılmalıdır.
+
+    `None` = SİYASƏT verdikti, yəni "çəkməkdən imtina": qadağan host/hop, `max_bytes`
+    tavanının aşılması, həddindən çox redirect. Bu hallar URL dəyişməyincə dəyişməz,
+    ona görə çağıran onları uzun müddət keşləyə bilər.
+    I/O nasazlıqları (DNS, TCP, TLS, timeout) `None` DEYİL — httpx istisnası kimi
+    sıçrayır, çünki onlar keçicidir və başqa cür işlənməlidir.
 
     `max_bytes` verilsə cavab AXINLA oxunur və tavan aşılan kimi bağlanır.
     Bu vacibdir: `client.get()` body-ni TAM yaddaşa yığır və httpx-in ölçü

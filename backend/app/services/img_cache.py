@@ -48,7 +48,11 @@ _MAX_BYTES = 12 * 1024 * 1024
 _MAX_PIXELS = 40_000_000
 _TIMEOUT = 12.0
 _TOTAL_DEADLINE = 20.0
-_NEG_TTL = 900.0  # 15 dəq
+# Blip ilə ölü URL eyni şey DEYİL. Ölçüldü: id 4074 (CoinDesk) upstream tam
+# sağlamdır (200, 1920×1080), amma bir keçici blip w=192 və w=640-ı — frontend-in
+# işlətdiyi məhz iki eni — 15 dəqiqəlik örtüyə saldı (w=1280 təmiz qaldı).
+_NEG_TTL_HARD = 900.0  # 404/410/dekod-xətası/SSRF — naşir tərəfi, sabit
+_NEG_TTL_SOFT = 90.0  # 403/429/5xx/timeout/şəbəkə — keçici, tez təkrar cəhd
 _CACHE_DIR = Path(__file__).resolve().parents[2] / "data" / "cache" / "img"
 
 # AYRICA hovuz — `asyncio.to_thread` DEFOLT hovuzu işlədir, onu isə yfinance
@@ -119,7 +123,8 @@ def _resize(raw: bytes, w: int) -> bytes | None:
     return buf.getvalue()
 
 
-async def _fetch(url: str) -> bytes | None:
+async def _fetch(url: str) -> tuple[bytes | None, bool]:
+    """(baytlar, keçici?) — keçici xəta qısa TTL ilə keşlənir, sərt xəta uzun."""
     async with _FETCH_SEM:
         try:
             r = await asyncio.wait_for(
@@ -128,20 +133,25 @@ async def _fetch(url: str) -> bytes | None:
                 ),
                 timeout=_TOTAL_DEADLINE,
             )
-        except Exception:  # noqa: BLE001 — timeout/SSL/şəbəkə: hamısı örtüyə düşür
-            return None
-    if r is None or r.status_code != 200:
-        return None
-    return r.content
+        except Exception:  # noqa: BLE001 — DNS/TCP/TLS/timeout → KEÇİCİ
+            return None, True
+    if r is None:
+        # `safe_get`-in None-u SİYASƏT verdiktidir (qadağan host, `max_bytes`
+        # tavanı, çox redirect) — URL dəyişməyincə dəyişməz, yəni sərt.
+        return None, False
+    if r.status_code != 200:
+        # 403/429/5xx = naşirin ani vəziyyəti; 404/410 = həqiqətən yoxdur.
+        return None, r.status_code in (403, 408, 425, 429) or r.status_code >= 500
+    return r.content, False
 
 
-async def _build(news_id: int, url: str, w: int, path: Path) -> Path | None:
-    raw = await _fetch(url)
+async def _build(news_id: int, url: str, w: int, path: Path) -> tuple[Path | None, bool]:
+    raw, transient = await _fetch(url)
     if raw is None:
-        return None
+        return None, transient
     out = await asyncio.get_running_loop().run_in_executor(_POOL, _resize, raw, w)
     if not out:
-        return None
+        return None, False  # dekod alınmadı — bayt dəyişməyincə dəyişməz
 
     def _write() -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -158,8 +168,8 @@ async def _build(news_id: int, url: str, w: int, path: Path) -> Path | None:
     try:
         await asyncio.get_running_loop().run_in_executor(_POOL, _write)
     except OSError:
-        return None
-    return path
+        return None, True  # disk problemi — keçici
+    return path, False
 
 
 _MAX_CACHE_BYTES = 1_500_000_000  # ~1.5 GB
@@ -220,9 +230,9 @@ async def get_path(news_id: int, url: str, w: int) -> Path | None:
         _inflight[key] = task
         task.add_done_callback(lambda _t, k=key: _inflight.pop(k, None))
     try:
-        result = await asyncio.shield(task)
+        result, transient = await asyncio.shield(task)
     except Exception:  # noqa: BLE001
-        result = None
+        result, transient = None, True
     if result is None:
-        _neg[key] = now + _NEG_TTL
+        _neg[key] = time.monotonic() + (_NEG_TTL_SOFT if transient else _NEG_TTL_HARD)
     return result
