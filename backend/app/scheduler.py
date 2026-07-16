@@ -98,6 +98,15 @@ async def _image_cycle() -> None:
     except Exception:  # noqa: BLE001
         logger.exception("Şəkil backfill xətası")
 
+    # Thumbnail proksi keşi öz-özünə dayanmır → həcm tavanını burada tətbiq et.
+    try:
+        from app.services import img_cache
+
+        if removed := await img_cache.prune():
+            logger.info("Şəkil keşi budandı — %s fayl", removed)
+    except Exception:  # noqa: BLE001
+        logger.exception("Şəkil keşi budama xətası")
+
 
 async def _wait_for_db(attempts: int = 10, delay: float = 3.0) -> bool:
     """DB hazır olana qədər qısa gözlə (SELECT 1). Backend DB-dən əvvəl qalxsa

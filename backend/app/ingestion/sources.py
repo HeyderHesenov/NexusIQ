@@ -31,7 +31,11 @@ FEEDS: list[FeedSource] = [
                Category.FOREX, "https://www.dailyfx.com"),
 
     # ---- US Markets ----
-    FeedSource("MarketWatch", "http://feeds.marketwatch.com/marketwatch/topstories/",
+    # HTTPS məcburidir: plain HTTP + `follow_redirects=True` (rss_collector) on-path
+    # hücumçuya feed-ə istənilən `media:content` URL-i yeritməyə imkan verirdi. O
+    # URL sonra DB-yə düşür və `/img/news/{id}` proksisi onu SERVER tərəfdə çəkir
+    # → "attacker-adjacent" data "attacker-controlled"-a çevrilirdi.
+    FeedSource("MarketWatch", "https://feeds.marketwatch.com/marketwatch/topstories/",
                Category.US, "https://www.marketwatch.com"),
     FeedSource("CNBC Markets",
                "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=15839135",

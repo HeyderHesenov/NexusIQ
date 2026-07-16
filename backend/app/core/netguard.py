@@ -4,6 +4,22 @@ Naşir səhifələri və og:image URL-ləri RSS məzmunundan gəlir (attacker-ad
 Hostil bir element http://169.254.169.254 (cloud metadata), localhost və ya
 RFC1918 daxili xidmətə yönəldə bilər. Bu köməkçi belə hədəfləri bloklayır və
 redirect-ləri əl ilə, hər addımı yenidən yoxlayaraq izləyir.
+
+Yoxlama HƏLL OLUNMUŞ ünvanlar üzərindədir (giriş sətri üzərində yox) — onluq/
+səkkizlik IP kodlaşdırmaları, IPv4-mapped IPv6 və çox-A qeydləri bununla birdən
+bağlanır (`getaddrinfo` kanonikləşdirir, sonra HƏR nəticə yoxlanır).
+
+BİLİNƏN QALIQ RİSK — DNS rebinding (TOCTOU): `_host_is_safe` `getaddrinfo` çağırır,
+sonra httpx hostu MÜSTƏQİL olaraq YENİDƏN həll edir; təsdiqlənmiş IP ötürülmür.
+TTL=0 ilə authoritative DNS işlədən hücumçu iki həll arasında daxili ünvana keçə
+bilər. Tam həll IP-ni pinləmək (URL-də IP + `Host` başlığı + `sni_hostname`)
+olardı; tətbiq edilmədi, çünki sertifikat yoxlanışını qırma riski real naşirlər
+üçün bütün şəkilləri sındıra bilər. Cari azaldıcılar: (1) `/img/news/{id}` yolunda
+SSRF KORDUR — cavab Pillow-dan keçməlidir, metadata JSON `UnidentifiedImageError`
+verir; (2) tək plain-HTTP feed HTTPS-ə keçirildi (bax `sources.py` MarketWatch),
+yəni DB-yə ixtiyari URL yeritmək üçün on-path mövqe artıq kifayət etmir;
+(3) app 127.0.0.1-ə bağlıdır. Qalan kanal: yan-təsirli GET və vaxt oraklu.
+`enrich_content` body-ni PARSE etdiyi üçün orada rebinding kor DEYİL.
 """
 from __future__ import annotations
 
@@ -68,19 +84,65 @@ async def safe_get(
     *,
     timeout: float = 15.0,
     max_redirects: int = 8,
+    max_bytes: int | None = None,
 ) -> httpx.Response | None:
     """SSRF-təhlükəsiz GET — redirect-ləri əl ilə izləyir, hər hopu yoxlayır.
 
     Client `follow_redirects=False` ilə yaradılmalıdır. Hər hansı hop daxili
     ünvana işarə edərsə None qaytarır (çəkilmir).
+
+    `max_bytes` verilsə cavab AXINLA oxunur və tavan aşılan kimi bağlanır.
+    Bu vacibdir: `client.get()` body-ni TAM yaddaşa yığır və httpx-in ölçü
+    limiti YOXDUR — yükləmədən sonrakı `len(r.content)` yoxlaması yaddaşı
+    qorumur, yalnız emalın qarşısını alır. None (defolt) = köhnə davranış.
     """
     current = url
     for _ in range(max_redirects + 1):
         if not await is_safe_url(current):
             return None
-        resp = await client.get(current, timeout=timeout)
+        if max_bytes is None:
+            resp = await client.get(current, timeout=timeout)
+        else:
+            resp = await _capped_get(client, current, timeout, max_bytes)
+            if resp is None:
+                return None  # tavan aşıldı
         if resp.is_redirect and "location" in resp.headers:
             current = urljoin(current, resp.headers["location"])
             continue
         return resp
     return None  # çox redirect
+
+
+async def _capped_get(
+    client: httpx.AsyncClient, url: str, timeout: float, max_bytes: int
+) -> httpx.Response | None:
+    """Axınla oxu, `max_bytes` aşılanda bağla. Buferlənmiş cavabı qaytarır."""
+    req = client.build_request("GET", url, timeout=timeout)
+    resp = await client.send(req, stream=True)
+    try:
+        if resp.is_redirect:
+            return resp  # body lazım deyil, çağıran Location-a baxır
+        chunks: list[bytes] = []
+        total = 0
+        # `aiter_bytes` AÇILMIŞ baytları verir → tavan yaddaşda tutduğumuza
+        # tətbiq olunur (gzip bombası da elə burada kəsilir).
+        async for chunk in resp.aiter_bytes():
+            total += len(chunk)
+            if total > max_bytes:
+                return None
+            chunks.append(chunk)
+        body = b"".join(chunks)
+    finally:
+        await resp.aclose()
+    # Axın bağlandıqdan sonra `.content`/`.text` oxunmur → buferlənmiş nüsxə qur.
+    # Body ARTIQ açılıb, ona görə kodlaşdırma başlıqları çıxarılmalıdır: qalsa
+    # httpx yeni cavabı ikinci dəfə açmağa çalışır → DecodingError.
+    headers = httpx.Headers(resp.headers)
+    headers.pop("content-encoding", None)
+    headers.pop("content-length", None)
+    return httpx.Response(
+        status_code=resp.status_code,
+        headers=headers,
+        content=body,
+        request=resp.request,
+    )

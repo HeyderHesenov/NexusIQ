@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.scheduler import shutdown_scheduler, start_scheduler, startup_catchup
+from app.services import img_cache
 
 logger = logging.getLogger("nexusiq.startup")
 
@@ -112,6 +113,7 @@ async def lifespan(app: FastAPI):
     yield
     # shutdown
     shutdown_scheduler()
+    await img_cache.aclose()  # paylaşılan httpx klienti
 
 
 def create_app() -> FastAPI:
