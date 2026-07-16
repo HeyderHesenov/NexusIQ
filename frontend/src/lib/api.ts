@@ -138,6 +138,23 @@ export async function getAssetIntel(
   }
 }
 
+/** Portfel P&L + pul-çəkili xəbər (server heç nə saxlamır — holdings göndərilir). */
+export async function getPortfolioIntel(
+  holdings: { key: string; qty: number; avgCost: number | null }[],
+  lastSeen: number | null,
+): Promise<import("@/types").PortfolioIntel> {
+  try {
+    return await apiPost(`/watchlist-intel/portfolio`, { holdings, lastSeen });
+  } catch {
+    return {
+      ready: false,
+      totals: { value: 0, cost: 0, pnl: null, pnlPct: null },
+      positions: [],
+      news: [],
+    };
+  }
+}
+
 /** Bir xəbər üçün AI bazar proqnozu (lazy — açılışdan sonra çağırılır). */
 export async function getForecast(
   id: string,

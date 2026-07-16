@@ -31,6 +31,21 @@ class IntelRequest(BaseModel):
     last_seen: int | None = Field(default=None, alias="lastSeen")  # epoch ms
 
 
+class Holding(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    key: str
+    qty: float
+    avg_cost: float | None = Field(default=None, alias="avgCost")
+
+
+class PortfolioRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    holdings: list[Holding] = Field(default_factory=list, max_length=60)
+    last_seen: int | None = Field(default=None, alias="lastSeen")
+
+
 @router.post("", dependencies=[Depends(rate_limit("watchlist_intel", limit=30, window=60.0))])
 async def watchlist_digest(
     req: IntelRequest,
@@ -38,6 +53,21 @@ async def watchlist_digest(
 ) -> dict:
     """İzlənən aktivlərə toxunan xəbərlərin şəxsi digesti."""
     return await watchlist_intel.digest(db, req.keys, _to_dt(req.last_seen))
+
+
+@router.post(
+    "/portfolio",
+    dependencies=[Depends(rate_limit("portfolio_intel", limit=30, window=60.0))],
+)
+async def portfolio_intel(
+    req: PortfolioRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Portfel P&L + bugünkü xəbərlərin pul-çəkili sıralanması (server heç nə saxlamır)."""
+    holdings = [
+        {"key": h.key, "qty": h.qty, "avgCost": h.avg_cost} for h in req.holdings
+    ]
+    return await watchlist_intel.portfolio(db, holdings, _to_dt(req.last_seen))
 
 
 @router.get(

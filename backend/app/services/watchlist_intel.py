@@ -6,6 +6,7 @@ ikən" sayı. Link seyrəkdirsə `anomaly_news.news_for_asset` ilə doldurulur.
 """
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
@@ -151,3 +152,171 @@ async def digest(
     out.sort(key=lambda a: (a["sinceCount"], a["count"]), reverse=True)
     total_since = sum(a["sinceCount"] for a in out)
     return {"ready": True, "sinceCount": total_since, "assets": out}
+
+
+# ---- Faza B: Portfel + P&L (pul-çəkili xəbər relevance) ----
+
+_DIR_SIGN = {"up": 1, "down": -1, "mixed": 0, "neutral": 0}
+
+
+def _num(x) -> float | None:
+    try:
+        v = float(x)
+        return v if v == v else None  # NaN qoru
+    except (TypeError, ValueError):
+        return None
+
+
+async def portfolio(
+    session: AsyncSession,
+    holdings: list[dict],
+    last_seen: datetime | None,
+    days: int = 14,
+    per_asset_news: int = 24,
+) -> dict:
+    """Portfel P&L + bugünkü xəbərlərin PUL-ÇƏKİLİ sıralanması.
+
+    holdings: [{key, qty, avgCost}]. Server heç nə saxlamır. Canlı qiymət
+    `assets.get_quote`. Xəbər relevance = Σ weight_i · (impact/100) (toxunan∩portfel).
+    """
+    parsed: list[dict] = []
+    seen: set[str] = set()
+    for h in holdings or []:
+        key = str((h or {}).get("key", "")).strip()
+        qty = _num((h or {}).get("qty"))
+        cost = _num((h or {}).get("avgCost"))
+        if not key or key in seen or qty is None or qty <= 0:
+            continue
+        seen.add(key)
+        parsed.append({"key": key, "qty": qty, "avgCost": cost})
+    if not parsed:
+        return {"ready": True, "totals": _empty_totals(), "positions": [], "news": []}
+
+    quotes = await asyncio.gather(*[assets.get_quote(p["key"]) for p in parsed])
+
+    positions: list[dict] = []
+    total_value = 0.0
+    total_cost = 0.0
+    for p, q in zip(parsed, quotes):
+        price = _num(q["price"]) if q else None
+        value = price * p["qty"] if price is not None else None
+        cost = p["avgCost"] * p["qty"] if p["avgCost"] is not None else None
+        pnl = (value - cost) if (value is not None and cost is not None) else None
+        pnl_pct = (
+            (price / p["avgCost"] - 1) * 100
+            if (price is not None and p["avgCost"])
+            else None
+        )
+        if value is not None:
+            total_value += value
+        if cost is not None:
+            total_cost += cost
+        positions.append(
+            {
+                "key": p["key"],
+                "label": (q["label"] if q else _label(p["key"])),
+                "qty": p["qty"],
+                "avgCost": p["avgCost"],
+                "price": price,
+                "chgPct": (q["chgPct"] if q else None),
+                "value": round(value, 2) if value is not None else None,
+                "pnl": round(pnl, 2) if pnl is not None else None,
+                "pnlPct": round(pnl_pct, 2) if pnl_pct is not None else None,
+                "weight": 0.0,  # aşağıda doldurulur
+            }
+        )
+
+    # Çəkilər dəyəri bilinən mövqelərdən (weight-lər cəmi 1).
+    for pos in positions:
+        pos["weight"] = (
+            round(pos["value"] / total_value, 4)
+            if (pos["value"] and total_value > 0)
+            else 0.0
+        )
+    weights = {pos["key"]: pos["weight"] for pos in positions}
+
+    total_pnl = round(total_value - total_cost, 2) if total_cost else None
+    totals = {
+        "value": round(total_value, 2),
+        "cost": round(total_cost, 2),
+        "pnl": total_pnl,
+        "pnlPct": (
+            round((total_value / total_cost - 1) * 100, 2) if total_cost > 0 else None
+        ),
+    }
+
+    news = await _money_ranked_news(
+        session, list(weights), weights, last_seen, days, per_asset_news
+    )
+    return {"ready": True, "totals": totals, "positions": positions, "news": news}
+
+
+def _empty_totals() -> dict:
+    return {"value": 0.0, "cost": 0.0, "pnl": None, "pnlPct": None}
+
+
+async def _money_ranked_news(
+    session: AsyncSession,
+    keys: list[str],
+    weights: dict[str, float],
+    last_seen: datetime | None,
+    days: int,
+    limit: int,
+) -> list[dict]:
+    """Portfelə toxunan xəbərlər — pul-çəkili relevance ilə sıralı."""
+    if not keys:
+        return []
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    rows = (
+        await session.execute(
+            select(
+                NewsAsset.news_id,
+                NewsAsset.asset_key,
+                NewsAsset.published_at,
+                NewsAsset.impact_score,
+                NewsAsset.impact_dir,
+            )
+            .where(NewsAsset.asset_key.in_(keys))
+            .where(NewsAsset.published_at >= since)
+        )
+    ).all()
+
+    # news_id → {impact, touched:[(key,dir)], published_at}
+    agg: dict[int, dict] = {}
+    for r in rows:
+        e = agg.setdefault(
+            r.news_id,
+            {"impact": _num(r.impact_score) or 0.0, "touched": [], "pub": r.published_at},
+        )
+        e["touched"].append((r.asset_key, r.impact_dir))
+
+    scored: list[tuple[float, float, int, list[str]]] = []
+    for nid, e in agg.items():
+        w_sum = sum(weights.get(k, 0.0) for k, _d in e["touched"])
+        if w_sum <= 0:
+            continue
+        rel = round(e["impact"] / 100.0 * w_sum, 4)
+        tilt = round(
+            e["impact"]
+            / 100.0
+            * sum(weights.get(k, 0.0) * _DIR_SIGN.get(d, 0) for k, d in e["touched"]),
+            4,
+        )
+        touched = [k for k, _d in e["touched"] if k in weights]
+        scored.append((rel, tilt, nid, touched))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    top = scored[:limit]
+    news_map = await _load_news(session, [nid for _r, _t, nid, _k in top])
+
+    out: list[dict] = []
+    for rel, tilt, nid, touched in top:
+        n = news_map.get(nid)
+        if not n:
+            continue
+        d = _news_dict(n)
+        d["relevanceScore"] = rel
+        d["moneyTilt"] = tilt
+        d["touched"] = touched
+        out.append(d)
+    return out

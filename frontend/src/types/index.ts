@@ -45,6 +45,38 @@ export interface WatchlistIntel {
   assets: AssetDigest[];
 }
 
+/** Portfel — mövqe + canlı qiymət + P&L (Faza B). */
+export interface Position {
+  key: string;
+  label: string;
+  qty: number;
+  avgCost: number | null;
+  price: number | null;
+  chgPct: number | null; // gündəlik dəyişim (dürüst etiket)
+  value: number | null;
+  pnl: number | null;
+  pnlPct: number | null;
+  weight: number; // 0..1
+}
+export interface PortfolioTotals {
+  value: number;
+  cost: number;
+  pnl: number | null;
+  pnlPct: number | null;
+}
+/** Pul-çəkili xəbər — NewsItem + portfelə təsir sahələri. */
+export interface PortfolioNews extends NewsItem {
+  relevanceScore?: number;
+  moneyTilt?: number; // müsbət = portfelə yüksəliş meyli
+  touched?: string[];
+}
+export interface PortfolioIntel {
+  ready: boolean;
+  totals: PortfolioTotals;
+  positions: Position[];
+  news: PortfolioNews[];
+}
+
 /** Saxlanan bazar təqvim hadisəsi — kartın /brief normallaşmasından qurulur. */
 export interface SavedEvent {
   id: string; // sabit törəmə açar

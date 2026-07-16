@@ -18,6 +18,7 @@ import {
   Star,
   Target,
   TrendingUp,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
@@ -44,6 +45,7 @@ const NAV: NavItem[] = [
       { href: "/assets", labelKey: "nav.assets", icon: Coins },
       { href: "/markets", labelKey: "nav.markets", icon: CalendarDays },
       { href: "/watchlist", labelKey: "nav.watchlist", icon: Star },
+      { href: "/portfel", labelKey: "nav.portfel", icon: Wallet },
     ],
   },
   {
@@ -66,6 +68,7 @@ const ALL_LEAVES: Leaf[] = [
   { href: "/assets", labelKey: "nav.assets", icon: Coins },
   { href: "/markets", labelKey: "nav.markets", icon: CalendarDays },
   { href: "/watchlist", labelKey: "nav.watchlist", icon: Star },
+  { href: "/portfel", labelKey: "nav.portfel", icon: Wallet },
   { href: "/anomalies", labelKey: "anom.nav", icon: Activity },
   { href: "/analogs", labelKey: "analog.nav", icon: History },
   { href: "/compare", labelKey: "nav.compare", icon: GitCompareArrows },
