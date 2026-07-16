@@ -155,6 +155,18 @@ export async function getPortfolioIntel(
   }
 }
 
+/** Proqnoz doğruluq kartı — açıq "biz nə qədər doğru çıxdıq" (trust layer). */
+export async function getAccuracy(
+  by: string,
+  horizon: number,
+): Promise<import("@/types").AccuracyCard> {
+  try {
+    return await apiGet(`/accuracy?by=${by}&horizon=${horizon}`);
+  } catch {
+    return { ready: false, by, horizon, slices: [] };
+  }
+}
+
 /** Bir xəbər üçün AI bazar proqnozu (lazy — açılışdan sonra çağırılır). */
 export async function getForecast(
   id: string,

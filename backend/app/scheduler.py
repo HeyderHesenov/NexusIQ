@@ -60,6 +60,7 @@ async def ingest_cycle() -> None:
     await _image_cycle()
     await _embed_cycle()
     await _link_cycle()
+    await _score_cycle()
     await _anomaly_cycle()
 
 
@@ -188,6 +189,20 @@ async def _link_cycle() -> None:
             logger.info("Link self-heal — %s yeni link", linked)
     except Exception:  # noqa: BLE001
         logger.exception("Link self-heal dövrü xətası")
+
+
+async def _score_cycle() -> None:
+    """Üfüqü bağlanmış forecast linklərini real qiymətlə balla (PULSUZ, LLM yox)."""
+    if not settings.scorer_enabled:
+        return
+    from app.analytics import forecast_scorer
+
+    try:
+        stats = await forecast_scorer.score_pending()
+        if stats.get("scored"):
+            logger.info("Proqnoz doğruluq — %s link balandı", stats["scored"])
+    except Exception:  # noqa: BLE001
+        logger.exception("Proqnoz scorer dövrü xətası")
 
 
 async def _anomaly_cycle() -> None:

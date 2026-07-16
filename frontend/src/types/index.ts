@@ -77,6 +77,24 @@ export interface PortfolioIntel {
   news: PortfolioNews[];
 }
 
+/** Proqnoz doğruluq kartı — bir slice (Faza C). */
+export interface AccuracySlice {
+  key: string;
+  label: string;
+  horizon: number;
+  n: number;
+  hitRate: number; // 0..1
+  baseRate: number; // naiv "həmişə ▲"
+  delta: number; // hitRate − baseRate
+  insufficient: boolean; // n<20 → "toplanır"
+}
+export interface AccuracyCard {
+  ready: boolean;
+  by: string;
+  horizon: number;
+  slices: AccuracySlice[];
+}
+
 /** Saxlanan bazar təqvim hadisəsi — kartın /brief normallaşmasından qurulur. */
 export interface SavedEvent {
   id: string; // sabit törəmə açar

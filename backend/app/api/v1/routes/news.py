@@ -235,6 +235,11 @@ async def get_forecast(
             news.forecast = store
             flag_modified(news, "forecast")
             await db.commit()
+            # Proqnozun göstərdiyi aktivləri link et (doğruluq kartının datası).
+            from app.services import link_service
+
+            await link_service.populate_forecast(db, news, fc.get("pairs") or [])
+            await db.commit()
         if not fut.done():
             fut.set_result(fc)
     except Exception:  # noqa: BLE001

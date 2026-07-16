@@ -53,6 +53,10 @@ class Settings(BaseSettings):
     embed_enabled: bool = True
     embed_batch: int = 32
 
+    # Proqnoz doğruluq motoru — forecast linklərini real qiymət hərəkəti ilə
+    # qiymətləndirir (PULSUZ, LLM yox — sırf qiymət riyaziyyatı). Default aktiv.
+    scorer_enabled: bool = True
+
     free_translate_enabled: bool = True
     # Saatlıq backfill ölçüsü. Yeni ingestion ilə ayaqlaşmaq + backlog yığılmasın
     # deyə 30. Daha yüksək Google free endpoint-i rate-limit edib ingiliscə

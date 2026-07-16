@@ -4,6 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.api.v1.routes import (
+    accuracy,
     analog,
     anomalies,
     assets,
@@ -35,3 +36,4 @@ api_router.include_router(analog.router, prefix="/analogs", tags=["analytics"])
 api_router.include_router(
     watchlist_intel.router, prefix="/watchlist-intel", tags=["analytics"]
 )
+api_router.include_router(accuracy.router, prefix="/accuracy", tags=["analytics"])

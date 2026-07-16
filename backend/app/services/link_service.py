@@ -146,6 +146,50 @@ async def backfill_detected(batch: int = 1000) -> dict:
     return {"processed": processed, "linked": linked}
 
 
+def _pairs_from_forecast(fc: dict | None) -> list[dict]:
+    """Forecast JSONB-dən (dil üzrə) pairs siyahısı — en, sonra hər dil."""
+    fc = fc or {}
+    for lg in ("en", "az", "ru", "tr"):
+        v = fc.get(lg)
+        if isinstance(v, dict) and v.get("pairs"):
+            return v["pairs"]
+    for v in fc.values():
+        if isinstance(v, dict) and v.get("pairs"):
+            return v["pairs"]
+    return []
+
+
+async def backfill_forecast(batch: int = 500) -> dict:
+    """Mövcud news.forecast JSONB-lərindən forecast linkləri (doğruluq kartı datası).
+
+    İdempotent (on_conflict). Linklər üfüq bağlananda scorer tərəfindən ballanır.
+    """
+    from app.db.session import AsyncSessionLocal
+
+    processed = 0
+    linked = 0
+    while True:
+        async with AsyncSessionLocal() as session:
+            rows = (
+                await session.scalars(
+                    select(News)
+                    .where(News.forecast.is_not(None))
+                    .order_by(News.id)
+                    .offset(processed)
+                    .limit(batch)
+                )
+            ).all()
+            if not rows:
+                break
+            for n in rows:
+                pairs = _pairs_from_forecast(n.forecast)
+                if pairs:
+                    linked += await populate_forecast(session, n, pairs)
+            await session.commit()
+            processed += len(rows)
+    return {"processed": processed, "linked": linked}
+
+
 async def self_heal_recent(session: AsyncSession, hours: int = 48) -> int:
     """Son `hours` saatda detected linki olmayan xəbərləri link et (scheduler).
 

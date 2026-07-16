@@ -15,10 +15,11 @@ from app.services import link_service
 
 
 async def main() -> None:
-    stats = await link_service.backfill_detected()
+    det = await link_service.backfill_detected()
+    fc = await link_service.backfill_forecast()
     print(
-        f"✅ Link backfill bitdi — işlənən xəbər: {stats['processed']}, "
-        f"yazılan link: {stats['linked']}"
+        f"✅ Link backfill bitdi — detected: {det['linked']} "
+        f"({det['processed']} xəbər), forecast: {fc['linked']} ({fc['processed']} xəbər)"
     )
     await engine.dispose()
 

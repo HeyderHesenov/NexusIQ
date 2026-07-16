@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer, selectinload
 
-from app.analytics import anomaly_news, assets, correlation
+from app.analytics import accuracy, anomaly_news, assets, correlation
 from app.models import News, NewsAsset
 from app.schemas.news import NewsOut
 
@@ -121,7 +121,8 @@ async def asset_digest(
         "sinceCount": since_count,
         "sentimentTrend": _trend(combined),
         "news": news,
-        "trust": None,  # Faza C dolduracaq (proqnoz doğruluq nişanı)
+        # Proqnoz doğruluq nişanı — n<20 olsa None (gizli). SWR keşli, ucuz.
+        "trust": await accuracy.asset_trust(key),
     }
 
 

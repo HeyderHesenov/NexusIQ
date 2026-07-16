@@ -54,6 +54,7 @@ const NAV: NavItem[] = [
     items: [
       { href: "/anomalies", labelKey: "anom.nav", icon: Activity },
       { href: "/analogs", labelKey: "analog.nav", icon: History },
+      { href: "/accuracy", labelKey: "nav.accuracy", icon: Target },
       { href: "/compare", labelKey: "nav.compare", icon: GitCompareArrows },
       { href: "/correlation", labelKey: "corr.nav", icon: Spline },
       { href: "/powerlaw", labelKey: "pl.nav", icon: TrendingUp },
@@ -71,6 +72,7 @@ const ALL_LEAVES: Leaf[] = [
   { href: "/portfel", labelKey: "nav.portfel", icon: Wallet },
   { href: "/anomalies", labelKey: "anom.nav", icon: Activity },
   { href: "/analogs", labelKey: "analog.nav", icon: History },
+  { href: "/accuracy", labelKey: "nav.accuracy", icon: Target },
   { href: "/compare", labelKey: "nav.compare", icon: GitCompareArrows },
   { href: "/correlation", labelKey: "corr.nav", icon: Spline },
   { href: "/powerlaw", labelKey: "pl.nav", icon: TrendingUp },
