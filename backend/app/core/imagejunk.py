@@ -22,6 +22,11 @@ _JUNK: tuple[str, ...] = (
     "i-invdn-com.investing.com/news/world_news_",  # Investing generik doldurucu
     "/themes/miningdotcom/images/mdc-site-logo",   # Mining.com sayt loqosu
     "/images/facebook-share-logo.png",             # OilPrice paylaşım loqosu
+    # Yahoo MƏQALƏ səhifəsinin og:image-i (yuxarıdakı RSS placeholder-indən FƏRQLİ yol).
+    # Backfill zibil sətirləri yenidən skan edəndə bu naxış olmasa 58 sətir düzgün
+    # örtükdən → süzgəcdən KEÇƏN dartılmış loqoya çevrilərdi (daha pis). Canlı URL-də
+    # `cv/apiv2` İKİ dəfə təkrarlanır → ona yox, sabit quyruğa bağlanırıq.
+    "/social/images/yahoo-finance-default-logo",
 )
 
 
