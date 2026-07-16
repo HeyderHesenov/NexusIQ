@@ -110,6 +110,34 @@ export async function searchNews(q: string): Promise<import("@/types").NewsItem[
   }
 }
 
+/**
+ * "Mənə Aid" şəxsi digest — izlənən aktivlərə toxunan xəbərlər.
+ * Server heç nə saxlamır: klient watchlist açarlarını + son-baxış vaxtını göndərir.
+ * Xəta olsa boş (hazır=false) qaytarır — ana səhifə sınmır.
+ */
+export async function getWatchlistIntel(
+  keys: string[],
+  lastSeen: number | null,
+): Promise<import("@/types").WatchlistIntel> {
+  try {
+    return await apiPost(`/watchlist-intel`, { keys, lastSeen });
+  } catch {
+    return { ready: false, sinceCount: 0, assets: [] };
+  }
+}
+
+/** Tək aktivin digesti (/mene-aid drill-down səhifəsi). */
+export async function getAssetIntel(
+  key: string,
+  days = 30,
+): Promise<import("@/types").AssetDigest | null> {
+  try {
+    return await apiGet(`/watchlist-intel/${key}?days=${days}`);
+  } catch {
+    return null;
+  }
+}
+
 /** Bir xəbər üçün AI bazar proqnozu (lazy — açılışdan sonra çağırılır). */
 export async function getForecast(
   id: string,

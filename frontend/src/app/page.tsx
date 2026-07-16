@@ -5,6 +5,7 @@ import { AppNav } from "@/components/layout/AppNav";
 import { Footer } from "@/components/layout/Footer";
 import { Ticker } from "@/components/market/Ticker";
 import { NewsCard } from "@/components/news/NewsCard";
+import { RelevantToMe } from "@/components/home/RelevantToMe";
 import { TrendingStrip } from "@/components/news/TrendingStrip";
 import { CategorySelect } from "@/components/news/CategorySelect";
 import { apiGet, getNewsCount } from "@/lib/api";
@@ -108,6 +109,8 @@ export default function HomePage() {
       <Ticker />
 
       <main className="shell py-8 flex-1">
+        {page === 1 && <RelevantToMe />}
+
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-accent">

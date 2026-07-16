@@ -18,6 +18,33 @@ export interface NewsItem {
   translations?: Record<string, { title: string; body: string }> | null;
 }
 
+/** Proqnoz doğruluq nişanı (Faza C doldurur; Faza A-da həmişə null). */
+export interface TrustBadge {
+  hitRate: number;
+  baseRate: number;
+  delta: number;
+  n: number;
+  horizon: number;
+}
+
+/** "Mənə Aid" — bir izlənən aktivə toxunan xəbərlərin digesti. */
+export interface AssetDigest {
+  key: string;
+  label: string;
+  count: number;
+  sinceCount: number; // sən yox ikən (son baxışdan bəri)
+  sentimentTrend: number[]; // gün üzrə orta əhval (sparkline)
+  news: NewsItem[];
+  trust: TrustBadge | null;
+}
+
+/** Watchlist digest cavabı — aktiv üzrə qruplanmış. */
+export interface WatchlistIntel {
+  ready: boolean;
+  sinceCount: number; // bütün aktivlər üzrə cəmi
+  assets: AssetDigest[];
+}
+
 /** Saxlanan bazar təqvim hadisəsi — kartın /brief normallaşmasından qurulur. */
 export interface SavedEvent {
   id: string; // sabit törəmə açar
