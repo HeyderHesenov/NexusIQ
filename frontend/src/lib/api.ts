@@ -572,6 +572,15 @@ export async function getAssetQuote(
   }
 }
 
+/**
+ * Xəbər örtüyünün proksi URL-i — naşirin tam ölçülü şəklini (ölçdük: 96×64
+ * qutuya 216 KB) kart eninə kiçildilmiş WebP kimi verir (4.8 KB) və eyni-origin
+ * olduğu üçün HTTP/2 üzərindən multipleks olunur. `w` backend-də ağ siyahıdadır.
+ */
+export function newsImageUrl(newsId: string, w: number): string {
+  return `${API_BASE}/img/news/${newsId}?w=${w}`;
+}
+
 export interface AssetNewsItem {
   /** DB xəbəri → daxili `/news/{id}` linki; Yahoo ehtiyat xəbəri → null (xarici link). */
   id: string | null;

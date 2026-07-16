@@ -16,7 +16,9 @@ const CSP = [
     ? "script-src 'self' 'unsafe-inline' https://accounts.google.com"
     : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: https:",
+  // http://localhost:* → backend thumbnail proksisi (/img/news/{id}); connect-src
+  // ilə eyni səbəb. https: → id-siz Yahoo ehtiyat xəbərləri birbaşa naşirdən.
+  "img-src 'self' data: https: http://localhost:*",
   "font-src 'self' data:",
   isProd
     ? "connect-src 'self' http://localhost:* https://www.googleapis.com https://accounts.google.com"

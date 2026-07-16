@@ -35,6 +35,8 @@ export function NewsCard({ news }: { news: NewsItem }) {
           seed={news.id}
           category={news.category}
           className="h-full w-full transition-transform duration-500 group-hover:scale-105"
+          newsId={news.id}
+          width={640}
         />
         <span className="absolute left-3 top-3 rounded-md bg-bg/80 px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-wider text-accent backdrop-blur">
           {t(`news.cat.${news.category}`)}

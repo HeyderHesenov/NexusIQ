@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { GeneratedThumb } from "@/components/news/GeneratedThumb";
+import { newsImageUrl } from "@/lib/api";
 import type { Category } from "@/types";
 
 /**
@@ -22,6 +23,8 @@ export function NewsImage({
   category,
   className,
   compact = false,
+  newsId = null,
+  width = 640,
 }: {
   src: string | null;
   seed: string;
@@ -29,9 +32,18 @@ export function NewsImage({
   className?: string;
   /** Kiçik siyahı örtüyü (96×64) — etiket/wordmark düşür, qlif kiçilir. */
   compact?: boolean;
+  /**
+   * DB xəbərinin id-si — verilsə şəkil `w` eninə kiçildilmiş proksidən gəlir
+   * (naşirin tam ölçülü faylı əvəzinə). Yahoo ehtiyat xəbərlərində id yoxdur;
+   * onların şəkli onsuz da 170×128-dir, ona görə birbaşa götürülür.
+   */
+  newsId?: string | null;
+  width?: number;
 }) {
   const [failed, setFailed] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
+  // `src` şəklin MÖVCUDLUĞUNU bildirir (null → örtük); proksi yalnız ünvanı dəyişir.
+  const finalSrc = newsId && src ? newsImageUrl(newsId, width) : src;
   const showImg = Boolean(src) && !failed;
 
   // src dəyişəndə yenidən cəhd; keşlənmiş-qırıq şəkil onLoad atmaya bilər —
@@ -40,7 +52,7 @@ export function NewsImage({
     setFailed(false);
     const el = imgRef.current;
     if (el?.complete && el.naturalWidth <= 1) setFailed(true);
-  }, [src]);
+  }, [finalSrc]);
 
   return (
     <div className={`relative overflow-hidden ${className ?? ""}`}>
@@ -59,9 +71,10 @@ export function NewsImage({
         // eslint-disable-next-line @next/next/no-img-element
         <img
           ref={imgRef}
-          src={src as string}
+          src={finalSrc as string}
           alt=""
           loading="lazy"
+          decoding="async"
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
           onLoad={(e) => {

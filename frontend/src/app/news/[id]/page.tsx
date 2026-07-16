@@ -101,6 +101,8 @@ export default function NewsDetailPage({
                 seed={news.id}
                 category={news.category}
                 className="h-full w-full"
+                newsId={news.id}
+                width={1280}
               />
             </div>
 

@@ -176,6 +176,8 @@ function RelatedNewsItem({ news: n }: { news: AssetNewsItem }) {
         category={n.category}
         className="h-16 w-24 shrink-0 rounded-lg"
         compact
+        newsId={n.id}
+        width={192}
       />
       <div className="min-w-0 flex-1">
         <p className="line-clamp-2 text-sm font-medium leading-snug group-hover:text-accent">

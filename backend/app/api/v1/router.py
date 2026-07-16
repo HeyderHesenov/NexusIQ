@@ -11,6 +11,7 @@ from app.api.v1.routes import (
     chat,
     correlation,
     health,
+    img,
     market,
     news,
     push,
@@ -25,6 +26,7 @@ api_router.include_router(chat.router, prefix="/chat", tags=["advisor"])
 api_router.include_router(market.router, prefix="/market", tags=["market"])
 api_router.include_router(push.router, prefix="/push", tags=["push"])
 api_router.include_router(assets.router, prefix="/assets", tags=["assets"])
+api_router.include_router(img.router, prefix="/img", tags=["news"])
 api_router.include_router(
     anomalies.router, prefix="/anomalies", tags=["analytics"]
 )

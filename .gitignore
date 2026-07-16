@@ -26,7 +26,9 @@ yarn-error.log*
 # ---- Data / cache ----
 *.sqlite3
 *.db
-data/cache/
+# `data/cache/` içində slash var → yalnız repo KÖKÜNƏ bağlanır; `**/` onu
+# istənilən dərinlikdə tutur (backend/data/cache/img — thumbnail proksi keşi).
+**/data/cache/
 *.log
 
 # ---- OS / IDE ----
