@@ -36,6 +36,15 @@ python-dotenv==1.0.1
 pywebpush==2.3.0
 Pillow==12.3.0  # thumbnail proksisi (routes/img.py) — naşir şəklini kiçildir
 
+# ---- Auth (Faza 4) ----
+argon2-cffi==23.1.0        # Argon2id parol hash. abi3 wheel → 3.13-də kompilyatorsuz qurulur.
+PyJWT[crypto]==2.10.1      # HS256 access token + Google RS256 ID-token (PyJWKClient).
+                           #   2.10.0 3.13 dəstəyi əlavə etdi. [crypto] cryptography gətirir.
+email-validator==2.2.0     # pydantic EmailStr + NFKC/IDNA normalizasiya (unique constraint üçün).
+aiosmtplib==3.0.2          # prod email (verify + reset). Konfiqurasiyaya qədər inert.
+# QƏSDƏN ƏLAVƏ EDİLMƏYƏN: passlib (3.13-də silinən `crypt`-ə uzanır), python-jose
+# (alg-confusion CVE), google-auth (httpx-only bazaya requests gətirər). Bax auth dizaynı §15.
+
 # ---- Tranzitiv, amma təhlükəsizlik üçün əhəmiyyətli (məlumat üçün pinlənməyib) ----
 # starlette   — fastapi 0.115.6 ilə gəlir (quraşdırılmış: 0.41.3). Middleware
 #               yığını (CORS/TrustedHost/GZip) və ASGI davranışı ondadır.
