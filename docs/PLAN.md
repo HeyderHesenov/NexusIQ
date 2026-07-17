@@ -38,11 +38,11 @@
 - Xəbər kartı: başlıq, xülasə, şəkil, tag, tarix/saat, mənbə. ✅
 - Backend API: `/news`, `/news/search`, `/news/{id}` (port 8001).
 
-## Addım 6 — Tam xəbər səhifəsi + Axtarış  `[~]`
+## Addım 6 — Tam xəbər səhifəsi + Axtarış  `[x]`
 - Karta klik → daxili `/news/[id]` səhifəsi (yeni tab), orijinala YOX. ✅
 - AI xülasə bölməsi + altda orijinal mənbə linki. ✅ (AI mətni Addım 4-də dolur)
 - Axtarış (⌘K) işləyir. ✅
-- Qalır: AI öz sözləri ilə yazsın (Addım 4 + API key).
+- AI öz sözləri ilə yazır (summarize_ai, məqalə-kontekstli — bax CHANGELOG). ✅
 
 ## Auth — email/parol + Google  `[x]`
 - Login/Signup tab, email+parol formu (demo), altında "Google ilə davam et". ✅
@@ -104,4 +104,4 @@ Opsional orkestrasiya: LangGraph.
 Frontend: Next.js 14 + TailwindCSS (dark).
 Backend: FastAPI + SQLAlchemy async + PostgreSQL.
 AI: çoxmodelli LLM (provayder-agnostik).
-Analitika: pandas, yfinance, scipy, plotly.
+Analitika: pandas, yfinance, scipy, httpx (chart-lar öz SVG render — plotly yox).

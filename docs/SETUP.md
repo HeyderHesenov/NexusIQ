@@ -1,12 +1,12 @@
 # Quraşdırma — Lokal
 
-> Bu fayl SƏNİN əl ilə görəcəyin addımları göstərir.
-> Kodun hamısını mən yazıram; aşağıdakılar mühit qurğusudur.
+> Bu fayl NexusIQ-u lokal maşında işə salmaq üçün mühit addımlarını göstərir.
+> Töhfə qaydaları üçün bax [CONTRIBUTING.md](../CONTRIBUTING.md).
 
-## 0. Tələblər (artıq sistemdə var ✓)
-- Python 3.10 ✓
-- Node.js 22 ✓
-- PostgreSQL 14 (Homebrew) ✓
+## 0. Tələblər
+- Python 3.13+ (backend `argon2-cffi` işlədir; 3.13-də silinən stdlib-ə arxalanmır)
+- Node.js 20+
+- PostgreSQL (port 5433 — bax aşağıdakı `pg_ensure.sh` qeydi)
 
 ## 1. Verilənlər bazasını yarat
 Terminalda işlət:
@@ -27,7 +27,7 @@ cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env        # sonra AI key-ləri Addım 4/7-də əlavə edəcəyik
+cp .env.example .env        # LLM açarları AI funksiyaları üçün lazımdır (opsional)
 ```
 
 İşə sal:
@@ -60,6 +60,23 @@ Loglar: `~/Library/Logs/nexusiq/{backend,frontend}.log`.
 > təhlükəsizlik güzəşti olduğundan seçilmədi.) Frontend backend qısa kəsiləndə özü
 > sağalır (timeout + avtomatik retry).
 
+## Yardımçı skriptlər (`scripts/`)
+`dev.sh`/`status.sh`/`stop.sh`-dan başqa iki skript var — nə etdiklərini bilmək vacibdir,
+çünki hər ikisi görünməz təsir edir:
+
+- **`watchdog.sh`** — **`dev.sh` bunu avtomatik başladır**. Fon prosesi kimi hər ~2
+  dəqiqədən bir backend/frontend sağlamlığını yoxlayır və düşəni **yenidən dirildir**.
+  Nəticə: `stop.sh` işlətmədən prosesi öldürsən, watchdog onu geri qaytaracaq (bilməyən
+  üçün sürpriz). Tam dayandırmaq üçün `./scripts/stop.sh` işlət (watchdog-u da dayandırır).
+
+- **`pg_ensure.sh`** — Postgres-in `:5433`-də qalxdığına zəmanət verən öz-özünü sağaldan
+  start. **Diqqət: sistem `postgresql.conf`-unu `sed -i` ilə dəyişdirə bilər** (portu 5433-ə
+  sabitləmək üçün) və xidməti restart edir. `:5432`-də yad PostgreSQL versiyası varsa
+  toqquşmanın qarşısını alır. Yalnız loopback-a bağlanır.
+
 ## Qeyd
-- AI açarları (LLM provayderi) yalnız Addım 4 və 7-də lazımdır.
-- O addımlara çatanda səndən açarları istəyəcəm.
+- LLM açarları (provayder-agnostik) yalnız AI funksiyaları (chat, brif, xülasə, embedding)
+  üçün lazımdır — boş buraxılsa həmin funksiyalar zərif söndürülür, qalan sayt işləyir.
+- Reboot-dan sonra `./scripts/dev.sh` yenidən işlət. Avtomatik auto-start (launchd)
+  macOS-da layihə `~/Desktop`-da olduğu üçün Full Disk Access tələb edərdi — təhlükəsizlik
+  güzəşti olduğundan seçilməyib.

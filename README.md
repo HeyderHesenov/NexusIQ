@@ -5,6 +5,11 @@
 >
 > **Final layihə — 1/3** (üç final layihədən birincisi).
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![Python](https://img.shields.io/badge/Python-3.13-3776AB.svg)
+![Next.js](https://img.shields.io/badge/Next.js-15-black.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-async-009688.svg)
+
 ## Nə edir
 - Maliyyə xəbərlərini toplayır (RSS / API / scraping), dedup edir.
 - 4 dilə tərcümə (AZ/EN/RU/TR) + xülasə + sentiment + impact bal (pulsuz heuristik).
@@ -40,9 +45,9 @@ mövcud motorlardan hesablanır. Bünövrə: **`news_asset` bağlantı cədvəli
 ## Texnologiya
 | Qat | Stack |
 |-----|-------|
-| Frontend | Next.js 14 (App Router), TypeScript, TailwindCSS |
-| Backend | Python FastAPI, SQLAlchemy 2.0 (async), Pydantic |
-| Verilənlər bazası | PostgreSQL 14 (lokal) |
+| Frontend | Next.js 15 (App Router), TypeScript, TailwindCSS |
+| Backend | Python 3.13 FastAPI, SQLAlchemy 2.0 (async), Pydantic |
+| Verilənlər bazası | PostgreSQL (lokal, port 5433) |
 | AI | Çoxmodelli LLM (provayder-agnostik) |
 | Analitika | pandas, yfinance, scipy, httpx |
 | Data mənbələri | Yahoo Finance, Binance, DefiLlama, CoinGecko |
@@ -74,19 +79,22 @@ Bütün ağır analitika SWR keş + startup prewarm ilə servis olunur (endpoint
 ```
 NexusIQ/
 ├── backend/          # FastAPI + AI agentləri + analitika
-│   └── app/
-│       ├── core/        # config, settings
-│       ├── db/          # session, base
-│       ├── models/      # SQLAlchemy modelləri (news, news_asset link, push…)
-│       ├── schemas/     # Pydantic sxemləri
-│       ├── api/v1/      # HTTP routes (news, watchlist-intel, accuracy…)
-│       ├── services/    # biznes məntiqi (link_service, watchlist_intel…)
-│       ├── agents/      # AI agentləri (modul)
-│       ├── ingestion/   # RSS / scraping kollektorları
-│       ├── analytics/   # korrelyasiya, anomaliya, Power Law, Radar, asset_map,
-│       │                #   forecast_scorer, accuracy, SWR keş
-│       └── utils/
+│   ├── app/
+│   │   ├── core/       # config, netguard (SSRF), ratelimit, security_headers, imagejunk
+│   │   ├── db/         # session, base
+│   │   ├── models/     # SQLAlchemy ORM (news, news_asset link, source, category, push)
+│   │   ├── schemas/    # Pydantic sxemləri
+│   │   ├── api/v1/     # HTTP routes (13 qrup: news, chat, market, radar, accuracy…)
+│   │   ├── services/   # biznes məntiqi (link_service, watchlist_intel…)
+│   │   ├── agents/     # AI modulları (advisor, brief_ai, forecast_ai… + llm facade)
+│   │   ├── ingestion/  # RSS / scraping kollektorları + og:image backfill
+│   │   ├── analytics/  # korrelyasiya, anomaliya, Power Law, Radar, asset_map,
+│   │   │               #   forecast_scorer, accuracy, SWR keş
+│   │   └── rag/        # numpy vektor bilik bazası (knowledge.npz) + router
+│   ├── alembic/        # DB migrasiyaları
+│   └── tests/          # pytest (asyncio + monkeypatch)
 ├── frontend/         # Next.js + Tailwind UI
+├── scripts/          # dev.sh / status.sh / stop.sh / watchdog.sh / pg_ensure.sh
 └── docs/             # arxitektura + plan + spec sənədləri
 ```
 
@@ -100,51 +108,25 @@ Tək əmrlə işə salma:
 ./scripts/stop.sh     # dayandır
 ```
 
-## Status — addım-addım build ✅ (10/10 tamamlandı)
-- [x] Addım 1 — Layihə skeleti + struktur
-- [x] Addım 2 — DB sxema + modellər
-- [x] Addım 3 — RSS ingestion + dedup
-- [x] Addım 4 — AI pipeline (tərcümə/xülasə/tag)
-- [x] Addım 5 — Frontend tablar + xəbər kartları
-- [x] Addım 6 — Tam xəbər səhifəsi
-- [x] Addım 7 — AI chat bot (çoxmodelli mühakimə)
-- [x] Addım 8 — Korrelyasiya modulu + chartlar
-- [x] Addım 9 — Bonus (sentiment, impact, bookmark)
-- [x] Addım 10 — Cron planlayıcı (APScheduler, saatlıq)
+## Status
+Bütün 10 əsas addım + v2 (bonuslar) + v3 (Mənə Aid flaqmanı) tamamlanıb.
+Tam dəyişiklik tarixçəsi: **[CHANGELOG.md](CHANGELOG.md)**.
 
-## Əlavə xüsusiyyətlər (v2 — Bonus Updates)
-- [x] Pulsuz tərcümə (Google gtx) — 4 dil, AI xərci olmadan
-- [x] Web Push bildirişləri — Service Worker + VAPID + NotifyBell
-- [x] AI chat token-token axın (NDJSON) + inline korrelyasiya qrafikləri
-- [x] Anomaliya radarı — robust z-score (qiymət+həcm), σ-gauge UI
-- [x] Power Law modeli (BTC, 20 illik proyeksiya)
-- [x] Bazar təqvimi, asset overview (CMC üslublu), asset detal səhifəsi
-- [x] İzləmə (watchlist), qiymət siqnalları, asset müqayisəsi
-- [x] **Radar — kəşf rejimi**: DefiLlama gəlir ∩ CoinGecko MC \$1–50M (kripto),
-      curated tematik small-cap səhm/əmtəə (MC ≤ \$1B), fürsət balı, detal səhifəsi
-- [x] Çoxdilli interfeys (AZ/EN/RU/TR) + açıq/qaranlıq tema
-- [x] Peşəkar footer + ikonlu dropdown naviqasiya
-- [x] Performans: SWR keş + startup prewarm (endpoint-lər isti ~1ms),
-      watchlist tək-overview optimallaşması, route prewarm (keçid donması yox)
-- [x] **Tarixi Analoq motoru** — embedding + kNN ilə bənzər keçmiş xəbərlər və
-      onlardan sonrakı bazar hərəkəti (`/analogs`)
-- [x] **Anomaliya ↔ xəbər bağlantısı** — anomaliya üçün "ehtimal olunan səbəb"
-      (pulsuz, AI-siz korrelyasiya)
-- [x] **RAG bilik bazası + router** — sual info-dursa RAG, chart/müzakirədirsə AI debate
-- [x] AI Assistant qlobal FAB — bütün səhifələrdə
-- [x] Forecast/ssenari brif səhifələri + çoxdilli AI xülasə (4 dil)
-- [x] Asset registry genişlənməsi — 14 forex cütü, Binance top-50 coin
-- [x] **Self-healing data pipeline** — tərcümə uğursuzluğu (gtx retry/backoff) və
-      şəkilsiz xəbər (og:image backfill) avtomatik bərpa, daimi İngiliscə kilidlənmə yox
-- [x] SPA daxili naviqasiya (tam reload hissi yox) + yumşaq eased collapse effektləri
-- [x] Light mode isti-neytral (greige) kalibrlənmə — parıltısız, AA kontrast, dərinlik
+## Sənədlər
+- [docs/SETUP.md](docs/SETUP.md) — lokal quraşdırma + yardımçı skriptlər
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — qatlar, agentlər, DB sxemi, route qrupları
+- [docs/PLAN.md](docs/PLAN.md) — addım-addım build planı
+- API sənədi: backend işləyəndə `http://localhost:8001/docs` (yalnız `development`)
 
-## Şəxsi kəşfiyyat (v3 — Mənə Aid flaqman)
-- [x] **`news_asset` bağlantı cədvəli + `asset_map` normalizator** — tam reyestr
-      üzrə xəbər→aktiv aşkarlama (söz-sərhədi + böyük-hərf-standalone + deny-context
-      dəqiqlik qorunması), ingest hook + backfill + scheduler self-heal, hamısı idempotent
-- [x] **① Mənə Aid** — izlədiyin aktivlərə toxunan xəbərlərin şəxsi hero digesti +
-      `/mene-aid/[key]`, əhval trendi, "sən yox ikən" təzəlik nişanı (login yox, AI xərci sıfır)
-- [x] **③ Mənim Portfelim** (`/portfel`) — mövqe → canlı P&L + çəki + pul-çəkili xəbər sıralaması
-- [x] **④ Doğruluq Kartı** (`/accuracy`) — proqnozların açıq doğruluğu, real qiymətlə
-      point-in-time ballama (LLM yox), naiv baza ilə delta, n≥20 dürüstlük qapısı, per-aktiv güvən nişanı
+## Test
+```bash
+cd backend && .venv/bin/pytest -q                 # backend testləri
+cd frontend && npx tsc --noEmit && npm run build  # frontend tip + build
+```
+
+## Töhfə & təhlükəsizlik
+- Töhfə qaydaları: [CONTRIBUTING.md](CONTRIBUTING.md) · Davranış: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- Zəiflik bildirişi: [SECURITY.md](SECURITY.md) — **publik issue açma**, GitHub private advisory işlət.
+
+## Lisenziya
+[MIT](LICENSE) © 2026 Heyder Hesenov
