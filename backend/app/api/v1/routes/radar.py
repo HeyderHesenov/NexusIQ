@@ -1,7 +1,7 @@
 """Radar route-ları — fürsət sıralaması + on-demand AI izahı (hibrid)."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
 from app.agents import radar_ai
@@ -12,15 +12,26 @@ router = APIRouter()
 
 _LANGS = {"az", "en", "ru", "tr"}
 
+# Keş oxunuşu ucuzdur, amma endpoint tamamilə limitsiz idi.
+_list_limit = rate_limit("radar_list", limit=60, window=60.0)
+# `refresh=true` KEŞİ KEÇİR → `discovery_stocks.compute_sync` (bulk yf.download +
+# daxili 16-thread hovuz). Ayrıca, sərt bucket: insanın "yenilə" düyməsinə basma
+# tempi üçün 5/dəq bol, gücləndirici kimi işlətmək üçün yox.
+_force_limit = rate_limit("radar_refresh", limit=5, window=60.0)
 
-@router.get("")
+
+@router.get("", dependencies=[Depends(_list_limit)])
 async def radar_list(
+    request: Request,
     category: str = Query("crypto"),
     refresh: bool = Query(False),
 ) -> list[dict]:
     """Kateqoriya üzrə fürsət balı ilə sıralanmış aktivlər (5 dəq keş)."""
     if category not in radar.TAB_CONFIG:
         raise HTTPException(status_code=404, detail="Naməlum kateqoriya")
+    if refresh:
+        # Limit MƏHZ bahalı budaqda — ucuz keş oxunuşu cəzalandırılmır.
+        await _force_limit(request)
     return await radar.get_radar(category, force=refresh)
 
 

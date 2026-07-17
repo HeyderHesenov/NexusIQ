@@ -36,9 +36,24 @@ def _is_fresh(store: dict, ttl: float) -> bool:
 async def _locked_refresh(
     store: dict, ttl: float, refresh: Refresh, force: bool
 ) -> Any:
+    # Kilidi GÖZLƏMƏZDƏN ƏVVƏLKİ an. `force` yolunda coalesce meyarı budur.
+    t0 = time.time()
     async with _lock(store):
         # Gözləyərkən başqası yeniləyibsə, təkrar hesablama.
-        if not force and _is_fresh(store, ttl):
+        if force:
+            # Əvvəl `force` kilidi aldıqdan SONRA da yoxlamanı tam atlayırdı →
+            # N paralel `?refresh=true` BİRLƏŞMİRDİ: hər biri növbə ilə kilidi
+            # alıb TAM yenidən hesablama edirdi (radar üçün bulk yf.download +
+            # daxili 16-thread hovuz). Yəni "keşi keç" düyməsi limitsiz DoS
+            # gücləndiricisinə çevrilirdi.
+            #
+            # Meyar `ttl` DEYİL, `t0`-dır: biz gözləyərkən yazılmış dəyər bizim
+            # sorğumuzdan SONRA hesablanıb, deməli "təzə dəyər ver" tələbini
+            # onsuz da ödəyir. Köhnə (t0-dan əvvəlki) dəyər isə ödəmir → force
+            # semantikası qorunur, yalnız ZAMAN ÜZRƏ ÖRTÜŞƏN sorğular birləşir.
+            if store.get("data") and store.get("ts", 0.0) >= t0:
+                return store["data"]
+        elif _is_fresh(store, ttl):
             return store["data"]
         data = await refresh()
         if data:
