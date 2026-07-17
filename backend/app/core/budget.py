@@ -9,10 +9,10 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, HTTPException, Request
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -95,6 +95,14 @@ async def record_usage(
 ) -> None:
     """Bir billable request. user_id=None → planlayıcı/sistem (qlobal cap-a sayılır)."""
     session.add(AiUsage(route=route[:48], weight=weight, user_id=user_id))
+
+
+async def cleanup_usage(session: AsyncSession, *, keep_days: int = 90) -> int:
+    """90 gündən köhnə ai_usage sətirlərini sil (retention job)."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=keep_days)
+    result = await session.execute(delete(AiUsage).where(AiUsage.created_at < cutoff))
+    await session.commit()
+    return result.rowcount or 0
 
 
 async def record_system_usage(route: str, weight: int) -> None:

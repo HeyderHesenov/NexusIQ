@@ -82,6 +82,23 @@ async def ingest_cycle() -> None:
     await _link_cycle()
     await _score_cycle()
     await _anomaly_cycle()
+    await _maintenance_cycle()
+
+
+async def _maintenance_cycle() -> None:
+    """Auth sessiya + ai_usage retention təmizliyi (ucuz, idempotent DELETE)."""
+    from app.core import budget
+    from app.db.session import AsyncSessionLocal
+    from app.services import auth_service
+
+    try:
+        async with AsyncSessionLocal() as session:
+            sess_n = await auth_service.cleanup_sessions(session)
+            usage_n = await budget.cleanup_usage(session)
+        if sess_n or usage_n:
+            logger.info("Təmizlik — sessiya: %s, ai_usage: %s", sess_n, usage_n)
+    except Exception:  # noqa: BLE001
+        logger.exception("Təmizlik dövrü xətası")
 
 
 async def _summary_cycle() -> None:

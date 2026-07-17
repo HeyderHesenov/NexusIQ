@@ -257,6 +257,48 @@ async def logout_all(
     return resp
 
 
+# ==================== sessions ("cihazların") ====================
+
+@router.get("/sessions")
+async def list_sessions(
+    request: Request,
+    user: User = Depends(require_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    current_sid = getattr(request.state, "sid", None)
+    rows = await auth_service.list_active_sessions(db, user.id)
+    return [
+        {
+            "id": str(s.id),
+            "userAgent": s.user_agent,
+            "ip": s.ip,
+            "createdAt": s.created_at.isoformat() if s.created_at else None,
+            "lastUsedAt": s.last_used_at.isoformat() if s.last_used_at else None,
+            "current": str(s.id) == current_sid,
+        }
+        for s in rows
+    ]
+
+
+@router.delete("/sessions/{sid}")
+async def revoke_one_session(
+    sid: str,
+    user: User = Depends(require_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    from app.models import AuthSession
+
+    # Sahiblik: yalnız öz sessiyanı ləğv et (404 not 403 — enumerasiya orakulu yox).
+    obj = await db.scalar(
+        select(AuthSession).where(AuthSession.id == sid, AuthSession.user_id == user.id)
+    )
+    if obj is None:
+        raise HTTPException(status_code=404)
+    await auth_service.revoke_session(db, obj.id, "admin")
+    await db.commit()
+    return OkOut().model_dump(by_alias=True)
+
+
 # ==================== me ====================
 
 @router.get("/me")

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -98,6 +98,38 @@ async def bump_sessions_valid_from(session: AsyncSession, user_id) -> None:
     await session.execute(
         update(User).where(User.id == user_id).values(sessions_valid_from=func.now())
     )
+
+
+async def list_active_sessions(session: AsyncSession, user_id) -> list[AuthSession]:
+    """İstifadəçinin aktiv sessiyaları ("cihazların") — ən son işlənən əvvəl."""
+    rows = await session.scalars(
+        select(AuthSession)
+        .where(
+            AuthSession.user_id == user_id,
+            AuthSession.revoked_at.is_(None),
+            AuthSession.expires_at > _now(),
+        )
+        .order_by(AuthSession.last_used_at.desc())
+    )
+    return list(rows)
+
+
+async def cleanup_sessions(session: AsyncSession, *, keep_days: int = 7) -> int:
+    """Vaxtı keçmiş VƏ ya çoxdan ləğv olunmuş sessiyaları sil (gündəlik job)."""
+    cutoff = _now() - timedelta(days=keep_days)
+    result = await session.execute(
+        delete(AuthSession).where(
+            or_(
+                AuthSession.expires_at < cutoff,
+                and_(
+                    AuthSession.revoked_at.isnot(None),
+                    AuthSession.revoked_at < cutoff,
+                ),
+            )
+        )
+    )
+    await session.commit()
+    return result.rowcount or 0
 
 
 async def revoke_by_refresh_token(session: AsyncSession, raw_token: str) -> None:
