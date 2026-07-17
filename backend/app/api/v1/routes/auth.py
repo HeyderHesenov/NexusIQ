@@ -23,6 +23,7 @@ from app.core.security import PasswordPolicyError, validate_password
 from app.db.session import get_db
 from app.models import User
 from app.schemas.auth import (
+    GoogleIn,
     LoginIn,
     OkOut,
     PasswordChangeIn,
@@ -31,7 +32,7 @@ from app.schemas.auth import (
     ResetRequestIn,
     UserOut,
 )
-from app.services import auth_service, hibp
+from app.services import auth_service, google_auth, hibp
 from app.services.email import get_email_sender
 
 router = APIRouter()
@@ -172,6 +173,58 @@ async def refresh(
     user = await db.scalar(select(User).where(User.id == sess.user_id))
     await db.commit()
     return _user_response(user, sess, raw_refresh=new_raw)
+
+
+# ==================== Google ====================
+
+@router.get("/google/nonce")
+async def google_nonce() -> JSONResponse:
+    if not settings.google_enabled:
+        raise _err(503, "google_not_configured")
+    import secrets
+
+    raw = secrets.token_urlsafe(16)
+    resp = JSONResponse({"nonce": raw})
+    cookies.set_gnonce_cookie(resp, google_auth.sign_nonce(raw))
+    return resp
+
+
+@router.post("/google")
+async def google_login(
+    payload: GoogleIn,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    _lm=Depends(_login_m),
+) -> JSONResponse:
+    if not settings.google_enabled:
+        raise _err(503, "google_not_configured")
+
+    expected = google_auth.extract_nonce(cookies.read_gnonce(request))
+    try:
+        claims = await google_auth.verify_id_token(payload.credential, nonce_expected=expected)
+    except google_auth.GoogleNotConfigured:
+        raise _err(503, "google_not_configured")
+    except google_auth.GoogleError:
+        resp = JSONResponse({"detail": {"code": "google_invalid"}}, status_code=401)
+        resp.delete_cookie(cookies.gnonce_name(), path="/", samesite="lax")
+        return resp
+
+    user = await auth_service.link_google_identity(
+        db,
+        sub=str(claims["sub"]),
+        email=str(claims["email"]),
+        name=(claims.get("name") or "").strip()[:80] or None,
+        avatar_url=google_auth.safe_avatar(claims.get("picture")),
+    )
+    raw_refresh, sess = await auth_service.create_session(
+        db, user,
+        user_agent=request.headers.get("user-agent"),
+        ip=client_ip(request),
+    )
+    await db.commit()
+    resp = _user_response(user, sess, raw_refresh=raw_refresh)
+    resp.delete_cookie(cookies.gnonce_name(), path="/", samesite="lax")  # tək-istifadə
+    return resp
 
 
 # ==================== logout / logout-all ====================

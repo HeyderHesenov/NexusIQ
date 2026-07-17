@@ -11,11 +11,12 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, or_, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import security
 from app.core.config import settings
-from app.models import AuthSession, PasswordResetToken, User
+from app.models import AuthSession, PasswordResetToken, User, UserIdentity
 
 
 class InvalidRefresh(Exception):
@@ -324,3 +325,70 @@ async def apply_password_reset(
     user.password_hash = security.hash_password(new_password)
     await revoke_all_sessions(session, user.id, "reset")
     await bump_sessions_valid_from(session, user.id)
+
+
+# ==================== Google identity bağlama ====================
+
+async def link_google_identity(
+    session: AsyncSession,
+    *,
+    sub: str,
+    email: str,
+    name: str | None = None,
+    avatar_url: str | None = None,
+) -> User:
+    """Bağlama `sub` ÜZRƏ (email üzrə YOX — email dəyişkəndir → ATO). email üzrə tapılan
+    mövcud hesab Google-verified email ilə avtomatik link olunur. users.email HEÇ VAXT
+    Google-dan yenilənmir. Yarış → IntegrityError → re-lookup."""
+    email = normalize_email(email)
+
+    ident = await session.scalar(
+        select(UserIdentity).where(
+            UserIdentity.provider == "google", UserIdentity.provider_subject == sub
+        )
+    )
+    if ident is not None:
+        user = await session.scalar(select(User).where(User.id == ident.user_id))
+        if user is not None:
+            return user
+
+    existing = await get_user_by_email(session, email)
+    if existing is not None:
+        # Google-verified email = eyni poçt-qutu sübutu (öz reset axınımız da buna güvənir).
+        session.add(
+            UserIdentity(
+                user_id=existing.id, provider="google",
+                provider_subject=sub, email_at_link=email,
+            )
+        )
+        try:
+            await session.flush()
+        except IntegrityError:
+            await session.rollback()
+            return await link_google_identity(
+                session, sub=sub, email=email, name=name, avatar_url=avatar_url
+            )
+        return existing
+
+    # Yeni hesab (parolsuz, email təsdiqli).
+    user = User(
+        email=email, password_hash=None, display_name=name,
+        avatar_url=avatar_url,
+    )
+    user.email_verified_at = _now()
+    session.add(user)
+    try:
+        await session.flush()
+    except IntegrityError:
+        await session.rollback()
+        return await link_google_identity(
+            session, sub=sub, email=email, name=name, avatar_url=avatar_url
+        )
+    session.add(
+        UserIdentity(
+            user_id=user.id, provider="google",
+            provider_subject=sub, email_at_link=email,
+        )
+    )
+    await session.flush()
+    return user
