@@ -24,6 +24,24 @@ WINDOWS = (1, 5, 30)
 _MATURE_DAYS = 45
 _CLOSES_TTL = 3600.0
 
+# Proqnoz `published_at`-dan NƏ QƏDƏR sonra yaradılıbsa hələ də "proqnoz" sayılır.
+#
+# Niyə lazımdır: gəlir `published_at`-dan ölçülür (yuxarıdakı docstring "lookahead
+# yox" deyir), amma `populate_forecast` `published_at`-ı XƏBƏRDƏN denormalizasiya
+# edir — sətrin YARANMA vaxtından yox. `GET /news/{id}/forecast` isə on-demand,
+# anonim və istənilən YAŞDA xəbər üçün çağırıla bilir. Yəni bu gün 2 illik
+# məqaləyə yaradılan "proqnoz" dərhal yetişmiş sayılır və artıq BAŞ VERMİŞ qiymət
+# hərəkəti ilə ballanır — modulun öz point-in-time iddiası pozulur.
+#
+# Hücum: köhnə `news_id`-ləri sayıb kütləvi proqnoz generasiya et → publik
+# `/accuracy` scorecard-ının NÜMUNƏ TƏRKİBİNİ anonim şəkildə idarə et (_MIN_N=20
+# əhəmiyyətsizcə aşılır) → etimad siqnalı kimi qurulmuş feature ləkələnir,
+# üstəlik hər çağırış operatora fakturalanır.
+#
+# Marja: real axında istifadəçi TƏZƏ xəbəri açır → proqnoz saatlar içində yaranır,
+# yəni bu qapı legitim yolu kəsmir və steady-state-də özü-özünü sağaldır.
+_HONEST_LAG_DAYS = 2
+
 _closes_cache: dict[str, tuple[float, pd.Series]] = {}
 
 
@@ -74,6 +92,12 @@ async def score_pending(limit: int = 300) -> dict:
                 .where(NewsAsset.source == "forecast")
                 .where(NewsAsset.scored_at.is_(None))
                 .where(NewsAsset.published_at <= cutoff)
+                # YALNIZ həqiqi proqnozlar: nəticə məlum olduqdan SONRA
+                # yaradılmış sətir proqnoz deyil (bax `_HONEST_LAG_DAYS`).
+                .where(
+                    NewsAsset.created_at
+                    <= NewsAsset.published_at + timedelta(days=_HONEST_LAG_DAYS)
+                )
                 .limit(limit)
             )
         ).all()
