@@ -37,7 +37,6 @@ USER: set[tuple[str, str]] = {
     ("GET", f"{_P}/news/{{news_id}}/forecast"),
     ("GET", f"{_P}/radar/{{key}}/about"),
     ("GET", f"{_P}/radar/{{key}}/explain"),
-    ("GET", f"{_P}/watchlist-intel/{{key}}"),
     ("POST", f"{_P}/auth/logout-all"),
     ("POST", f"{_P}/auth/password"),
     ("POST", f"{_P}/chat"),
@@ -50,8 +49,6 @@ USER: set[tuple[str, str]] = {
     ("POST", f"{_P}/push/subscribe"),
     ("POST", f"{_P}/push/test"),
     ("POST", f"{_P}/push/unsubscribe"),
-    ("POST", f"{_P}/watchlist-intel"),
-    ("POST", f"{_P}/watchlist-intel/portfolio"),
     ("PUT", f"{_P}/me/holdings/{{key}}"),
     ("PUT", f"{_P}/me/prefs"),
 }
