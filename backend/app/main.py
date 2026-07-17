@@ -13,7 +13,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.v1.router import api_router
 from app.core import bgtasks
-from app.core.config import settings
+from app.core.config import settings, validate_runtime
 from app.core.security_headers import SecurityHeaders
 from app.scheduler import shutdown_scheduler, start_scheduler, startup_catchup
 from app.services import img_cache
@@ -111,6 +111,9 @@ async def _prewarm() -> None:
 async def lifespan(app: FastAPI):
     """Başlanğıc / bağlanış hadisələri — planlayıcı + keş istiləşməsi."""
     # startup
+    # Konfiq coherence yoxlaması (prod-da təhlükəsiz olmayan auth konfiqi boot-u dayandırır).
+    for w in validate_runtime():
+        logger.warning("konfiq: %s", w)
     start_scheduler()
     # `spawn` referansı saxlayır + istisnanı loglayır. Çılpaq `create_task` ilə
     # loop yalnız zəif referans tutur → iş ortasında GC riski, üstəlik xəta

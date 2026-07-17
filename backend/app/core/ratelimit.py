@@ -1,62 +1,103 @@
-"""Yüngül in-memory rate limiter — bahalı endpoint-lər üçün (per-IP sürüşən pəncərə).
+"""Rate limiter — bahalı endpoint-lər üçün (per-IP / per-user sürüşən pəncərə).
 
-Tək-proses demo üçün kifayətdir; xarici asılılıq yoxdur. Çoxlu instans/prod üçün
-Redis-əsaslı limiter lazım olar.
+Store abstraksiyası (`RateLimitStore`) ilə: bu gün in-memory sürüşən-pəncərə-log,
+sonra Redis — **çağırı yerləri dəyişmədən**. Ona görə `hit()` BİRİNCİ GÜNDƏN async-dir
+(Redis əlavə olunanda hər call site-ı sync→async məcbur etməmək üçün).
+
+Tək-proses reallıq: `dev.sh` uvicorn-u `--workers`-siz işlədir. `--workers N` əlavə
+olunsa hər limit səssizcə N× olur (login lockout DB-də olduğu üçün ondan sağ çıxır).
 """
 from __future__ import annotations
 
 import time
 from collections import defaultdict
+from typing import Literal, Protocol
 
 from fastapi import HTTPException, Request, status
 
+from app.core.clientip import client_ip
 from app.core.config import settings
 
-# bucket adı → (ip → [son sorğu vaxtları])
-_HITS: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
+# Sweep amortizasiyası: hər sorğuda O(n) skan ETMƏ — botnet altında CPU-DoS olardı.
+_SWEEP_INTERVAL = 60.0   # saniyə: bu qədərdən bir bir dəfə köhnə açarları təmizlə
+_STALE_AFTER = 3600.0    # ən böyük pəncərədən (100/saat) böyük — idle açarları at
 
 
-def _client_ip(request: Request) -> str:
-    """Real IP — X-Forwarded-For-a YALNIZ etibarlı proksi arxasında inan.
-
-    Spoofing qorunması: XFF istifadəçi tərəfindən sərbəst təyin edilə bilər.
-    Proksi olmadan (trusted_proxy=False) hər sorğu üçün socket IP-ə güvən —
-    əks halda hər sorğu unikal saxta IP göstərib limiti tamamilə keçə bilər.
-    """
-    if settings.trusted_proxy:
-        fwd = request.headers.get("x-forwarded-for")
-        if fwd:
-            return fwd.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+class RateLimitStore(Protocol):
+    async def hit(self, key: str, limit: int, window: float) -> tuple[bool, int]:
+        """(allowed, retry_after_seconds) qaytarır. allowed=False → limit aşıldı."""
+        ...
 
 
-def _sweep(bucket: dict[str, list[float]], cutoff: float) -> None:
-    """Pəncərəsi tam boşalmış IP açarlarını at — yaddaş sonsuz böyüməsin."""
-    stale = [ip for ip, ts in bucket.items() if not ts or ts[-1] <= cutoff]
-    for ip in stale:
-        bucket.pop(ip, None)
+class InMemoryStore:
+    """Sürüşən-pəncərə-log. Amortizasiya olunmuş sweep ilə (per-request O(n) yox)."""
 
+    def __init__(self) -> None:
+        self._hits: dict[str, list[float]] = defaultdict(list)
+        self._next_sweep: float = 0.0
 
-def rate_limit(name: str, limit: int, window: float = 60.0):
-    """FastAPI dependency — `name` bucket-i üçün per-IP `limit`/`window`. Aşılırsa 429."""
+    def _sweep(self, now: float) -> None:
+        cutoff = now - _STALE_AFTER
+        stale = [k for k, ts in self._hits.items() if not ts or ts[-1] <= cutoff]
+        for k in stale:
+            self._hits.pop(k, None)
 
-    async def _dep(request: Request) -> None:
-        ip = _client_ip(request)
+    async def hit(self, key: str, limit: int, window: float) -> tuple[bool, int]:
         now = time.monotonic()
+        if now >= self._next_sweep:
+            self._sweep(now)
+            self._next_sweep = now + _SWEEP_INTERVAL
         cutoff = now - window
-        bucket = _HITS[name]
-        # Fürsətdən istifadə edib köhnəlmiş IP-ləri təmizlə (memory-DoS qoruması).
-        _sweep(bucket, cutoff)
-        hits = bucket[ip]
-        # pəncərədən kənar köhnə vaxtları at
+        hits = self._hits[key]
         hits[:] = [t for t in hits if t > cutoff]
         if len(hits) >= limit:
             retry = int(window - (now - hits[0])) + 1
+            return False, max(1, retry)
+        hits.append(now)
+        return True, 0
+
+
+def _make_store() -> RateLimitStore:
+    backend = settings.ratelimit_backend
+    if backend == "memory":
+        return InMemoryStore()
+    # RedisStore sonra bura düşəcək — call site-lar toxunulmadan.
+    raise RuntimeError(f"Naməlum RATELIMIT_BACKEND: {backend!r}")
+
+
+# İmport vaxtı bir dəfə seçilir (settings.ratelimit_backend).
+_store: RateLimitStore = _make_store()
+
+Scope = Literal["ip", "user", "user_or_ip"]
+
+
+def _scope_key(request: Request, scope: Scope) -> str:
+    """Rate-limit açarının subyekt hissəsi. `user` scope Addım 10-da `require_user`
+    tərəfindən `request.state.user_id` qoyulanda işləyir; yoxdursa IP-ə düşür."""
+    if scope in ("user", "user_or_ip"):
+        uid = getattr(request.state, "user_id", None)
+        if uid:
+            return f"u:{uid}"
+        if scope == "user":
+            # user scope amma auth yoxdur → yenə IP (fail-safe, heç vaxt boş açar yox)
+            return f"ip:{client_ip(request)}"
+    return f"ip:{client_ip(request)}"
+
+
+def rate_limit(name: str, limit: int, window: float = 60.0, *, scope: Scope = "ip"):
+    """FastAPI dependency — `name` bucket-i üçün `limit`/`window`. Aşılırsa 429.
+
+    `scope="ip"` (default) bütün mövcud call site-ları eyni saxlayır.
+    """
+
+    async def _dep(request: Request) -> None:
+        key = f"{name}|{_scope_key(request, scope)}"
+        allowed, retry = await _store.hit(key, limit, window)
+        if not allowed:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Çox sayda sorğu — bir azdan yenidən cəhd et.",
-                headers={"Retry-After": str(max(1, retry))},
+                headers={"Retry-After": str(retry)},
             )
-        hits.append(now)
 
     return _dep
