@@ -9,6 +9,14 @@ from app.models.news_asset import NewsAsset
 from app.models.push import PushSubscription
 from app.models.source import Source
 from app.models.user import User, UserIdentity
+from app.models.user_data import (
+    UserAlert,
+    UserBookmark,
+    UserHolding,
+    UserPrefs,
+    UserSavedEvent,
+    UserWatchlist,
+)
 
 __all__ = [
     "AuthSession",
@@ -20,5 +28,11 @@ __all__ = [
     "PushSubscription",
     "Source",
     "User",
+    "UserAlert",
+    "UserBookmark",
+    "UserHolding",
     "UserIdentity",
+    "UserPrefs",
+    "UserSavedEvent",
+    "UserWatchlist",
 ]
