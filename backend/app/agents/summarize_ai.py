@@ -24,6 +24,7 @@ from datetime import datetime, timedelta, timezone
 import httpx
 from sqlalchemy import or_, select
 
+from app.core import netguard
 from app.core.config import settings
 from app.db.session import AsyncSessionLocal, engine
 from app.models import News
@@ -32,6 +33,10 @@ logger = logging.getLogger("nexusiq.summarize")
 
 _UA = {"User-Agent": "Mozilla/5.0 (NexusIQ news aggregator)"}
 _CONCURRENCY = 6
+# Məqalə HTML-i üçün bol tavan. `r.text[:300_000]` TAM yükləmədən SONRA kəsir —
+# yəni yaddaşı qorumur, yalnız emalı məhdudlaşdırır. `safe_get(max_bytes=...)`
+# axınla oxuyub tavan aşılan kimi bağlayır (gzip bombası da orada kəsilir).
+_MAX_FETCH_BYTES = 2 * 1024 * 1024
 
 _META = re.compile(
     r'<meta[^>]+(?:property|name)=["\'](?:og:description|twitter:description|description)["\']'
@@ -69,10 +74,25 @@ def _extract_context(html: str) -> str:
 
 
 async def _fetch_context(client: httpx.AsyncClient, url: str) -> str:
+    """Məqalə kontekstini SSRF-təhlükəsiz çəkir. Xəta/qadağan → boş sətir.
+
+    `url` RSS-dən gəlir (attacker-adjacent), ona görə qardaş modullar kimi
+    (`enrich_content`, `enrich_images`, `img_cache`) netguard-dan keçməlidir:
+    xam `client.get` + `follow_redirects=True` daxili/metadata ünvana yönəlməni
+    heç nə ilə qarşılamırdı. Bu yol KOR DEYİL — çəkilən gövdə parse olunur,
+    LLM-ə verilir, `News.summary`-yə yazılır və `GET /news`-də PUBLİK verilir,
+    yəni eksfiltrasiya kanalı tam açıqdır.
+    """
     try:
-        r = await client.get(url, timeout=15.0)
+        r = await netguard.safe_get(
+            client, url, timeout=15.0, max_bytes=_MAX_FETCH_BYTES
+        )
+        if r is None:
+            return ""  # siyasət verdikti: qadağan host/hop və ya tavan aşıldı
         r.raise_for_status()
-        return _extract_context(r.text[:300_000])
+        # CPU-tutumlu regex parse-ı thread-ə ver — event loop bloklanmasın
+        # (`enrich_content._fetch` eyni qaydanı işlədir).
+        return await asyncio.to_thread(_extract_context, r.text[:300_000])
     except (httpx.HTTPError, httpx.TimeoutException):
         return ""
 
@@ -135,13 +155,20 @@ async def summarize_pending(
 
     sem = asyncio.Semaphore(_CONCURRENCY)
 
-    async def work(row_id: int, title: str, url: str) -> tuple[int, str | None]:
+    async def work(
+        cli: httpx.AsyncClient, row_id: int, title: str, url: str
+    ) -> tuple[int, str | None]:
         async with sem:
-            async with httpx.AsyncClient(headers=_UA, follow_redirects=True) as cli:
-                ctx = await _fetch_context(cli, url) if url else ""
+            ctx = await _fetch_context(cli, url) if url else ""
             return row_id, await _summarize(title, ctx)
 
-    results = await asyncio.gather(*(work(*t) for t in targets))
+    # `follow_redirects=False` MƏCBURİDİR — netguard redirect-ləri əl ilə, hər
+    # hopu yenidən yoxlayaraq izləyir. httpx-in öz izləməsi hopları yoxlamır,
+    # yəni birinci host ictimai olsa da ikinci hop 169.254.169.254 ola bilər.
+    # Klient dövrədən KƏNARDA qurulur (əvvəl hər xəbər üçün yenisi yaradılırdı) —
+    # bağlantı hovuzu yenidən istifadə olunsun; `enrich_content.backfill` eynidir.
+    async with httpx.AsyncClient(headers=_UA, follow_redirects=False) as cli:
+        results = await asyncio.gather(*(work(cli, *t) for t in targets))
 
     summarized = 0
     by_id = {rid: s for rid, s in results if s}
