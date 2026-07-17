@@ -9,9 +9,11 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.v1.router import api_router
 from app.core.config import settings
+from app.core.security_headers import SecurityHeaders
 from app.scheduler import shutdown_scheduler, start_scheduler, startup_catchup
 from app.services import img_cache
 
@@ -129,6 +131,10 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json" if _IS_DEV else None,
     )
 
+    # Starlette middleware-ləri TƏRS sıra ilə işlədir (sonuncu əlavə = ən xarici).
+    # İstənilən icra sırası: SecurityHeaders → CORS → BodyLimit → app.
+    # SecurityHeaders ən xarici olmalıdır ki, başlıqlar CORS-un öz preflight
+    # cavablarına və xəta cavablarına da düşsün.
     app.add_middleware(_BodySizeLimit)
     app.add_middleware(
         CORSMiddleware,
@@ -137,6 +143,12 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type"],
     )
+    app.add_middleware(SecurityHeaders, hsts=settings.hsts_enabled)
+    # Host başlığı inyeksiyası qorusu. "*" (lokal dev defoltu) olanda əlavə
+    # edilmir — Starlette onsuz da hər şeyi buraxardı, sadəcə əlavə qat olardı.
+    hosts = settings.trusted_hosts_list
+    if hosts and hosts != ["*"]:
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=hosts)
 
     @app.exception_handler(RequestValidationError)
     async def _validation_error(_request: Request, exc: RequestValidationError):

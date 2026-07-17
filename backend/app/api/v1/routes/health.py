@@ -16,8 +16,14 @@ logger = logging.getLogger("nexusiq.health")
 
 @router.get("/health")
 async def health() -> dict:
-    """Tətbiqin işlədiyini təsdiqləyir."""
-    return {"status": "ok", "app": settings.app_name, "env": settings.environment}
+    """Tətbiqin işlədiyini təsdiqləyir.
+
+    `env` sahəsi QƏSDƏN yoxdur — anonim sorğuya deployment mühitini demək
+    lazımsız kəşfiyyatdır (hücumçuya dev/prod fərqini, deməli hansı qapıların
+    açıq ola biləcəyini deyir). İstifadəçilər: `status.sh` yalnız `"status":"ok"`
+    axtarır, `dev.sh`/`watchdog.sh` isə sadəcə HTTP uğurunu — yoxlanıldı.
+    """
+    return {"status": "ok", "app": settings.app_name}
 
 
 @router.get("/health/db")

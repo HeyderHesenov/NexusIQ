@@ -23,6 +23,14 @@ class Settings(BaseSettings):
     # Tək-proses lokal işləmədə proksi yoxdur → default False (spoofing bağlıdır).
     trusted_proxy: bool = False
 
+    # ---- Təhlükəsizlik ----
+    # Vergüllə ayrılmış Host allowlist (Host başlığı inyeksiyasına qarşı).
+    # "*" = yoxlama yoxdur — lokal dev üçün defolt; publik deploy-da real domen yaz.
+    trusted_hosts: str = "*"
+    # HSTS YALNIZ HTTPS arxasında məna daşıyır. Lokal HTTP-də açmaq təhlükəlidir:
+    # `localhost`-a yazılan HSTS bütün lokal HTTP layihələrini sındırır.
+    hsts_enabled: bool = False
+
     # ---- Database ----
     # Default = real lokal quraşdırma (pg@14 :5433). .env yüklənməsə belə,
     # 5432-dəki YAD PostgreSQL 18-ə səssiz düşməsin (əvvəl bu gizli tələ idi).
@@ -85,6 +93,10 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.backend_cors_origins.split(",") if o.strip()]
+
+    @property
+    def trusted_hosts_list(self) -> list[str]:
+        return [h.strip() for h in self.trusted_hosts.split(",") if h.strip()]
 
 
 @lru_cache
