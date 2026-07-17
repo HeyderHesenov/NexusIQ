@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react";
 import type { NewsItem } from "@/types";
 
-const KEY = "nexusiq_bookmarks";
+export const KEY = "nexusiq_bookmarks";
 const EVENT = "nexusiq:bookmarks";
 
 function read(): Record<string, NewsItem> {

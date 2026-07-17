@@ -24,6 +24,7 @@ import {
 import { useI18n } from "@/lib/i18n";
 import { prefetchAnomalies } from "@/lib/api";
 import { useClickOutside } from "@/lib/useClickOutside";
+import { clearUserData } from "@/lib/userData";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { NewsSearch } from "@/components/search/NewsSearch";
 import { SavedNavLink } from "@/components/layout/SavedNavLink";
@@ -80,7 +81,10 @@ const ALL_LEAVES: Leaf[] = [
 ];
 
 function logout() {
-  localStorage.removeItem("nexusiq_session");
+  // Sessiya ilə birlikdə ŞƏXSİ datanı da sil — əks halda paylaşılan brauzerdə
+  // növbəti şəxs əvvəlkinin portfelini (qty + avgCost) və izləmə siyahısını
+  // hazır görür (bax lib/userData.ts).
+  clearUserData();
   location.href = "/";
 }
 

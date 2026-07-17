@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react";
 import { isWatched, toggleWatch } from "@/lib/watchlist";
 
-const KEY = "nexusiq_holdings";
+export const KEY = "nexusiq_holdings";
 const EVENT = "nexusiq:holdings";
 
 export interface Holding {

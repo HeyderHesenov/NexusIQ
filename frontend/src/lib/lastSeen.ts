@@ -5,7 +5,7 @@
  * digest serverə bu vaxtı göndərir, server ondan sonrakı xəbərləri sayır.
  * Hesab yoxdur (demo auth) — tamamilə klient tərəfli.
  */
-const KEY = "nexusiq_lastseen";
+export const KEY = "nexusiq_lastseen";
 
 export function getLastSeen(): number | null {
   if (typeof window === "undefined") return null;

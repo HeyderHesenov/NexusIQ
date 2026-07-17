@@ -13,7 +13,7 @@ export interface AlertRule {
   triggeredAt: number | null;
 }
 
-const KEY = "nexusiq_alerts";
+export const KEY = "nexusiq_alerts";
 const EVENT = "nexusiq:alerts";
 
 export function readAlerts(): AlertRule[] {

@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AuthFlow } from "./AuthFlow";
-
-const AUTH_KEY = "nexusiq_session";
+import { SESSION_KEY as AUTH_KEY } from "@/lib/userData";
 
 /**
  * Saytı qoruyan qapı. Sessiya yoxdursa giriş ekranı göstərilir,

@@ -9,7 +9,7 @@
 import { useEffect, useState } from "react";
 import type { SavedEvent } from "@/types";
 
-const KEY = "nexusiq_saved_events";
+export const KEY = "nexusiq_saved_events";
 const EVENT = "nexusiq:saved-events";
 
 function read(): Record<string, SavedEvent> {

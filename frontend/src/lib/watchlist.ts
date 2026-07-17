@@ -3,7 +3,7 @@
 /** İzləmə siyahısı — localStorage-da aktiv açarları. */
 import { useEffect, useState } from "react";
 
-const KEY = "nexusiq_watchlist";
+export const KEY = "nexusiq_watchlist";
 const EVENT = "nexusiq:watchlist";
 const DEFAULTS = ["btc", "eth", "spx", "ndx", "gold"];
 
