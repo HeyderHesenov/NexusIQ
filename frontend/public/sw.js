@@ -9,6 +9,22 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+/**
+ * Bildiriş URL-ini SAYT DAXİLİ yola məhdudlaşdırır.
+ *
+ * Payload-a yalnız NexusIQ backend-i yaza bilər (Web Push mesajı abunənin
+ * açarlarına şifrələnir və VAPID ilə imzalanır), ona görə bu bu gün hücumçuya
+ * açıq deyil. Amma `client.navigate(url)` / `openWindow(url)` xam payload
+ * dəyərini alırdı — yəni backend-də bir səhv (məs. gələcəkdə xəbər URL-inin
+ * payload-a düşməsi) dərhal açıq-yönləndirməyə çevrilərdi. Müdafiə dərinliyi:
+ * yalnız `/` ilə başlayan, `//` OLMAYAN nisbi yol qəbul edilir
+ * (`//evil.com` protokol-nisbi mütləq URL-dir).
+ */
+function safePath(u) {
+  if (typeof u !== "string" || !u.startsWith("/") || u.startsWith("//")) return "/";
+  return u;
+}
+
 self.addEventListener("push", (event) => {
   let data = {};
   try {
@@ -24,7 +40,7 @@ self.addEventListener("push", (event) => {
     badge: "/icon-192.png",
     tag: data.tag || "nexusiq",
     renotify: true,
-    data: { url: data.url || "/" },
+    data: { url: safePath(data.url) },
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
@@ -32,7 +48,9 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || "/";
+  // Köhnə (düzəlişdən əvvəl göstərilmiş) bildirişlər hələ də xam URL daşıya
+  // bilər → oxuyanda da yoxla.
+  const url = safePath(event.notification.data && event.notification.data.url);
 
   event.waitUntil(
     self.clients
