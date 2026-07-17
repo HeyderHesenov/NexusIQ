@@ -95,3 +95,24 @@ def decode_access(token: str) -> dict:
             raise jwt.InvalidTokenError("token type is not 'access'")
         return claims
     raise last_sig_err or jwt.InvalidTokenError("invalid token")
+
+
+def peek_sid(token: str) -> str | None:
+    """CSRF bağlaması üçün `sid`-i çıxar — imza yoxlanır, exp/aud/iss iqnor edilir.
+
+    İmza yoxlanır ki, hücumçu saxta sid uydura bilməsin; exp iqnor edilir ki, vaxtı
+    bitmiş (amma refresh gözləyən) access token-də də CSRF bağlaması yoxlana bilsin.
+    """
+    for secret in _verify_secrets():
+        try:
+            claims = jwt.decode(
+                token, secret, algorithms=["HS256"],
+                options={"verify_exp": False, "verify_aud": False, "verify_iss": False,
+                         "require": []},
+            )
+            return claims.get("sid")
+        except jwt.InvalidSignatureError:
+            continue
+        except jwt.InvalidTokenError:
+            return None
+    return None
