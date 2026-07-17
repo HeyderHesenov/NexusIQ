@@ -32,10 +32,11 @@ class Settings(BaseSettings):
     hsts_enabled: bool = False
 
     # ---- Database ----
-    # Default = real lokal quraşdırma (pg@14 :5433). .env yüklənməsə belə,
-    # 5432-dəki YAD PostgreSQL 18-ə səssiz düşməsin (əvvəl bu gizli tələ idi).
+    # Default = lokal quraşdırma (pg :5433). .env yüklənməsə belə,
+    # 5432-dəki YAD PostgreSQL-ə səssiz düşməsin (əvvəl bu gizli tələ idi).
+    # Şəxsi istifadəçi adı deyil, generik `postgres` — hər klonlayan üçün işləsin.
     database_url: str = (
-        "postgresql+asyncpg://heyderhesenov@localhost:5433/nexusiq"
+        "postgresql+asyncpg://postgres@localhost:5433/nexusiq"
     )
 
     # ---- AI (provayder-agnostik — dəyərlər .env-dən) ----
