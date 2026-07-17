@@ -260,8 +260,16 @@ async def logout_all(
 # ==================== me ====================
 
 @router.get("/me")
-async def me(user: User = Depends(require_user_allow_unverified)) -> dict:
-    return UserOut.of(user).model_dump(by_alias=True)
+async def me(
+    user: User = Depends(require_user_allow_unverified),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    from app.core import budget
+
+    used = await budget.user_daily_used(db, user.id)
+    out = UserOut.of(user).model_dump(by_alias=True)
+    out["aiBudget"] = {"dailyUsed": used, "dailyLimit": settings.ai_daily_calls_per_user}
+    return out
 
 
 # ==================== password change ====================

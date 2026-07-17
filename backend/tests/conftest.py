@@ -105,13 +105,14 @@ def no_llm(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _reset_ratelimit():
-    """Modul-səviyyə in-memory limiter state testlər arası sızmasın."""
-    from app.core import ratelimit
+    """Modul-səviyyə in-memory state (limiter + budget keşləri) testlər arası sızmasın."""
+    from app.core import budget, ratelimit
 
     store = ratelimit._store
     if hasattr(store, "_hits"):
         store._hits.clear()
         store._next_sweep = 0.0
+    budget._clear_caches()
     yield
 
 

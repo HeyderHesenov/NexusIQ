@@ -63,6 +63,12 @@ async def ingest_cycle() -> None:
                 logger.info(
                     "Planlı AI emal — emal olunan: %s", ai.get("processed", 0)
                 )
+                # Planlayıcı xərci qlobal cap-a sayılır (hər xəbər ~3 LLM: tərcümə+xülasə+kat).
+                from app.core import budget
+
+                await budget.record_system_usage(
+                    "scheduler.process", ai.get("processed", 0) * 3
+                )
             except Exception:  # noqa: BLE001
                 logger.exception("Planlı AI emal xətası")
 
@@ -86,6 +92,9 @@ async def _summary_cycle() -> None:
         stats = await summarize_all_pending()
         if stats.get("summarized"):
             logger.info("AI xülasə — %s xəbər", stats["summarized"])
+            from app.core import budget
+
+            await budget.record_system_usage("scheduler.summary", stats["summarized"])
     except Exception:  # noqa: BLE001
         logger.exception("AI xülasə dövrü xətası")
 
@@ -191,7 +200,9 @@ async def _embed_cycle() -> None:
         if stats.get("embedded"):
             logger.info("Xəbər embedding — %s xəbər", stats["embedded"])
             from app.analytics import analog
+            from app.core import budget
 
+            await budget.record_system_usage("scheduler.embed", stats["embedded"])
             analog.reset_index()  # yeni embedding-lər indeksə daxil olsun
     except Exception:  # noqa: BLE001
         logger.exception("Xəbər embedding xətası")
