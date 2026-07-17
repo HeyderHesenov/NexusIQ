@@ -5,7 +5,8 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -136,6 +137,30 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type"],
     )
+
+    @app.exception_handler(RequestValidationError)
+    async def _validation_error(_request: Request, exc: RequestValidationError):
+        """422 cavabı istifadəçi girişini GERİ ƏKS ETDİRMİR.
+
+        FastAPI-ın defolt handler-i `exc.errors()`-u olduğu kimi qaytarır, ora isə
+        `input` — yəni xam istifadəçi dəyəri — daxildir. İki problem:
+
+        1. JSON-uyğunsuz float 500-ə çevrilir: `{"qty": 1e999}` Python-da
+           `float('inf')`-ə parse olunur, Pydantic onu düzgün RƏDD edir, amma
+           XƏTA CAVABININ özü `input: inf` daşıyır → `json.dumps` "Out of range
+           float values are not JSON compliant" verir → validasiya 422-si 500-ə
+           çevrilir. Yəni float qəbul edən İSTƏNİLƏN endpoint belə partladıla
+           bilirdi (ölçüldü).
+        2. Girişi geri əks etdirmək onsuz da lazımsızdır — `loc`/`msg`/`type`
+           klienti düzəltmək üçün kifayətdir.
+
+        `input`-u tamamilə atmaq hər iki problemi birdən bağlayır.
+        """
+        clean = [
+            {"loc": e.get("loc"), "msg": e.get("msg"), "type": e.get("type")}
+            for e in exc.errors()
+        ]
+        return JSONResponse(status_code=422, content={"detail": clean})
 
     app.include_router(api_router, prefix=settings.api_v1_prefix)
 

@@ -7,6 +7,7 @@ ikən" sayı. Link seyrəkdirsə `anomaly_news.news_for_asset` ilə doldurulur.
 from __future__ import annotations
 
 import asyncio
+import math
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
@@ -25,6 +26,10 @@ _HEAVY = (
 )
 _MAX_KEYS = 40
 _MIN_LINKED = 3  # bundan az link olsa fallback ilə doldur
+# Aktiv başına link tavanı — sorğu sərhədsiz idi. Ölçüldü: bu gün ən çox 467
+# sətir (120 günlük pəncərə), amma korpusla xətti artır. Tavan real sayları
+# təsirləməyəcək qədər yüksəkdir.
+_MAX_LINK_ROWS = 2000
 
 
 def _label(key: str) -> str:
@@ -68,6 +73,41 @@ async def _load_news(session: AsyncSession, ids: list[int]) -> dict[int, News]:
     return {n.id: n for n in rows}
 
 
+async def _links_for_keys(
+    session: AsyncSession, keys: list[str], since: datetime
+) -> dict[str, list]:
+    """BÜTÜN açarların linklərini BİR sorğu ilə gətirir (açar → sətirlər).
+
+    Əvvəl `digest` açar başına ayrıca sorğu atırdı (`_MAX_KEYS`=40 → 40 ardıcıl
+    gediş-gəliş). Paralelləşdirmək OLMAZ: hamısı bir `AsyncSession`-u bölüşür,
+    SQLAlchemy async sessiyası isə paralel əməliyyata dözmür. Doğru həll —
+    `IN (...)` ilə tək sorğu + Python-da qruplaşdırma.
+
+    `_MAX_LINK_ROWS`: sorğu tamamilə sərhədsiz idi. Bu gün ən çox 467 sətir
+    (ölçüldü), amma korpus böyüdükcə xətti artır. Tavan yüksək qoyulub ki, real
+    saylar (`count`/`sinceCount`) təsirlənməsin — yalnız patoloji hal kəsilir.
+    """
+    rows = (
+        await session.execute(
+            select(
+                NewsAsset.asset_key,
+                NewsAsset.news_id,
+                NewsAsset.published_at,
+                NewsAsset.sentiment,
+            )
+            .where(NewsAsset.asset_key.in_(keys))
+            .where(NewsAsset.published_at >= since)
+            .order_by(NewsAsset.published_at.desc().nullslast())
+        )
+    ).all()
+    out: dict[str, list] = {k: [] for k in keys}
+    for r in rows:
+        bucket = out.get(r.asset_key)
+        if bucket is not None and len(bucket) < _MAX_LINK_ROWS:
+            bucket.append(r)
+    return out
+
+
 async def asset_digest(
     session: AsyncSession,
     key: str,
@@ -75,16 +115,14 @@ async def asset_digest(
     last_seen: datetime | None,
     per_asset: int,
     days: int,
+    rows: list | None = None,
 ) -> dict | None:
-    """Bir aktiv üçün digest — heç xəbər yoxdursa None."""
-    rows = (
-        await session.execute(
-            select(NewsAsset.news_id, NewsAsset.published_at, NewsAsset.sentiment)
-            .where(NewsAsset.asset_key == key)
-            .where(NewsAsset.published_at >= since)
-            .order_by(NewsAsset.published_at.desc().nullslast())
-        )
-    ).all()
+    """Bir aktiv üçün digest — heç xəbər yoxdursa None.
+
+    `rows` verilsə təkrar sorğu atılmır (`digest` toplu gətirir).
+    """
+    if rows is None:
+        rows = (await _links_for_keys(session, [key], since))[key]
 
     combined: dict[int, tuple[datetime | None, float | None]] = {}
     for r in rows:
@@ -144,9 +182,11 @@ async def digest(
         return {"ready": True, "sinceCount": 0, "assets": []}
 
     since = datetime.now(timezone.utc) - timedelta(days=days)
+    # Bütün açarların linkləri TƏK sorğu ilə (əvvəl açar başına bir sorğu idi).
+    links = await _links_for_keys(session, uniq, since)
     out: list[dict] = []
     for k in uniq:
-        d = await asset_digest(session, k, since, last_seen, per_asset, days)
+        d = await asset_digest(session, k, since, last_seen, per_asset, days, links[k])
         if d:
             out.append(d)
     # Ən çox "sən yox ikən" olan aktiv öndə; sonra ümumi say.
@@ -161,11 +201,19 @@ _DIR_SIGN = {"up": 1, "down": -1, "mixed": 0, "neutral": 0}
 
 
 def _num(x) -> float | None:
+    """Sonlu float, əks halda None. NaN VƏ ±Inf-in hər ikisini kəsir.
+
+    Əvvəl yalnız NaN qorunurdu (`v == v`) — `inf == inf` True olduğu üçün
+    Infinity keçirdi, `qty > 0` yoxlamasından da keçirdi və portfel riyaziyyatını
+    (`value`, `total_value`, `weight`) səssizcə null/NaN-a çevirirdi.
+    Sərhəd validasiyası (route-da `allow_inf_nan=False`) əsas qapıdır; bu isə
+    xidmət qatının öz qorusudur — çağıran dəyişsə də riyaziyyat qorunsun.
+    """
     try:
         v = float(x)
-        return v if v == v else None  # NaN qoru
     except (TypeError, ValueError):
         return None
+    return v if math.isfinite(v) else None
 
 
 async def portfolio(
