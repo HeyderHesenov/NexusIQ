@@ -212,6 +212,45 @@ export async function apiPost<T>(
   return res.json() as Promise<T>;
 }
 
+export async function apiPut<T>(
+  path: string,
+  body: unknown,
+  init?: RequestInit,
+): Promise<T> {
+  const res = await _tracked(path, () =>
+    fetch(`${API_BASE}${path}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+      ...init,
+      credentials: "include",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      headers: {
+        "Content-Type": "application/json",
+        ...csrfHeaders(),
+        ...(init?.headers || {}),
+      },
+    }),
+  );
+  return res.json() as Promise<T>;
+}
+
+export async function apiDelete<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await _tracked(path, () =>
+    fetch(`${API_BASE}${path}`, {
+      method: "DELETE",
+      ...init,
+      credentials: "include",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      headers: {
+        "Content-Type": "application/json",
+        ...csrfHeaders(),
+        ...(init?.headers || {}),
+      },
+    }),
+  );
+  return res.json() as Promise<T>;
+}
+
 /**
  * NexusIQ xəbərlərini başlıq/məzmun üzrə axtarır.
  * Backend `GET /news/search?q=` (Addım 6-da tam qoşulur).
@@ -229,39 +268,32 @@ export async function searchNews(q: string): Promise<import("@/types").NewsItem[
 
 /**
  * "Mənə Aid" şəxsi digest — izlənən aktivlərə toxunan xəbərlər.
- * Server heç nə saxlamır: klient watchlist açarlarını + son-baxış vaxtını göndərir.
- * Xəta olsa boş (hazır=false) qaytarır — ana səhifə sınmır.
+ * Mənbə serverdədir: istifadəçinin saxlanmış watchlist-i + prefs.lastSeen oxunur
+ * (gövdə göndərilmir). Xəta olsa boş (hazır=false) qaytarır — ana səhifə sınmır.
  */
-export async function getWatchlistIntel(
-  keys: string[],
-  lastSeen: number | null,
-): Promise<import("@/types").WatchlistIntel> {
+export async function getWatchlistIntel(): Promise<import("@/types").WatchlistIntel> {
   try {
-    return await apiPost(`/watchlist-intel`, { keys, lastSeen });
+    return await apiGet(`/me/intel/watchlist`);
   } catch {
     return { ready: false, sinceCount: 0, assets: [] };
   }
 }
 
-/** Tək aktivin digesti (/mene-aid drill-down səhifəsi). */
+/** Tək aktivin digesti (/mene-aid drill-down səhifəsi). Mənbə = serverdəki watchlist. */
 export async function getAssetIntel(
   key: string,
-  days = 30,
 ): Promise<import("@/types").AssetDigest | null> {
   try {
-    return await apiGet(`/watchlist-intel/${key}?days=${days}`);
+    return await apiGet(`/me/intel/asset/${encodeURIComponent(key)}`);
   } catch {
     return null;
   }
 }
 
-/** Portfel P&L + pul-çəkili xəbər (server heç nə saxlamır — holdings göndərilir). */
-export async function getPortfolioIntel(
-  holdings: { key: string; qty: number; avgCost: number | null }[],
-  lastSeen: number | null,
-): Promise<import("@/types").PortfolioIntel> {
+/** Portfel P&L + pul-çəkili xəbər. Mənbə = serverdə saxlanan holdings + prefs.lastSeen. */
+export async function getPortfolioIntel(): Promise<import("@/types").PortfolioIntel> {
   try {
-    return await apiPost(`/watchlist-intel/portfolio`, { holdings, lastSeen });
+    return await apiGet(`/me/intel/portfolio`);
   } catch {
     return {
       ready: false,

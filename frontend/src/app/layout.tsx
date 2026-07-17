@@ -9,6 +9,7 @@ import { AlertWatcher } from "@/components/alerts/AlertWatcher";
 import { RoutePrewarm } from "@/components/layout/RoutePrewarm";
 import { AIAssistantFab } from "@/components/ai/AIAssistantFab";
 import { BackendStatusBanner } from "@/components/system/BackendStatusBanner";
+import { MigrateBanner } from "@/components/system/MigrateBanner";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -65,6 +66,8 @@ export default function RootLayout({
                 {children}
                 {/* AI Assistant — bütün authed səhifələrdə üzən giriş */}
                 <AIAssistantFab />
+                {/* Birdəfəlik köhnə localStorage datasının köçürülməsi */}
+                <MigrateBanner />
               </AuthGate>
               <AlertWatcher />
               <RoutePrewarm />

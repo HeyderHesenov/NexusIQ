@@ -34,6 +34,7 @@ import {
   googleLogin as apiGoogleLogin,
   type UserOut,
 } from "./auth";
+import { clearUserData, hydrateUserData, resubscribePush } from "./user-sync";
 
 type Status = "loading" | "authed" | "anon";
 
@@ -74,8 +75,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       applyUser(await fetchMe());
     } catch (e) {
-      // Access token vaxtı keçib, amma refresh token hələ yaşaya bilər → bir cəhd.
-      if (e instanceof ApiError && e.code === "token_expired") {
+      // Access YOXDUR (cookie max-age=10dəq silinib) VƏ YA vaxtı keçib → hər iki halda
+      // 401 gəlir (`unauthenticated` və ya `token_expired`). Refresh token (30g) hələ
+      // yaşaya bilər → BİR səssiz refresh cəhdi. Yalnız 401-lərdə (5xx-də mənasız).
+      if (e instanceof ApiError && e.status === 401) {
         if (await refreshOnce()) {
           try {
             applyUser(await fetchMe());
@@ -99,6 +102,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setOnAuthLost(() => applyAnon());
     return () => setOnAuthLost(null);
   }, [applyAnon]);
+
+  // Auth vəziyyəti dəyişəndə per-user store-ları sinxronla: authed → serverdən
+  // yüklə + push abunəsini yenidən bağla; anon → yaddaşı boşalt. Render bloklanmır.
+  useEffect(() => {
+    if (status === "authed") {
+      hydrateUserData();
+      void resubscribePush();
+    } else if (status === "anon") {
+      clearUserData();
+    }
+  }, [status]);
 
   // Tab-lar arası sinxron.
   useEffect(() => {

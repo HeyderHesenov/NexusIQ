@@ -22,6 +22,12 @@ type Dict = Record<string, string>;
 const DICT: Record<Lang, Dict> = {
   az: {
     "intro.cta": "Daxil olmaq üçün toxun",
+    "migrate.prompt":
+      "Bu brauzerdə lokal saxlanmış datan var (izləmə, portfel, əlfəcinlər). Hesabına köçürək?",
+    "migrate.import": "Köçür",
+    "migrate.delete": "Sil",
+    "migrate.later": "Sonra",
+    "migrate.done": "Köçürüldü ✅",
     "intro.feat1": "AI Analiz",
     "intro.feat2": "Canlı Xəbər",
     "intro.feat3": "Korrelyasiya",
@@ -419,6 +425,12 @@ const DICT: Record<Lang, Dict> = {
   },
   en: {
     "intro.cta": "Tap to enter",
+    "migrate.prompt":
+      "You have data saved locally in this browser (watchlist, portfolio, bookmarks). Move it to your account?",
+    "migrate.import": "Migrate",
+    "migrate.delete": "Delete",
+    "migrate.later": "Later",
+    "migrate.done": "Migrated ✅",
     "intro.feat1": "AI Analysis",
     "intro.feat2": "Live News",
     "intro.feat3": "Correlation",
@@ -815,6 +827,12 @@ const DICT: Record<Lang, Dict> = {
   },
   ru: {
     "intro.cta": "Нажмите, чтобы войти",
+    "migrate.prompt":
+      "В этом браузере есть локально сохранённые данные (список наблюдения, портфель, закладки). Перенести их в аккаунт?",
+    "migrate.import": "Перенести",
+    "migrate.delete": "Удалить",
+    "migrate.later": "Позже",
+    "migrate.done": "Перенесено ✅",
     "intro.feat1": "AI Анализ",
     "intro.feat2": "Живые новости",
     "intro.feat3": "Корреляция",
@@ -1213,6 +1231,12 @@ const DICT: Record<Lang, Dict> = {
   },
   tr: {
     "intro.cta": "Girmek için dokun",
+    "migrate.prompt":
+      "Bu tarayıcıda yerel olarak kayıtlı verilerin var (izleme listesi, portföy, yer imleri). Hesabına taşıyalım mı?",
+    "migrate.import": "Taşı",
+    "migrate.delete": "Sil",
+    "migrate.later": "Sonra",
+    "migrate.done": "Taşındı ✅",
     "intro.feat1": "AI Analiz",
     "intro.feat2": "Canlı Haber",
     "intro.feat3": "Korelasyon",
