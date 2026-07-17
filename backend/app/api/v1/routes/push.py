@@ -1,10 +1,12 @@
 """Web Push route-ları — VAPID açarı, abunə, test bildirişi."""
 from __future__ import annotations
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import netguard
 from app.core.config import settings
 from app.core.ratelimit import rate_limit
 from app.db.session import get_db
@@ -34,6 +36,31 @@ class SubscribeRequest(BaseModel):
         return v
 
 
+async def _assert_endpoint_safe(endpoint: str) -> None:
+    """Abunə endpoint-ini SSRF üçün yoxlayır — bunu `webpush` SERVERDƏN çağırır.
+
+    `endpoint` anonim istifadəçidən gəlir və sonradan planlayıcı onu POST edir,
+    yəni bura netguard-sız buraxmaq server-mənşəli sorğunu hücumçuya bağışlamaq
+    deməkdir (`https://169.254.169.254/...` = cloud metadata). Qardaş modulların
+    hamısı kənar URL üçün netguard işlədir (`img_cache`, `enrich_content`) —
+    push da eyni qapıdan keçməlidir.
+
+    Yalnız `https://` yoxlaması (əvvəlki hal) heç nə qorumur: sxem daxili
+    ünvan haqqında heç nə demir.
+    """
+    try:
+        safe = await netguard.is_safe_url(endpoint)
+    except httpx.ConnectError:
+        # DNS keçici nasazlığı — siyasət verdikti DEYİL (bax netguard docstring).
+        # Abunəni "pis" damğalamaq yerinə keçici xəta qaytar ki, brauzer təkrar
+        # cəhd etsin.
+        raise HTTPException(
+            status_code=503, detail="Endpoint hazırda yoxlanıla bilmir."
+        ) from None
+    if not safe:
+        raise HTTPException(status_code=400, detail="Endpoint qəbul edilmir.")
+
+
 class EndpointRequest(BaseModel):
     endpoint: str = Field(..., min_length=10, max_length=500)
 
@@ -49,6 +76,7 @@ async def subscribe(
     req: SubscribeRequest, db: AsyncSession = Depends(get_db)
 ) -> dict:
     """Brauzer abunəsini saxlayır (upsert)."""
+    await _assert_endpoint_safe(req.endpoint)
     await push_service.save_subscription(
         db,
         endpoint=req.endpoint,

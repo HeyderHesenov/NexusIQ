@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
 from pywebpush import WebPushException, webpush
 from sqlalchemy import delete, select
@@ -16,6 +17,22 @@ logger = logging.getLogger("nexusiq.push")
 
 # Endpoint cavabı bu kodlarla gəlsə abunə ölüdür — bazadan silinir.
 _DEAD_STATUS = {404, 410}
+
+# HTTP timeout-u AÇIQ verilməlidir. pywebpush-un `webpush(timeout=None)` defoltu
+# `send()`-ə AÇIQ ötürülür, `send()` isə `kwargs.pop("timeout", 10000)` edir —
+# açar MÖVCUD olduğu üçün pop 10000 fallback-ına HEÇ VAXT çatmır, `None` qaytarır
+# və `requests.post(timeout=None)` ƏBƏDİ bloklanır (pywebpush 2.3.0-da yoxlanıldı).
+_SEND_TIMEOUT = 10.0
+
+# AYRICA hovuz + semafor — `asyncio.to_thread` DEFOLT hovuzu işlədir (8 CPU-da
+# cəmi 12 işçi), onu isə yfinance çağırışları doldurur (bax img_cache.py:58).
+# Limitsiz fan-out + timeout-suz webpush = cavab verməyən 12 endpoint bütün
+# defolt hovuzu əbədi tutur → market/assets/correlation/radar/netguard DNS —
+# hamısı növbəyə düşür, `max_instances=1` ingest-i həmişəlik dayandırır.
+# Ayrıca hovuz o zənciri defolt hovuzdan tamamilə ayırır; semafor isə bir
+# göndərmə dalğasının hovuzu doldurmasının qarşısını alır.
+_POOL = ThreadPoolExecutor(max_workers=4, thread_name_prefix="webpush")
+_SEND_SEM = asyncio.Semaphore(8)
 
 
 async def save_subscription(
@@ -57,6 +74,7 @@ def _send_raw(sub: PushSubscription, payload: dict) -> int | None:
             vapid_private_key=settings.vapid_private_key,
             vapid_claims={"sub": settings.vapid_subject},
             ttl=86400,
+            timeout=_SEND_TIMEOUT,
         )
         return None
     except WebPushException as exc:
@@ -65,6 +83,16 @@ def _send_raw(sub: PushSubscription, payload: dict) -> int | None:
             return status
         logger.warning("Push göndərmə xətası: %s", exc)
         return None
+    except Exception as exc:  # noqa: BLE001 — timeout/şəbəkə: bir abunə hamısını batırmasın
+        logger.warning("Push göndərmə xətası (şəbəkə): %s", exc)
+        return None
+
+
+async def _send_one(sub: PushSubscription, payload: dict) -> int | None:
+    """Semafor + ayrıca hovuz altında tək abunəyə göndərir."""
+    loop = asyncio.get_running_loop()
+    async with _SEND_SEM:
+        return await loop.run_in_executor(_POOL, _send_raw, sub, payload)
 
 
 async def send_to_all(session: AsyncSession, payload: dict) -> dict[str, int]:
@@ -75,10 +103,9 @@ async def send_to_all(session: AsyncSession, payload: dict) -> dict[str, int]:
 
     subs = (await session.scalars(select(PushSubscription))).all()
     # Sinxron webpush çağırışlarını paralel thread-lərdə işlət — event loop
-    # bloklanmasın (əks halda N abunə serial göndərilir).
-    statuses = await asyncio.gather(
-        *(asyncio.to_thread(_send_raw, sub, payload) for sub in subs)
-    )
+    # bloklanmasın (əks halda N abunə serial göndərilir). Paralellik semafor +
+    # ayrıca hovuzla məhdudlaşdırılır (bax yuxarıdakı `_POOL` şərhi).
+    statuses = await asyncio.gather(*(_send_one(sub, payload) for sub in subs))
     sent = 0
     dead_endpoints: list[str] = []
     for sub, status in zip(subs, statuses):
