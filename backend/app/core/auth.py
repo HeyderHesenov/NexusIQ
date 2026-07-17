@@ -87,6 +87,7 @@ async def _authenticate(
         raise AuthError(403, "email_not_verified")
 
     request.state.user_id = str(uid)
+    request.state.sid = str(claims.get("sid"))
     return user
 
 

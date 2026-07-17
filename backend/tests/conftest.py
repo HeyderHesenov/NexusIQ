@@ -103,6 +103,49 @@ def no_llm(monkeypatch):
     monkeypatch.setattr("anthropic.AsyncAnthropic", _boom, raising=False)
 
 
+@pytest.fixture(autouse=True)
+def _reset_ratelimit():
+    """Modul-səviyyə in-memory limiter state testlər arası sızmasın."""
+    from app.core import ratelimit
+
+    store = ratelimit._store
+    if hasattr(store, "_hits"):
+        store._hits.clear()
+        store._next_sweep = 0.0
+    yield
+
+
+@pytest_asyncio.fixture
+async def client(session_factory, monkeypatch):
+    """Real app (ASGITransport) + test DB override + default Origin (CSRF Qat 1 keçir)."""
+    from httpx import ASGITransport, AsyncClient
+
+    from app.db.session import get_db
+    from app.main import app
+
+    # Auth üçün lazımi secret-lər + ucuz Argon2 (yoxsa hər login ~50-100ms).
+    monkeypatch.setattr(settings, "jwt_secret", "test-jwt-secret-long-enough-32chars-000000")
+    monkeypatch.setattr(settings, "csrf_secret", "test-csrf-secret-long-enough-000000")
+    monkeypatch.setattr(settings, "cookie_secure", False)
+    monkeypatch.setattr(settings, "argon2_time_cost", 1)
+    monkeypatch.setattr(settings, "argon2_memory_kib", 64)
+    monkeypatch.setattr(settings, "argon2_parallelism", 1)
+
+    async def _override():
+        async with session_factory() as s:
+            yield s
+
+    app.dependency_overrides[get_db] = _override
+    transport = ASGITransport(app=app)
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://localhost:3000",
+        headers={"Origin": "http://localhost:3000"},
+    ) as c:
+        yield c
+    app.dependency_overrides.clear()
+
+
 @pytest.fixture
 def fast_argon2(monkeypatch):
     """Argon2-ni ucuzlaşdır (login/hash testləri sürətli olsun)."""

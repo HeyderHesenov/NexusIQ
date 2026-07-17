@@ -8,6 +8,7 @@ from app.api.v1.routes import (
     analog,
     anomalies,
     assets,
+    auth,
     chat,
     correlation,
     health,
@@ -21,6 +22,7 @@ from app.api.v1.routes import (
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["system"])
+api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(news.router, prefix="/news", tags=["news"])
 api_router.include_router(chat.router, prefix="/chat", tags=["advisor"])
 api_router.include_router(market.router, prefix="/market", tags=["market"])
