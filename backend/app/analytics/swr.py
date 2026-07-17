@@ -18,6 +18,8 @@ import asyncio
 import time
 from typing import Any, Awaitable, Callable
 
+from app.core import bgtasks
+
 Refresh = Callable[[], Awaitable[Any]]
 
 
@@ -80,7 +82,10 @@ def _spawn(store: dict, ttl: float, refresh: Refresh) -> None:
         finally:
             store["_bg"] = False
 
-    asyncio.create_task(runner())
+    # `spawn` referansı saxlayır. Çılpaq `create_task` ilə runner iş ortasında
+    # GC-yə düşə bilərdi — onda `finally` işləməz, `store["_bg"]` HƏMİŞƏLİK True
+    # qalar və bu store üçün arxa plan yeniləməsi bir daha başlamazdı.
+    bgtasks.spawn(runner(), name="swr-refresh")
 
 
 async def get(

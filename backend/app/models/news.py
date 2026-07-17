@@ -82,7 +82,13 @@ class News(Base, TimestampMixin):
     __table_args__ = (
         Index("ix_news_category_published", "category", "published_at"),
         # Trending/fallback sıralaması: impact_score DESC, published_at DESC.
-        Index("ix_news_impact_published", "impact_score", "published_at"),
+        # Sıra sorğu ilə EYNİ olmalıdır — ASC qurulanda planner indeksi sıra üçün
+        # işlədə bilmirdi (ölçüldü: Seq Scan + top-N heapsort, 851 bufer).
+        Index(
+            "ix_news_impact_published",
+            impact_score.desc().nullslast(),
+            published_at.desc().nullslast(),
+        ),
         # Ön səhifə (kateqoriyasız) sıralaması — sorğu ilə eyni sıra (DESC NULLS
         # LAST) ki, planner scale-də seq scan+sort əvəzinə index scan seçsin.
         Index("ix_news_published", published_at.desc().nullslast()),

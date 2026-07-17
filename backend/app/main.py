@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.v1.router import api_router
+from app.core import bgtasks
 from app.core.config import settings
 from app.core.security_headers import SecurityHeaders
 from app.scheduler import shutdown_scheduler, start_scheduler, startup_catchup
@@ -111,8 +112,11 @@ async def lifespan(app: FastAPI):
     """Başlanğıc / bağlanış hadisələri — planlayıcı + keş istiləşməsi."""
     # startup
     start_scheduler()
-    asyncio.create_task(_prewarm())  # blok etmədən keşləri isidir
-    asyncio.create_task(startup_catchup())  # tərcüməsiz backlog-u dərhal tut
+    # `spawn` referansı saxlayır + istisnanı loglayır. Çılpaq `create_task` ilə
+    # loop yalnız zəif referans tutur → iş ortasında GC riski, üstəlik xəta
+    # səssizcə udulur.
+    bgtasks.spawn(_prewarm(), name="prewarm")  # blok etmədən keşləri isidir
+    bgtasks.spawn(startup_catchup(), name="catchup")  # tərcüməsiz backlog-u tut
     yield
     # shutdown
     shutdown_scheduler()

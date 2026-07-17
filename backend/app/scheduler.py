@@ -24,6 +24,20 @@ _scheduler: AsyncIOScheduler | None = None
 # Push olunmuş ekstremal anomaliyalar — dublikat bildirişin qarşısını alır.
 # Element: "{asof}:{key}".
 _pushed_anomalies: set[str] = set()
+# Tavan: `asof` hər skanda dəyişir, yəni açar sonsuz yeni olur və set proses
+# ömrü boyu böyüyürdü (yavaş, amma sərhədsiz). Dublikat qorusu üçün yalnız
+# YAXIN keçmiş lazımdır — tavan aşılanda ən köhnə yarısı atılır.
+_PUSHED_MAX = 2000
+
+
+def _remember_pushed(marker: str) -> None:
+    """Push damğasını yadda saxla, seti tavanda tut (FIFO-vari)."""
+    _pushed_anomalies.add(marker)
+    if len(_pushed_anomalies) > _PUSHED_MAX:
+        # Set sırasızdır; `asof` prefiksi ISO vaxt olduğu üçün leksik sıralama
+        # xronoloji sıralama deməkdir → ən köhnələri at.
+        for old in sorted(_pushed_anomalies)[: _PUSHED_MAX // 2]:
+            _pushed_anomalies.discard(old)
 
 
 async def ingest_cycle() -> None:
@@ -247,7 +261,7 @@ async def _anomaly_cycle() -> None:
             )
             try:
                 await push_service.send_to_all(session, payload)
-                _pushed_anomalies.add(f"{a['asof']}:{a['key']}")
+                _remember_pushed(f"{a['asof']}:{a['key']}")
             except Exception:  # noqa: BLE001
                 logger.exception("Anomaliya push xətası: %s", a["key"])
 
