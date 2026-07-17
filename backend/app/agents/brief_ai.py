@@ -107,7 +107,19 @@ async def market_brief(
     """{what, scenarios, pairsNote, pairs} qaytarır. Keşlənir. Xəta → None."""
     from app.agents.llm import primary_client
 
-    key = f"{kind}|{name}|{sym}|{lang}"
+    # `kind` prompt seçimini idarə edir — whitelist-dən kənar dəyər `event`-ə
+    # düşür. Açara XAM `kind` yazmaq keş açarını 24 simvolluq sərbəst mətnlə
+    # şişirdərdi (eyni prompt, saysız açar); normallaşdırılmış dəyər yazılır.
+    kind = kind if kind in _KIND_INSTR else "event"
+
+    # `meta` AÇARA DA daxil olmalıdır, çünki `_prompt`-a DAXİL OLUR (`ident`).
+    # Əvvəl açar `kind|name|sym|lang` idi: eyni ada, fərqli `meta` ilə gələn iki
+    # sorğu eyni yazını bölüşürdü. Nəticə: hücumçu inyeksiyalı `meta` ilə
+    # çağırır → cavab `earnings|NVIDIA|NVDA|az` açarında keşlənir → təqvimdən
+    # NVIDIA-ya klikləyən real istifadəçi hücumçunun mətnini NexusIQ-un öz AI
+    # analizi kimi görür (bütün istifadəçilərə, restarta qədər).
+    # Həm də adi funksional bug idi: iki fərqli rüb bir yazını bölüşürdü.
+    key = f"{kind}|{name}|{sym}|{meta}|{lang}"
     if key in _cache:
         return _cache[key]
 

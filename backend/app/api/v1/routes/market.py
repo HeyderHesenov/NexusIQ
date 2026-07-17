@@ -81,7 +81,13 @@ async def commodities() -> list[dict]:
 _LANGS = {"az", "en", "ru", "tr"}
 
 
-@router.get("/brief", dependencies=[Depends(rate_limit("brief", limit=30, window=60.0))])
+# 30/dəq × max_tokens=1400 ≈ 42k output token/dəq — TƏK anonim IP-dən. Bu endpoint
+# `/chat`-dən fərqli olaraq mövzu qapısı olmayan, sərbəst mətn (`name`/`meta`) qəbul
+# edən LLM çağırışıdır, yəni daha yaxşı abuse hədəfidir. İnsanın təqvimdən klikləmə
+# tempi üçün 10/dəq bol-bol kifayətdir.
+# QEYD: bu yalnız qanaxmanı azaldır. ƏSL nəzarət — `require_user` + per-user
+# `ai_budget` (auth işi). Per-IP limit botnet-ə qarşı onsuz da zəifdir.
+@router.get("/brief", dependencies=[Depends(rate_limit("brief", limit=10, window=60.0))])
 async def brief_route(
     kind: str = Query("event", max_length=24),
     name: str = Query(..., min_length=1, max_length=120),
