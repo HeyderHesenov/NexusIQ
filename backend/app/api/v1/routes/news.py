@@ -13,6 +13,8 @@ from app.agents.forecast_ai import forecast_impact
 from app.agents.llm import has_primary
 from app.agents.news_ai import translate_full
 from app.core.constants import Category
+from app.core.auth import require_user
+from app.core.budget import ai_budget
 from app.core.ratelimit import rate_limit
 from app.db.session import get_db
 from app.models import News
@@ -158,7 +160,11 @@ async def get_news(
 
 @router.get(
     "/{news_id}/content",
-    dependencies=[Depends(rate_limit("news_ai", limit=20, window=60.0))],
+    dependencies=[
+        Depends(rate_limit("news_ai", limit=20, window=60.0)),
+        Depends(require_user),
+        Depends(ai_budget("news_content", weight=1)),
+    ],
 )
 async def get_translated_content(
     news_id: int,
@@ -220,7 +226,11 @@ async def get_analogs(
 
 @router.get(
     "/{news_id}/forecast",
-    dependencies=[Depends(rate_limit("news_ai", limit=20, window=60.0))],
+    dependencies=[
+        Depends(rate_limit("news_ai", limit=20, window=60.0)),
+        Depends(require_user),
+        Depends(ai_budget("news_forecast", weight=1)),
+    ],
 )
 async def get_forecast(
     news_id: int,

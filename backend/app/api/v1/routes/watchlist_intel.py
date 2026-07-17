@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth import require_user
 from app.core.ratelimit import rate_limit
 from app.db.session import get_db
 from app.services import watchlist_intel
@@ -64,7 +65,13 @@ class PortfolioRequest(BaseModel):
     )
 
 
-@router.post("", dependencies=[Depends(rate_limit("watchlist_intel", limit=30, window=60.0))])
+@router.post(
+    "",
+    dependencies=[
+        Depends(rate_limit("watchlist_intel", limit=30, window=60.0)),
+        Depends(require_user),
+    ],
+)
 async def watchlist_digest(
     req: IntelRequest,
     db: AsyncSession = Depends(get_db),
@@ -75,7 +82,10 @@ async def watchlist_digest(
 
 @router.post(
     "/portfolio",
-    dependencies=[Depends(rate_limit("portfolio_intel", limit=30, window=60.0))],
+    dependencies=[
+        Depends(rate_limit("portfolio_intel", limit=30, window=60.0)),
+        Depends(require_user),
+    ],
 )
 async def portfolio_intel(
     req: PortfolioRequest,
@@ -90,7 +100,10 @@ async def portfolio_intel(
 
 @router.get(
     "/{key}",
-    dependencies=[Depends(rate_limit("watchlist_intel_asset", limit=60, window=60.0))],
+    dependencies=[
+        Depends(rate_limit("watchlist_intel_asset", limit=60, window=60.0)),
+        Depends(require_user),
+    ],
 )
 async def asset_digest(
     key: str,

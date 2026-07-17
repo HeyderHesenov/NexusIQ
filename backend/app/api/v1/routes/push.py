@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import netguard
+from app.core.auth import require_user
 from app.core.config import settings
 from app.core.ratelimit import rate_limit
 from app.db.session import get_db
@@ -71,7 +72,7 @@ async def vapid_key() -> dict:
     return {"publicKey": settings.vapid_public_key, "enabled": settings.push_enabled}
 
 
-@router.post("/subscribe", dependencies=[Depends(_push_limit)])
+@router.post("/subscribe", dependencies=[Depends(_push_limit), Depends(require_user)])
 async def subscribe(
     req: SubscribeRequest, db: AsyncSession = Depends(get_db)
 ) -> dict:
@@ -87,7 +88,7 @@ async def subscribe(
     return {"ok": True}
 
 
-@router.post("/unsubscribe", dependencies=[Depends(_push_limit)])
+@router.post("/unsubscribe", dependencies=[Depends(_push_limit), Depends(require_user)])
 async def unsubscribe(
     req: EndpointRequest, db: AsyncSession = Depends(get_db)
 ) -> dict:
@@ -96,7 +97,7 @@ async def unsubscribe(
     return {"ok": True}
 
 
-@router.post("/test")
+@router.post("/test", dependencies=[Depends(require_user)])
 async def test_push(db: AsyncSession = Depends(get_db)) -> dict:
     """Bütün abunələrə test bildirişi göndərir (yalnız development)."""
     if settings.environment != "development":

@@ -21,6 +21,7 @@ from app.api.v1.routes import (
     watchlist_intel,
 )
 from app.core.auth import require_user
+from app.core.budget import ai_budget
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["system"])
@@ -30,7 +31,11 @@ api_router.include_router(
     me.router, prefix="/me", tags=["me"], dependencies=[Depends(require_user)]
 )
 api_router.include_router(news.router, prefix="/news", tags=["news"])
-api_router.include_router(chat.router, prefix="/chat", tags=["advisor"])
+# /chat tam AI (4+ LLM çağırışı) — require_user + ai_budget(weight=4) aqreqasiya nöqtəsində.
+api_router.include_router(
+    chat.router, prefix="/chat", tags=["advisor"],
+    dependencies=[Depends(require_user), Depends(ai_budget("chat", weight=4))],
+)
 api_router.include_router(market.router, prefix="/market", tags=["market"])
 api_router.include_router(push.router, prefix="/push", tags=["push"])
 api_router.include_router(assets.router, prefix="/assets", tags=["assets"])

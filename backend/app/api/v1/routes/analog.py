@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, Query
 
 from app.agents.llm import has_primary
 from app.analytics import analog
+from app.core.auth import require_user
+from app.core.budget import ai_budget
 from app.core.ratelimit import rate_limit
 from app.rag import embed
 
@@ -16,7 +18,11 @@ _LANGS = {"az", "en", "ru", "tr"}
 
 @router.get(
     "/search",
-    dependencies=[Depends(rate_limit("analog_search", limit=15, window=60.0))],
+    dependencies=[
+        Depends(rate_limit("analog_search", limit=15, window=60.0)),
+        Depends(require_user),
+        Depends(ai_budget("analog_search", weight=1)),
+    ],
 )
 async def search_analogs(
     q: str = Query(..., min_length=2, max_length=300),

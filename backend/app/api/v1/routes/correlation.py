@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.agents import correlation_ai
 from app.analytics import correlation
+from app.core.auth import require_user
+from app.core.budget import ai_budget
 from app.core.ratelimit import rate_limit
 
 router = APIRouter()
@@ -37,7 +39,11 @@ async def pair(
 
 @router.get(
     "/pair/explain",
-    dependencies=[Depends(rate_limit("corr_explain", limit=20, window=60.0))],
+    dependencies=[
+        Depends(rate_limit("corr_explain", limit=20, window=60.0)),
+        Depends(require_user),
+        Depends(ai_budget("correlation_explain", weight=1)),
+    ],
 )
 async def pair_explain(
     a: str = Query(..., min_length=1),
