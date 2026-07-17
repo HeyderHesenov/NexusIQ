@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { Footer } from "@/components/layout/Footer";
 import { ArrowLeft, ExternalLink, Sparkles } from "lucide-react";
 import { apiGet, prefetchForecast, prefetchNewsAnalogs } from "@/lib/api";
@@ -13,12 +14,12 @@ import { HistoricalAnalogs } from "@/components/news/HistoricalAnalogs";
 import { OriginalText } from "@/components/news/OriginalText";
 import type { NewsItem } from "@/types";
 
-export default function NewsDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
-  const { id } = params;
+// Next 15-də `params` prop-u Promise-dir. Qardaş dinamik səhifələr
+// (`asset/[key]`, `mene-aid/[key]`) onsuz da `useParams()` hook-unu işlədir —
+// eyni idioma keçirildi: həm Promise açmağa ehtiyac qalmır, həm də kod bazası
+// ardıcıl olur.
+export default function NewsDetailPage() {
+  const { id } = useParams<{ id: string }>();
   const { t, lang } = useI18n();
   const [news, setNews] = useState<NewsItem | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");

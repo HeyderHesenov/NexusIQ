@@ -26,12 +26,17 @@ anthropic==0.42.0
 pandas==2.2.3
 numpy==2.2.1
 scipy==1.15.0
-yfinance>=1.4.1
+yfinance==1.4.1
 
 # ---- Scheduler ----
 apscheduler==3.11.0
 
 # ---- Utils ----
 python-dotenv==1.0.1
-pywebpush>=2.0.0
-Pillow>=11.0.0  # thumbnail proksisi (routes/img.py) — naşir şəklini kiçildir
+pywebpush==2.3.0
+Pillow==12.3.0  # thumbnail proksisi (routes/img.py) — naşir şəklini kiçildir
+
+# ---- Tranzitiv, amma təhlükəsizlik üçün əhəmiyyətli (məlumat üçün pinlənməyib) ----
+# starlette   — fastapi 0.115.6 ilə gəlir (quraşdırılmış: 0.41.3). Middleware
+#               yığını (CORS/TrustedHost/GZip) və ASGI davranışı ondadır.
+# cryptography — pywebpush → py-vapid ilə gəlir (quraşdırılmış: 49.0.0).

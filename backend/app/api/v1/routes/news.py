@@ -6,7 +6,7 @@ import asyncio
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import defer, selectinload, undefer
+from sqlalchemy.orm import defer, selectinload
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.agents.forecast_ai import forecast_impact
@@ -30,13 +30,25 @@ router = APIRouter()
 # Siyahıda istifadə olunmayan ağır JSONB sütunlarını (1536-float embedding,
 # forecast, content_tr, tam content) TƏXİRƏ SAL — hər sətir üçün megabaytlarla
 # lazımsız JSON detoast/decode etmə (event loop-u bloklayır).
-_HEAVY = (
+_HEAVY_COMMON = (
     defer(News.embedding),
     defer(News.forecast),
     defer(News.content_tr),
-    defer(News.content),
 )
+_HEAVY = (*_HEAVY_COMMON, defer(News.content))
 _BASE = select(News).options(selectinload(News.source), *_HEAVY)
+
+# Tək-xəbər səhifəsi `content` GÖSTƏRİR → onu təxirə salmayan ayrıca baza.
+#
+# DİQQƏT — `_BASE.options(undefer(News.content))` İŞLƏMİR: SQLAlchemy 2.0 eyni
+# yol üçün `defer` + `undefer` birləşməsini
+#   InvalidRequestError: Loader strategies for ORM Path[News.content] conflict
+# sayır və sorğu 500 verir. Yəni `/news/{id}` TAM SINIQ idi (ölçüldü: bug
+# `defer(News.content)`-in `_BASE`-ə əlavə olunduğu commit-dən bəri canlı idi;
+# brauzerdə CORS xətası kimi görünürdü, çünki Starlette-də tutulmamış 500
+# CORS başlıqlarını ötür — əsl səbəbi maskalayır).
+# Həll: undefer ilə güləşmə — sadəcə content-i heç təxirə salma.
+_DETAIL_BASE = select(News).options(selectinload(News.source), *_HEAVY_COMMON)
 
 
 @router.get("", response_model=list[NewsOut])
@@ -136,8 +148,8 @@ async def get_news(
     news_id: int, db: AsyncSession = Depends(get_db)
 ) -> NewsOut:
     """Tək xəbər (tam səhifə üçün)."""
-    # Tək element content göstərir → onu geri undefer et (embedding təxirdə qalır).
-    stmt = _BASE.where(News.id == news_id).options(undefer(News.content))
+    # `_DETAIL_BASE` content-i təxirə salmır (embedding/forecast/content_tr qalır).
+    stmt = _DETAIL_BASE.where(News.id == news_id)
     news = (await db.scalars(stmt)).first()
     if news is None:
         raise HTTPException(status_code=404, detail="Xəbər tapılmadı")
