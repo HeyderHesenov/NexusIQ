@@ -4,11 +4,9 @@ import { useState } from "react";
 import { Mail, Lock, User } from "lucide-react";
 import { Ticker } from "@/components/market/Ticker";
 import { useI18n } from "@/lib/i18n";
-import {
-  signInWithGoogle,
-  googleConfigured,
-  type GoogleUser,
-} from "@/lib/google";
+import { useAuth } from "@/lib/auth-context";
+import { ApiError } from "@/lib/api";
+import { signInWithGoogle, googleConfigured } from "@/lib/google";
 
 type Mode = "login" | "signup";
 
@@ -38,14 +36,40 @@ function GoogleIcon() {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function AuthScreen({
-  onAuthed,
-  authKey,
-}: {
-  onAuthed: () => void;
-  authKey: string;
-}) {
+/** Server `code`-unu i18n açarına map edir — xam server mətni ASLA göstərilmir. */
+function authErrorKey(err: unknown): string {
+  const code = err instanceof ApiError ? err.code : undefined;
+  switch (code) {
+    case "invalid_credentials":
+      return "auth.invalidCredentials";
+    case "too_many_attempts":
+      return "auth.tooManyAttempts";
+    case "password_breached":
+    case "breached_password":
+    case "pwned_password":
+      return "auth.passwordBreached";
+    case "password_too_short":
+    case "weak_password":
+    case "short_password":
+      return "auth.passwordTooShort";
+    case "email_not_verified":
+      return "auth.emailNotVerified";
+    case "google_not_configured":
+      return "auth.googleNotConfigured";
+    case "unauthenticated":
+    case "session_revoked":
+    case "token_expired":
+      return "auth.sessionExpired";
+    case "budget_exhausted":
+      return "auth.budgetExhausted";
+    default:
+      return "auth.genericError";
+  }
+}
+
+export function AuthScreen() {
   const { t } = useI18n();
+  const auth = useAuth();
   const [mode, setMode] = useState<Mode>("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -53,12 +77,7 @@ export function AuthScreen({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function persist(user: GoogleUser) {
-    localStorage.setItem(authKey, JSON.stringify(user));
-    onAuthed();
-  }
-
-  /** E-poçt/parol ilə daxil olma — hələlik demo (real auth backend addımında). */
+  /** E-poçt/parol ilə real giriş və ya qeydiyyat (sonra avtomatik giriş). */
   async function handleEmail(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -71,32 +90,38 @@ export function AuthScreen({
       setError(t("auth.invalidEmail"));
       return;
     }
-    if (password.length < 6) {
-      setError(t("auth.shortPassword"));
+    // Klient minLength yalnız UX üçün — əsl mərci server (min 12).
+    if (password.length < 12) {
+      setError(t("auth.passwordTooShort"));
       return;
     }
 
     setBusy(true);
-    await new Promise((r) => setTimeout(r, 400));
-    const displayName =
-      mode === "signup" ? name.trim() : email.split("@")[0];
-    persist({ name: displayName, email });
+    try {
+      if (mode === "login") {
+        await auth.login(email, password);
+      } else {
+        // Qeydiyyat 202 qaytarır (sessiya yaratmır) → eyni məlumatla giriş.
+        await auth.register(email, password, name.trim());
+        await auth.login(email, password);
+      }
+      // Uğurda status dəyişir → AuthGate saytı açır (komponent unmount olur).
+    } catch (err) {
+      setError(t(authErrorKey(err)));
+      setBusy(false);
+    }
   }
 
   async function handleGoogle() {
+    if (!googleConfigured()) return; // demo yolu yoxdur
     setError(null);
     setBusy(true);
     try {
-      let user: GoogleUser;
-      if (googleConfigured()) {
-        user = await signInWithGoogle();
-      } else {
-        await new Promise((r) => setTimeout(r, 500));
-        user = { name: "Demo İstifadəçi", email: "demo@nexusiq.az" };
-      }
-      persist(user);
-    } catch {
-      setError(t("auth.error"));
+      const credential = await signInWithGoogle(); // imzalı ID token (JWT)
+      await auth.loginWithGoogle(credential);
+      // Uğurda status dəyişir → AuthGate saytı açır.
+    } catch (err) {
+      setError(t(authErrorKey(err)));
       setBusy(false);
     }
   }
@@ -201,7 +226,7 @@ export function AuthScreen({
         {/* alternativ — Google */}
         <button
           onClick={handleGoogle}
-          disabled={busy}
+          disabled={busy || !googleConfigured()}
           className="group flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-white py-3.5 text-sm font-semibold text-[#1f1f22] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_30px_-8px_var(--shadow)] active:translate-y-0 disabled:opacity-60"
         >
           <GoogleIcon />
@@ -210,7 +235,7 @@ export function AuthScreen({
 
         {!googleConfigured() && (
           <p className="mt-4 text-center text-xs text-muted">
-            {t("auth.demoNote")}
+            {t("auth.googleNotConfigured")}
           </p>
         )}
 

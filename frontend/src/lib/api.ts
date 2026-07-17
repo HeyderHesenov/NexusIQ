@@ -1,13 +1,85 @@
 /**
  * Backend API klienti.
- * Bütün sorğular bu nöqtədən keçir — endpointlər sonrakı addımlarda artacaq.
+ * Bütün sorğular bu nöqtədən keçir. Girişlər eyni-origin `/backend` proksisi
+ * üzərindən gedir (Next rewrite → 127.0.0.1:8001) ki, cookie-lər və Origin
+ * yoxlaması işləsin.
  */
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8001/api/v1";
+import { getCsrfToken } from "./csrf";
+
+// Eyni-origin proksi. Brauzer birbaşa :8001-ə getmir → cookie/CSRF/Origin düzgün.
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "/backend";
 
 // Backend assa, sorğu əbədi gözləməsin — timeout-dan sonra throw edib
 // UI-ya xəta state-i ver (donmuş skeleton əvəzinə).
 const REQUEST_TIMEOUT_MS = 10_000;
+
+/** Server xəta cavabını daşıyan xəta — `code` i18n mesajına map olunur. */
+export class ApiError extends Error {
+  readonly status: number;
+  readonly code: string | undefined;
+  constructor(status: number, code: string | undefined, path: string) {
+    super(`API ${status}${code ? ` (${code})` : ""}: ${path}`);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+/** Təhlükəsiz-olmayan sorğular üçün CSRF başlığı (token yoxdursa boş). */
+function csrfHeaders(): Record<string, string> {
+  const token = getCsrfToken();
+  return token ? { "X-CSRF-Token": token } : {};
+}
+
+/** Xəta cavabından `code`-u müdafiəli oxuyur: `{detail:{code}}` və ya `{code}`. */
+async function _errorCode(res: Response): Promise<string | undefined> {
+  try {
+    const data = await res.clone().json();
+    return data?.detail?.code ?? data?.code ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// ---- Auth itkisi siqnalı ----
+// Sərt 401 (unauthenticated / session_revoked, ya da yenilənə bilməyən
+// token_expired) baş verdikdə auth-context bunu tutub giriş ekranına keçir.
+let _onAuthLost: (() => void) | null = null;
+
+/** Sərt 401 hadisəsi üçün callback qeyd edir (auth-context çağırır). */
+export function setOnAuthLost(fn: (() => void) | null): void {
+  _onAuthLost = fn;
+}
+
+// ---- Token yeniləmə (dedup) ----
+// N paralel 401 YALNIZ bir refresh tetikləsin — paylaşılan promise.
+let _refreshInflight: Promise<boolean> | null = null;
+
+/**
+ * `POST /auth/refresh` — cookie-ləri fırladır. Vaxtı keçmiş access token ilə də
+ * işləyir. HEÇ VAXT 401-retry məntiqindən keçmir (sonsuz döngü riski).
+ * Paralel çağırışlar eyni nəticəni paylaşır (`.finally`-də təmizlənir).
+ */
+export function refreshOnce(): Promise<boolean> {
+  if (_refreshInflight) return _refreshInflight;
+  _refreshInflight = (async () => {
+    try {
+      const res = await fetch(`${API_BASE}/auth/refresh`, {
+        method: "POST",
+        credentials: "include",
+        headers: csrfHeaders(),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        cache: "no-store",
+      });
+      return res.ok;
+    } catch {
+      return false;
+    } finally {
+      _refreshInflight = null;
+    }
+  })();
+  return _refreshInflight;
+}
 
 // ---- Backend sağlamlıq siqnalı ----
 // Fərdi funksiyalar xətanı udub boş data qaytarır (səhifə sınmasın deyə) —
@@ -37,6 +109,7 @@ export async function pingHealth(): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE}/health`, {
       cache: "no-store",
+      credentials: "include",
       signal: AbortSignal.timeout(3_000),
     });
     _setBackendDown(!res.ok);
@@ -50,6 +123,9 @@ export async function pingHealth(): Promise<boolean> {
 // Şəbəkə xətası (server ölü) ilə HTTP xətasını (server canlı, cavab xəta)
 // ayırır: yalnız birincisi qlobal "down" sayılır.
 async function _tracked(path: string, req: () => Promise<Response>): Promise<Response> {
+  // Refresh özü ASLA retry döngüsünə düşməsin (sonsuz döngü).
+  const isRefresh = path.startsWith("/auth/refresh");
+
   let res: Response;
   try {
     res = await req();
@@ -58,17 +134,53 @@ async function _tracked(path: string, req: () => Promise<Response>): Promise<Res
     throw e;
   }
   _setBackendDown(false);
-  if (!res.ok) {
-    throw new Error(`API ${res.status}: ${path}`);
+  if (res.ok) return res;
+
+  // 401 → vaxtı keçmiş access token-i şəffaf yeniləyib sorğunu BİR DƏFƏ təkrarla.
+  if (res.status === 401 && !isRefresh) {
+    const code = await _errorCode(res);
+
+    if (code === "token_expired") {
+      const refreshed = await refreshOnce();
+      if (refreshed) {
+        let retry: Response;
+        try {
+          retry = await req();
+        } catch (e) {
+          _setBackendDown(true);
+          throw e;
+        }
+        _setBackendDown(false);
+        if (retry.ok) return retry;
+        // İkinci 401 → sessiya həqiqətən itdi.
+        const code2 = await _errorCode(retry);
+        if (retry.status === 401) _onAuthLost?.();
+        throw new ApiError(retry.status, code2, path);
+      }
+      // Yeniləmə alınmadı → sessiya itdi.
+      _onAuthLost?.();
+      throw new ApiError(401, code, path);
+    }
+
+    if (code === "unauthenticated" || code === "session_revoked") {
+      _onAuthLost?.();
+      throw new ApiError(401, code, path);
+    }
+
+    // Digər 401-lər (məs. invalid_credentials) — auth itkisi deyil, sadəcə ötür.
+    throw new ApiError(401, code, path);
   }
-  return res;
+
+  const code = await _errorCode(res);
+  throw new ApiError(res.status, code, path);
 }
 
 export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await _tracked(path, () =>
     fetch(`${API_BASE}${path}`, {
       ...init,
-      // Timeout `...init`-dən sonra — heç vaxt səssizcə üstələnməsin (əbədi asma riski).
+      // Timeout + credentials `...init`-dən sonra — heç vaxt səssizcə üstələnməsin.
+      credentials: "include",
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
       cache: "no-store",
@@ -87,9 +199,14 @@ export async function apiPost<T>(
       method: "POST",
       body: JSON.stringify(body),
       ...init,
-      // Timeout `...init`-dən sonra — heç vaxt səssizcə üstələnməsin (əbədi asma riski).
+      // Timeout + credentials `...init`-dən sonra — heç vaxt səssizcə üstələnməsin.
+      credentials: "include",
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
+      headers: {
+        "Content-Type": "application/json",
+        ...csrfHeaders(),
+        ...(init?.headers || {}),
+      },
     }),
   );
   return res.json() as Promise<T>;
@@ -393,11 +510,29 @@ export async function streamChat(
   lang: string,
   handlers: ChatStreamHandlers,
 ): Promise<void> {
-  const res = await fetch(`${API_BASE}/chat/stream`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, lang }),
-  });
+  // `_tracked`-i atlayır → credentials + CSRF + 401→refresh→retry-once əl ilə.
+  const doFetch = () =>
+    fetch(`${API_BASE}/chat/stream`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", ...csrfHeaders() },
+      body: JSON.stringify({ message, lang }),
+    });
+
+  let res = await doFetch();
+  if (res.status === 401) {
+    const code = await _errorCode(res);
+    if (code === "token_expired") {
+      if (await refreshOnce()) {
+        res = await doFetch();
+        if (res.status === 401) _onAuthLost?.();
+      } else {
+        _onAuthLost?.();
+      }
+    } else if (code === "unauthenticated" || code === "session_revoked") {
+      _onAuthLost?.();
+    }
+  }
   if (!res.ok || !res.body) throw new Error(`API ${res.status}: /chat/stream`);
 
   const reader = res.body.getReader();
@@ -663,10 +798,28 @@ export async function streamRadarAbout(
   signal?: AbortSignal,
 ): Promise<void> {
   try {
-    const res = await fetch(`${API_BASE}/radar/${key}/about?lang=${lang}`, {
-      cache: "no-store",
-      signal,
-    });
+    // `_tracked`-i atlayır → credentials + 401→refresh→retry-once əl ilə.
+    const doFetch = () =>
+      fetch(`${API_BASE}/radar/${key}/about?lang=${lang}`, {
+        cache: "no-store",
+        credentials: "include",
+        signal,
+      });
+
+    let res = await doFetch();
+    if (res.status === 401) {
+      const code = await _errorCode(res);
+      if (code === "token_expired") {
+        if (await refreshOnce()) {
+          res = await doFetch();
+          if (res.status === 401) _onAuthLost?.();
+        } else {
+          _onAuthLost?.();
+        }
+      } else if (code === "unauthenticated" || code === "session_revoked") {
+        _onAuthLost?.();
+      }
+    }
     if (!res.ok || !res.body) return;
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
@@ -718,4 +871,21 @@ export async function getPowerLawAssets(): Promise<
   } catch {
     return [];
   }
+}
+
+/**
+ * Bütün modul-səviyyəli keşləri / in-flight promise-ləri / prefetch dəstlərini
+ * sıfırlayır. Giriş VƏ çıxış zamanı çağırılır ki, əvvəlki istifadəçinin datası
+ * (overview, anomaliyalar, radar detalları, analog/proqnoz prefetch izləri)
+ * yeni sessiyaya sızmasın.
+ */
+export function resetApiCaches(): void {
+  _ovCache = null;
+  _ovInflight = null;
+  _anomCache = null;
+  _anomInflight = null;
+  _radarDetailCache.clear();
+  _radarPrefetching.clear();
+  _analogPrefetched.clear();
+  _forecastPrefetched.clear();
 }

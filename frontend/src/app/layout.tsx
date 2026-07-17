@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "@/styles/globals.css";
 import { AuthGate } from "@/components/auth/AuthGate";
+import { AuthProvider } from "@/lib/auth-context";
 import { LanguageProvider } from "@/lib/i18n";
 import { ThemeProvider } from "@/lib/theme";
 import { AlertWatcher } from "@/components/alerts/AlertWatcher";
@@ -59,14 +60,16 @@ export default function RootLayout({
       <body className="min-h-screen bg-bg text-text font-sans antialiased">
         <ThemeProvider>
           <LanguageProvider>
-            <AuthGate>
-              {children}
-              {/* AI Assistant — bütün authed səhifələrdə üzən giriş */}
-              <AIAssistantFab />
-            </AuthGate>
-            <AlertWatcher />
-            <RoutePrewarm />
-            <BackendStatusBanner />
+            <AuthProvider>
+              <AuthGate>
+                {children}
+                {/* AI Assistant — bütün authed səhifələrdə üzən giriş */}
+                <AIAssistantFab />
+              </AuthGate>
+              <AlertWatcher />
+              <RoutePrewarm />
+              <BackendStatusBanner />
+            </AuthProvider>
           </LanguageProvider>
         </ThemeProvider>
       </body>

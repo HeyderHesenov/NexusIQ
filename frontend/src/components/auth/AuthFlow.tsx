@@ -8,14 +8,9 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 /**
  * Giriş axını: əvvəl Market Boot intro (landing).
  * Avtomatik keçid YOXDUR — istifadəçi CTA-ya toxunanda giriş açılır.
+ * Uğurlu girişdə `AuthProvider` status-u dəyişir → `AuthGate` saytı açır.
  */
-export function AuthFlow({
-  onAuthed,
-  authKey,
-}: {
-  onAuthed: () => void;
-  authKey: string;
-}) {
+export function AuthFlow() {
   const [phase, setPhase] = useState<"intro" | "auth">("intro");
 
   return (
@@ -42,7 +37,7 @@ export function AuthFlow({
             : "pointer-events-none scale-95 opacity-0"
         }`}
       >
-        <AuthScreen onAuthed={onAuthed} authKey={authKey} />
+        <AuthScreen />
       </div>
     </div>
   );

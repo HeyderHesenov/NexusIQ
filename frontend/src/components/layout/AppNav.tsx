@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { prefetchAnomalies } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 import { useClickOutside } from "@/lib/useClickOutside";
 import { clearUserData } from "@/lib/userData";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -80,14 +81,6 @@ const ALL_LEAVES: Leaf[] = [
   { href: "/about", labelKey: "about.nav", icon: Info },
 ];
 
-function logout() {
-  // Sessiya ilə birlikdə ŞƏXSİ datanı da sil — əks halda paylaşılan brauzerdə
-  // növbəti şəxs əvvəlkinin portfelini (qty + avgCost) və izləmə siyahısını
-  // hazır görür (bax lib/userData.ts).
-  clearUserData();
-  location.href = "/";
-}
-
 const isActive = (pathname: string, href: string) =>
   href === "/" ? pathname === "/" : pathname.startsWith(href);
 
@@ -100,6 +93,7 @@ const _warmed = new Set<string>();
 
 export function AppNav() {
   const { t } = useI18n();
+  const auth = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [openGroup, setOpenGroup] = useState<string | null>(null);
@@ -107,6 +101,14 @@ export function AppNav() {
   useClickOutside(navRef, () => setOpenGroup(null));
 
   useEffect(() => setOpenGroup(null), [pathname]);
+
+  // Real çıxış: server cookie-ləri təmizləyir + keşlər sıfırlanır (auth.logout),
+  // sonra ŞƏXSİ lokal data (portfel qty+avgCost, watchlist və s.) silinir —
+  // əks halda paylaşılan brauzerdə növbəti şəxs onları hazır görər (userData.ts).
+  const handleLogout = async () => {
+    clearUserData();
+    await auth.logout();
+  };
 
   // Hover/focus — route-u qabaqcadan qızdır: prod prefetch + dev kompilyasiya + data.
   const warm = (href: string) => {
@@ -221,7 +223,7 @@ export function AppNav() {
           <span className="mx-1 h-5 w-px bg-border" />
           <LanguageSwitcher />
           <button
-            onClick={logout}
+            onClick={handleLogout}
             title={t("header.logout")}
             className="flex items-center rounded-lg px-2 py-1.5 text-muted transition-colors duration-200 hover:bg-surface-hover hover:text-down"
           >
