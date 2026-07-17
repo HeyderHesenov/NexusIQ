@@ -6,6 +6,27 @@ const isProd = process.env.NODE_ENV === "production";
 // və ws:// yalnız Next dev HMR üçün lazımdır → prod-da atılır (real bir XSS sink
 // olsa eval/websocket vektoru bağlı qalsın). http://localhost:* prod-da da qalır,
 // çünki brauzer API-yə birbaşa localhost:8001-ə (NEXT_PUBLIC_API_BASE) müraciət edir.
+//
+// `'unsafe-inline'` (script-src) — QƏSDƏN saxlanılır. Bu, ölçülmüş qərardır:
+//   • Hash-əsaslı CSP MÜMKÜN DEYİL: Next App Router hər səhifədə ~8 ədəd
+//     `self.__next_f.push(...)` inline RSC skripti buraxır və onların məzmunu
+//     səhifədən-səhifəyə, build-dən-build-ə dəyişir (render olunmuş HTML-də
+//     sayıldı: 9 inline blok, 8-i Next-in özündən).
+//   • Nonce YEGANƏ alternativdir, o isə middleware tələb edir → nonce hər sorğuda
+//     yenidir, deməli 14 STATİK səhifə per-request dinamikə çevrilir (real perf
+//     itkisi) + yeni middleware səthi.
+//   • Qazanc isə ~sıfırdır: iki müstəqil audit XSS SƏTHİNİ SIFIR tapdı — yeganə
+//     `dangerouslySetInnerHTML` aşağıdakı statik tema skriptidir (interpolasiya
+//     yoxdur), qalan hər şey React-escape olunur, markdown/HTML renderer yoxdur.
+//     Üstəlik `'unsafe-inline'` yalnız INLINE inyeksiyaya imkan verir; xarici
+//     skript (`<script src=//evil>`) `'self'` ilə onsuz da bloklanır.
+// Yəni burada CSP əsas nəzarət deyil, müdafiə dərinliyidir və onun üçün 14
+// səhifəni dinamikləşdirmək səmərəsiz mübadilədir.
+//
+// PLANLANAN sərtləşmə (auth işi, /backend marshrutu ilə PULSUZ gəlir): brauzer
+// API-yə same-origin `/backend/*` üzərindən getdikdə `connect-src`-dən
+// `http://localhost:*` və `https://www.googleapis.com` ÇIXIR (Google userinfo
+// çağırışı server tərəfə keçir), `img-src` isə `'self'`-ə daralır.
 const CSP = [
   "default-src 'self'",
   "base-uri 'self'",
