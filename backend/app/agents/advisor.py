@@ -114,7 +114,10 @@ async def _rag_context(session: AsyncSession, question: str, lang: str) -> str:
 
         since = datetime.now(timezone.utc) - timedelta(days=90)
         fields = (News.title, News.summary, News.title_az, News.summary_az)
-        conds = [f.ilike(f"%{w}%") for w in words for f in fields]
+        # `autoescape=True` — `%`/`_` LIKE jokerləridir və `words` istifadəçinin
+        # sualından gəlir. Xam `f"%{w}%"` ilə 10 söz × 4 sütun = 40 hücumçu
+        # formalı naxış superxətti backtracking edirdi (bax news.py/search).
+        conds = [f.contains(w, autoescape=True) for w in words for f in fields]
         candidates = (
             await session.scalars(
                 select(News)

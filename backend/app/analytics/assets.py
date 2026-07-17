@@ -102,6 +102,12 @@ _RANGE_MAP = {
 _quote_cache: dict[str, tuple[float, dict]] = {}
 _hist_cache: dict[str, tuple[float, dict]] = {}
 _QUOTE_TTL = 60.0
+# Uğursuz axtarışın neqativ keşi — qısa saxlanılır ki, keçici upstream blip-i
+# aktivi uzun müddət "yox" göstərməsin (netguard/img_cache dərsi: keçici nasazlıq
+# davamlı verdikt kimi yazılmamalıdır).
+_quote_neg: dict[str, float] = {}
+_QUOTE_NEG_TTL = 30.0
+_NEG_MAX = 512
 _HIST_TTL = 1800.0
 
 # ---- Binance top coinlər (dinamik) ----
@@ -264,9 +270,25 @@ async def get_quote(key: str) -> dict | None:
     cached = _quote_cache.get(key)
     if cached and now - cached[0] < _QUOTE_TTL:
         return cached[1]
+    # Neqativ keş: uğursuzluq da yadda saxlanır. Əvvəl YALNIZ uğur keşlənirdi
+    # (`if data: ...`) → upstream-i sınıq/ləng olan reyestr açarı (məs. bayat
+    # `CNH=X`) HƏR sorğuda yenidən `asyncio.to_thread` ilə DEFOLT hovuza düşür
+    # və təzə şəbəkə çağırışı edirdi — bahalı yol tamamilə qorunmamış qalırdı.
+    # `img_cache` bu dərsi artıq yazıb (img_cache.py:25-26) — köçürülür.
+    neg = _quote_neg.get(key)
+    if neg and now - neg < _QUOTE_NEG_TTL:
+        return None
     data = await asyncio.to_thread(_quote_sync, key)
     if data:
         _quote_cache[key] = (now, data)
+        _quote_neg.pop(key, None)
+    else:
+        _quote_neg[key] = now
+        # Yaddaş sonsuz böyüməsin — açarlar reyestrlə məhduddur, amma dinamik
+        # coin (`c_*`) sayı artdıqca tavan lazımdır.
+        if len(_quote_neg) > _NEG_MAX:
+            for k in sorted(_quote_neg, key=_quote_neg.get)[: _NEG_MAX // 2]:
+                _quote_neg.pop(k, None)
     return data
 
 

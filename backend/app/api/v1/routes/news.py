@@ -67,21 +67,31 @@ async def count_news(
     return {"total": (await db.scalar(stmt)) or 0}
 
 
-@router.get("/search", response_model=list[NewsOut])
+@router.get(
+    "/search",
+    response_model=list[NewsOut],
+    # Axtarış 4 sütun üzrə indekssiz ILIKE seq-scan edir (aparıcı `%` btree
+    # indeksini onsuz da işlədə bilmir). Endpoint TAMAMİLƏ limitsiz idi.
+    dependencies=[Depends(rate_limit("news_search", limit=30, window=60.0))],
+)
 async def search_news(
     q: str = Query(..., min_length=1, max_length=100, description="Axtarış sözü"),
     limit: int = Query(20, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
 ) -> list[NewsOut]:
     """Başlıq/xülasə üzrə axtarış (orijinal + AZ)."""
-    pattern = f"%{q.strip()}%"
+    # `contains(..., autoescape=True)` — `%` və `_` LIKE jokerləridir. Xam
+    # `f"%{q}%"` ilə `q=%` HƏR sətri tuturdu, `q=%_%_%_%` isə 4 sütun üzrə
+    # superxətti backtracking-ə məcbur edirdi (CPU, data sızması yox).
+    # Eyni qoru `imagejunk.junk_sql`-də artıq düzgün tətbiq olunub — köçürülür.
+    term = q.strip()
     stmt = (
         _BASE.where(
             or_(
-                News.title.ilike(pattern),
-                News.summary.ilike(pattern),
-                News.title_az.ilike(pattern),
-                News.summary_az.ilike(pattern),
+                News.title.contains(term, autoescape=True),
+                News.summary.contains(term, autoescape=True),
+                News.title_az.contains(term, autoescape=True),
+                News.summary_az.contains(term, autoescape=True),
             )
         )
         .order_by(News.published_at.desc().nullslast())
