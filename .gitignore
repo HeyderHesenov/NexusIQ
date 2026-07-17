@@ -48,6 +48,8 @@ skills/
 CLAUDE.md
 CLAUDE.local.md
 AGENTS.md
+# AI agent plan/iş faylları — mütləq lokal yollar daşıya bilər (faydalı spec-lər docs/specs/-də saxlanılır)
+docs/superpowers/
 
 # test/build artifacts
 .playwright-mcp/
