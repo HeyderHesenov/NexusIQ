@@ -17,7 +17,7 @@ from alembic import context
 
 from app.core.config import settings
 from app.db.base import Base
-from app.models import Category, News, NewsAsset, Source  # noqa: F401  (metadata qeydiyyatı)
+from app import models  # noqa: F401  (bütün cədvəllər Base.metadata-da qeydiyyatdan keçir)
 
 config = context.config
 

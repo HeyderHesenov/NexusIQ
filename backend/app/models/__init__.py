@@ -1,10 +1,24 @@
 """ORM modelləri. Buradan import → Base.metadata bütün cədvəlləri tanıyır."""
 from __future__ import annotations
 
+from app.models.auth_session import AuthSession
+from app.models.auth_token import EmailVerificationToken, PasswordResetToken
 from app.models.category import Category
 from app.models.news import News
 from app.models.news_asset import NewsAsset
 from app.models.push import PushSubscription
 from app.models.source import Source
+from app.models.user import User, UserIdentity
 
-__all__ = ["Category", "News", "NewsAsset", "PushSubscription", "Source"]
+__all__ = [
+    "AuthSession",
+    "Category",
+    "EmailVerificationToken",
+    "News",
+    "NewsAsset",
+    "PasswordResetToken",
+    "PushSubscription",
+    "Source",
+    "User",
+    "UserIdentity",
+]
