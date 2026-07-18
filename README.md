@@ -120,7 +120,8 @@ Tək əmrlə işə salma:
 ```
 
 ## Status
-Bütün 10 əsas addım + v2 (bonuslar) + v3 (Mənə Aid flaqmanı) tamamlanıb.
+Bütün 10 əsas addım + v2 (bonuslar) + v3 (Mənə Aid flaqmanı) + v4 (real
+autentifikasiya + təhlükəsizlik sərtləşdirmə) tamamlanıb.
 Tam dəyişiklik tarixçəsi: **[CHANGELOG.md](CHANGELOG.md)**.
 
 ## Sənədlər
@@ -130,6 +131,9 @@ Tam dəyişiklik tarixçəsi: **[CHANGELOG.md](CHANGELOG.md)**.
 - API sənədi: backend işləyəndə `http://localhost:8001/docs` (yalnız `development`)
 
 ## Test
+Backend testləri işləyən Postgres tələb edir (`./scripts/dev.sh` və ya
+`scripts/pg_ensure.sh`); `nexusiq_test` bazası avtomatik qurulur (`TEST_DATABASE_URL`
+ilə ləğv oluna bilər).
 ```bash
 cd backend && .venv/bin/pytest -q                 # backend testləri
 cd frontend && npx tsc --noEmit && npm run build  # frontend tip + build

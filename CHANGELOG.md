@@ -2,6 +2,37 @@
 
 Bütün diqqətəlayiq dəyişikliklər. Tarixlər YYYY-MM-DD.
 
+## 2026-07 — Real autentifikasiya + təhlükəsizlik sərtləşdirmə (v4)
+
+Demo localStorage girişi tam server-tərəfli sessiya sistemi ilə əvəzləndi. Bütün
+şəxsi data artıq istifadəçiyə bağlıdır; AI istifadəsi büdcə/kill-switch altındadır.
+
+### Autentifikasiya
+- **Hibrid token** — opaque, DB-də saxlanan refresh (30 gün, rotasiya + reuse
+  aşkarlanması → sessiya zəncirinin ləğvi) + qısa HS256 JWT access (10 dəq).
+- **Parol** — Argon2id (`argon2-cffi`), min 12 simvol + HIBP (fail-open) yoxlaması;
+  giriş kilidləmə (per-hesab backoff, Argon2-dən əvvəl 429 + Retry-After).
+- **Google** — server-tərəfli ID-token doğrulaması (`aud`/`iss`/`exp`/nonce pin),
+  bağlama `sub` üzrə; konfiqurasiya olunmayanda 503 (fail-closed).
+- **Parol sıfırlama** — `/auth/password-reset/request|confirm` (256-bit birdəfəlik
+  token, 30 dəq) + frontend `/reset` səhifəsi və "Parolu unutdun?" axını (4 dil).
+- **Sessiyalar** — `/auth/sessions` (siyahı + fərdi ləğv), `/auth/logout-all`.
+
+### Təhlükəsizlik
+- **Cookie-lər** `__Host-` prefiksli, httpOnly, SameSite; **CSRF** = Origin allowlist
+  + `sid`-ə bağlı HMAC double-submit (tək ASGI middleware).
+- **Same-origin proksi** — frontend `/backend/*` rewrite üzərindən (build-time
+  `BACKEND_INTERNAL_URL`), ona görə `allow_credentials=False` qalır.
+- **AI büdcəsi** — `ai_usage` + `system_flags`: qlobal/per-user gündəlik cap + kill
+  switch; AI/push/legacy route-ları `require_user` + büdcə asılılığı altında.
+- **CSP daraldıldı** (connect-src `self` + GIS), prod HSTS, `trusted_proxy_hops`
+  konfiqurasiyası, prod boot açılmamış secret-lərdə fail-closed.
+
+### İnfrastruktur
+- 5 auth cədvəli + per-user data cədvəlləri (4 additive migration); `test_route_policy`
+  drift qoruyucusu (yeni qorunmamış route → build xətası); real Postgres test DB
+  (`nexusiq_test`) avtomatik qurulur. Backend 235 test yaşıl.
+
 ## 2026-07 — Mənə Aid: şəxsi kəşfiyyat flaqmanı (v3)
 
 Generik analitika artıq **şəxsi VƏ sübutlu**. Hesab tələb olunmur (localStorage-first;

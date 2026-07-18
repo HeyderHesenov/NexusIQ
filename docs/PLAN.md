@@ -45,7 +45,9 @@
 - AI öz sözləri ilə yazır (summarize_ai, məqalə-kontekstli — bax CHANGELOG). ✅
 
 ## Auth — email/parol + Google  `[x]`
-- Login/Signup tab, email+parol formu (demo), altında "Google ilə davam et". ✅
+- Login/Signup tab, email+parol formu, altında "Google ilə davam et". ✅
+- v4-də real server-tərəfli auth ilə əvəzləndi: Argon2id, hibrid token (opaque DB
+  refresh + HS256 access), CSRF, sessiyalar, AI büdcəsi, parol sıfırlama. Bax CHANGELOG (v4). ✅
 
 ## Addım 6.5 — Web Push bildirişlər (PWA)  `[x]`
 - Service Worker (`public/sw.js`) + VAPID açarları. ✅ (pulsuz)
@@ -101,7 +103,7 @@
 Opsional orkestrasiya: LangGraph.
 
 ## Texnologiya
-Frontend: Next.js 14 + TailwindCSS (dark).
+Frontend: Next.js 15 + TailwindCSS (dark).
 Backend: FastAPI + SQLAlchemy async + PostgreSQL.
 AI: çoxmodelli LLM (provayder-agnostik).
 Analitika: pandas, yfinance, scipy, httpx (chart-lar öz SVG render — plotly yox).

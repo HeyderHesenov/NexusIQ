@@ -7,9 +7,8 @@ import { LanguageProvider } from "@/lib/i18n";
 import { ThemeProvider } from "@/lib/theme";
 import { AlertWatcher } from "@/components/alerts/AlertWatcher";
 import { RoutePrewarm } from "@/components/layout/RoutePrewarm";
-import { AIAssistantFab } from "@/components/ai/AIAssistantFab";
+import { AuthedChrome } from "@/components/layout/AuthedChrome";
 import { BackendStatusBanner } from "@/components/system/BackendStatusBanner";
-import { MigrateBanner } from "@/components/system/MigrateBanner";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -62,13 +61,9 @@ export default function RootLayout({
         <ThemeProvider>
           <LanguageProvider>
             <AuthProvider>
-              <AuthGate>
-                {children}
-                {/* AI Assistant — bütün authed səhifələrdə üzən giriş */}
-                <AIAssistantFab />
-                {/* Birdəfəlik köhnə localStorage datasının köçürülməsi */}
-                <MigrateBanner />
-              </AuthGate>
+              <AuthGate>{children}</AuthGate>
+              {/* Yalnız authed chrome — publik marşrutlarda (/reset) görünmür */}
+              <AuthedChrome />
               <AlertWatcher />
               <RoutePrewarm />
               <BackendStatusBanner />
