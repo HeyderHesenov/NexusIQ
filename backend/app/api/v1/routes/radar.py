@@ -6,6 +6,8 @@ from fastapi.responses import StreamingResponse
 
 from app.agents import radar_ai
 from app.analytics import radar
+from app.core.auth import require_user
+from app.core.budget import ai_budget
 from app.core.ratelimit import rate_limit
 
 router = APIRouter()
@@ -37,7 +39,11 @@ async def radar_list(
 
 @router.get(
     "/{key}/explain",
-    dependencies=[Depends(rate_limit("radar_ai", limit=20, window=60.0))],
+    dependencies=[
+        Depends(rate_limit("radar_ai", limit=20, window=60.0)),
+        Depends(require_user),
+        Depends(ai_budget("radar_explain", weight=1)),
+    ],
 )
 async def radar_explain(key: str, lang: str = Query("az")) -> dict:
     """Aktivin niyə radarda olduğunu AI ilə izah edir (yalnız istəklə)."""
@@ -51,7 +57,11 @@ async def radar_explain(key: str, lang: str = Query("az")) -> dict:
 
 @router.get(
     "/{key}/about",
-    dependencies=[Depends(rate_limit("radar_ai", limit=20, window=60.0))],
+    dependencies=[
+        Depends(rate_limit("radar_ai", limit=20, window=60.0)),
+        Depends(require_user),
+        Depends(ai_budget("radar_about", weight=1)),
+    ],
 )
 async def radar_about(key: str, lang: str = Query("az")) -> StreamingResponse:
     """Aktiv haqqında icmalı seçilmiş dildə token-token axıdır (keşli).

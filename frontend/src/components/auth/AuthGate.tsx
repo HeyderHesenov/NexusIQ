@@ -1,32 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { AuthFlow } from "./AuthFlow";
-import { SESSION_KEY as AUTH_KEY } from "@/lib/userData";
+import { useAuth } from "@/lib/auth-context";
+
+/** Sessiya tələb etməyən publik marşrutlar (e-poçt linkindən açılır). */
+const PUBLIC_PATHS = new Set(["/reset"]);
 
 /**
- * Saytı qoruyan qapı. Sessiya yoxdursa giriş ekranı göstərilir,
- * uğurlu girişdən sonra əsas sayt açılır.
- *
- * Qeyd: hələlik sessiya brauzerdə saxlanılır. Backend autentifikasiyası
- * sonrakı addımda real JWT ilə əvəz olunacaq.
+ * Saytı qoruyan qapı. Real sessiya `AuthProvider` (fetchMe) ilə yoxlanır:
+ * yüklənmə bitənə qədər boş fon, sessiya yoxdursa giriş axını, varsa əsas sayt.
+ * İstisna: parol sıfırlama kimi publik marşrutlar auth-dan asılı olmadan render olunur.
  */
 export function AuthGate({ children }: { children: React.ReactNode }) {
-  const [ready, setReady] = useState(false);
-  const [authed, setAuthed] = useState(false);
+  const { status } = useAuth();
+  const pathname = usePathname();
 
-  useEffect(() => {
-    setAuthed(Boolean(localStorage.getItem(AUTH_KEY)));
-    setReady(true);
-  }, []);
+  // Publik marşrut — auth bootstrap-ı gözləmədən dərhal göstər.
+  if (pathname && PUBLIC_PATHS.has(pathname)) {
+    return <>{children}</>;
+  }
 
-  // Hidratasiya bitənə qədər boş fon — yanıp-sönməni önləyir.
-  if (!ready) {
+  // Bootstrap bitənə qədər boş fon — yanıp-sönməni önləyir.
+  if (status === "loading") {
     return <div className="min-h-screen bg-bg" />;
   }
 
-  if (!authed) {
-    return <AuthFlow onAuthed={() => setAuthed(true)} authKey={AUTH_KEY} />;
+  if (status === "anon") {
+    return <AuthFlow />;
   }
 
   return <>{children}</>;

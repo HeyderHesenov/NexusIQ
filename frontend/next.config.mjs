@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8001";
+// Server-only daxili backend URL — brauzer eyni-origin `/backend/*`-a gedir,
+// bu rewrite isə onu backend-ə yönləndirir. QƏSDƏN NEXT_PUBLIC_API_BASE DEYİL:
+// o artıq `/backend`-dir, deməli destination `/backend/:path*` olardı → sonsuz
+// döngü. DİQQƏT: Next rewrite-ları BUILD zamanı "bişirir", ona görə bu dəyər
+// build vaxtı oxunur (runtime dəyişikliyi təsir etmir → build-də təyin et).
+const BACKEND_INTERNAL_URL =
+  process.env.BACKEND_INTERNAL_URL || "http://127.0.0.1:8001/api/v1";
 const isProd = process.env.NODE_ENV === "production";
 
 // Content-Security-Policy — inline tema skripti + Google GIS üçün. 'unsafe-eval'
@@ -23,10 +29,11 @@ const isProd = process.env.NODE_ENV === "production";
 // Yəni burada CSP əsas nəzarət deyil, müdafiə dərinliyidir və onun üçün 14
 // səhifəni dinamikləşdirmək səmərəsiz mübadilədir.
 //
-// PLANLANAN sərtləşmə (auth işi, /backend marshrutu ilə PULSUZ gəlir): brauzer
-// API-yə same-origin `/backend/*` üzərindən getdikdə `connect-src`-dən
-// `http://localhost:*` və `https://www.googleapis.com` ÇIXIR (Google userinfo
-// çağırışı server tərəfə keçir), `img-src` isə `'self'`-ə daralır.
+// Sərtləşmə TƏTBİQ EDİLDİ (Faza 4): brauzer API-yə same-origin `/backend/*` gedir,
+// Google userinfo server tərəfə keçdi → `connect-src`-dən `http://localhost:*` və
+// `https://www.googleapis.com` ÇIXARILDI. `img-src`-dən `http://localhost:*` çıxdı
+// (thumbnail-lar artıq same-origin /backend/img proksisidir); `https:` QALIR — Google
+// avatar (googleusercontent.com) + id-siz naşir ehtiyat şəkilləri üçün.
 const CSP = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -37,13 +44,11 @@ const CSP = [
     ? "script-src 'self' 'unsafe-inline' https://accounts.google.com"
     : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com",
   "style-src 'self' 'unsafe-inline'",
-  // http://localhost:* → backend thumbnail proksisi (/img/news/{id}); connect-src
-  // ilə eyni səbəb. https: → id-siz Yahoo ehtiyat xəbərləri birbaşa naşirdən.
-  "img-src 'self' data: https: http://localhost:*",
+  "img-src 'self' data: https:",
   "font-src 'self' data:",
   isProd
-    ? "connect-src 'self' http://localhost:* https://www.googleapis.com https://accounts.google.com"
-    : "connect-src 'self' http://localhost:* ws://localhost:* https://www.googleapis.com https://accounts.google.com",
+    ? "connect-src 'self' https://accounts.google.com"
+    : "connect-src 'self' ws://localhost:* https://accounts.google.com",
   "frame-src https://accounts.google.com",
 ].join("; ");
 
@@ -53,6 +58,11 @@ const SECURITY_HEADERS = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  // HSTS YALNIZ prod (HTTPS). Lokal HTTP-də localhost-a HSTS yazmaq bütün lokal
+  // HTTP layihələrini sındırardı — ona görə isProd qapısı.
+  ...(isProd
+    ? [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" }]
+    : []),
 ];
 
 const nextConfig = {
@@ -68,8 +78,13 @@ const nextConfig = {
     return [{ source: "/:path*", headers: SECURITY_HEADERS }];
   },
   async rewrites() {
-    // Frontend /api/* → backend (CORS-suz lokal proxy).
-    return [{ source: "/backend/:path*", destination: `${API_BASE}/:path*` }];
+    // Eyni-origin proksi: brauzer `/backend/*` → backend (cookie/CSRF/Origin düzgün).
+    return [
+      {
+        source: "/backend/:path*",
+        destination: `${BACKEND_INTERNAL_URL}/:path*`,
+      },
+    ];
   },
 };
 

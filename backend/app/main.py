@@ -13,7 +13,8 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.v1.router import api_router
 from app.core import bgtasks
-from app.core.config import settings
+from app.core.config import settings, validate_runtime
+from app.core.csrf import CsrfMiddleware
 from app.core.security_headers import SecurityHeaders
 from app.scheduler import shutdown_scheduler, start_scheduler, startup_catchup
 from app.services import img_cache
@@ -111,6 +112,9 @@ async def _prewarm() -> None:
 async def lifespan(app: FastAPI):
     """Başlanğıc / bağlanış hadisələri — planlayıcı + keş istiləşməsi."""
     # startup
+    # Konfiq coherence yoxlaması (prod-da təhlükəsiz olmayan auth konfiqi boot-u dayandırır).
+    for w in validate_runtime():
+        logger.warning("konfiq: %s", w)
     start_scheduler()
     # `spawn` referansı saxlayır + istisnanı loglayır. Çılpaq `create_task` ilə
     # loop yalnız zəif referans tutur → iş ortasında GC riski, üstəlik xəta
@@ -136,16 +140,18 @@ def create_app() -> FastAPI:
     )
 
     # Starlette middleware-ləri TƏRS sıra ilə işlədir (sonuncu əlavə = ən xarici).
-    # İstənilən icra sırası: SecurityHeaders → CORS → BodyLimit → app.
+    # İstənilən icra sırası: SecurityHeaders → CORS → CSRF → BodyLimit → app.
     # SecurityHeaders ən xarici olmalıdır ki, başlıqlar CORS-un öz preflight
-    # cavablarına və xəta cavablarına da düşsün.
+    # cavablarına və xəta cavablarına da düşsün. CSRF preflight-dən sonra, gövdə
+    # oxunmadan əvvəl — heç bir route iştirak etmir, ona görə heç biri unuda bilməz.
     app.add_middleware(_BodySizeLimit)
+    app.add_middleware(CsrfMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins_list,
-        allow_credentials=False,  # frontend cookie/credential göndərmir
+        allow_credentials=False,  # same-origin /backend proxy → credentials əbədi off (fail-closed tripwire)
         allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type"],
+        allow_headers=["Content-Type", "X-CSRF-Token"],
     )
     app.add_middleware(SecurityHeaders, hsts=settings.hsts_enabled)
     # Host başlığı inyeksiyası qorusu. "*" (lokal dev defoltu) olanda əlavə

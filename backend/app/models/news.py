@@ -92,6 +92,8 @@ class News(Base, TimestampMixin):
         # Ön səhifə (kateqoriyasız) sıralaması — sorğu ilə eyni sıra (DESC NULLS
         # LAST) ki, planner scale-də seq scan+sort əvəzinə index scan seçsin.
         Index("ix_news_published", published_at.desc().nullslast()),
+        # Şəkil retry backoff sorğusu (migrasiya e5f6a7b8c9d0-də yaradıldı).
+        Index("ix_news_image_retry", "image_attempts", "image_attempted_at"),
     )
 
     def __repr__(self) -> str:

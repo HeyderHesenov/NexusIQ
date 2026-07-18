@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Sparkline } from "@/components/charts/Sparkline";
 import { NewsBadges } from "@/components/news/NewsBadges";
 import { getWatchlistIntel } from "@/lib/api";
-import { getLastSeen, markSeen } from "@/lib/lastSeen";
+import { markSeen } from "@/lib/lastSeen";
 import { useWatchlist } from "@/lib/watchlist";
 import { localizedNews } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
@@ -29,7 +29,7 @@ export function RelevantToMe() {
       return;
     }
     let alive = true;
-    getWatchlistIntel(keys, getLastSeen()).then((d) => {
+    getWatchlistIntel().then((d) => {
       if (!alive) return;
       setAssets(d.assets || []);
       setSince(d.sinceCount || 0);

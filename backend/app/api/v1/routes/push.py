@@ -7,8 +7,10 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import netguard
+from app.core.auth import require_user
 from app.core.config import settings
 from app.core.ratelimit import rate_limit
+from app.models import User
 from app.db.session import get_db
 from app.services import push_service
 
@@ -73,12 +75,15 @@ async def vapid_key() -> dict:
 
 @router.post("/subscribe", dependencies=[Depends(_push_limit)])
 async def subscribe(
-    req: SubscribeRequest, db: AsyncSession = Depends(get_db)
+    req: SubscribeRequest,
+    user: User = Depends(require_user),
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Brauzer abunəsini saxlayır (upsert)."""
+    """Brauzer abunəsini saxlayır (upsert) — cari istifadəçiyə bağlı."""
     await _assert_endpoint_safe(req.endpoint)
     await push_service.save_subscription(
         db,
+        user_id=user.id,
         endpoint=req.endpoint,
         p256dh=req.keys.p256dh,
         auth=req.keys.auth,
@@ -89,16 +94,20 @@ async def subscribe(
 
 @router.post("/unsubscribe", dependencies=[Depends(_push_limit)])
 async def unsubscribe(
-    req: EndpointRequest, db: AsyncSession = Depends(get_db)
+    req: EndpointRequest,
+    user: User = Depends(require_user),
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Abunəni silir."""
-    await push_service.delete_subscription(db, req.endpoint)
+    """Abunəni silir (endpoint + sahiblik)."""
+    await push_service.delete_subscription(db, req.endpoint, user.id)
     return {"ok": True}
 
 
 @router.post("/test")
-async def test_push(db: AsyncSession = Depends(get_db)) -> dict:
-    """Bütün abunələrə test bildirişi göndərir (yalnız development)."""
+async def test_push(
+    user: User = Depends(require_user), db: AsyncSession = Depends(get_db)
+) -> dict:
+    """YALNIZ çağıranın öz abunələrinə test bildirişi (yalnız development)."""
     if settings.environment != "development":
         raise HTTPException(status_code=404, detail="Not Found")
     payload = {
@@ -107,5 +116,5 @@ async def test_push(db: AsyncSession = Depends(get_db)) -> dict:
         "url": "/",
         "tag": "nexusiq-test",
     }
-    stats = await push_service.send_to_all(db, payload)
+    stats = await push_service.send_to_user(db, user.id, payload)
     return {"ok": True, **stats}

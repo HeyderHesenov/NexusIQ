@@ -1,22 +1,40 @@
 "use client";
 
 /**
- * Son-baxış vaxtı — localStorage-da epoch ms. "Sən yox ikən" sayğacı üçün:
- * digest serverə bu vaxtı göndərir, server ondan sonrakı xəbərləri sayır.
- * Hesab yoxdur (demo auth) — tamamilə klient tərəfli.
+ * Son-baxış vaxtı — serverdəki `/me/prefs.lastSeenAt` ilə dəstəklənir (epoch ms).
+ * "Sən yox ikən" sayğacı üçün: /me/intel/* serverin özündə bu vaxtı oxuyur.
+ * Klient tərəfdə yalnız in-memory kopya saxlanır (hydrate ilə doldurulur);
+ * `markSeen` optimistik yaddaşı yeniləyir və fon PUT ilə serverə yazır.
  */
+import { apiGet, apiPut } from "@/lib/api";
+
 export const KEY = "nexusiq_lastseen";
 
+let lastSeen: number | null = null;
+
+/** Serverdən prefs.lastSeenAt-i yüklə. Auth-dan sonra bir dəfə. */
+export async function hydrate(): Promise<void> {
+  try {
+    const p = await apiGet<{ lastSeenAt: string | null }>("/me/prefs");
+    lastSeen = p?.lastSeenAt ? Date.parse(p.lastSeenAt) || null : null;
+  } catch {
+    /* köhnə dəyər qalır */
+  }
+}
+
+/** Çıxışda in-memory dəyəri sıfırla. */
+export function clearStore(): void {
+  lastSeen = null;
+}
+
 export function getLastSeen(): number | null {
-  if (typeof window === "undefined") return null;
-  const raw = localStorage.getItem(KEY);
-  if (!raw) return null;
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : null;
+  return lastSeen;
 }
 
 /** Digest göründükdən sonra çağır — növbəti açılışda "yeni" bundan sonrakılardır. */
 export function markSeen(): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(KEY, String(Date.now()));
+  lastSeen = Date.now();
+  void apiPut("/me/prefs", { lastSeen }).catch(() => {
+    /* şəbəkə xətası — server növbəti markSeen-də yenilənəcək */
+  });
 }

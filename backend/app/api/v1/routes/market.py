@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, Query
 
 from app.agents.brief_ai import market_brief
 from app.agents.llm import has_primary
+from app.core.auth import require_user
+from app.core.budget import ai_budget
 from app.core.ratelimit import rate_limit
 from app.analytics.calendar import get_calendar
 from app.analytics.crypto_calendar import get_crypto_calendar
@@ -87,7 +89,14 @@ _LANGS = {"az", "en", "ru", "tr"}
 # tempi üçün 10/dəq bol-bol kifayətdir.
 # QEYD: bu yalnız qanaxmanı azaldır. ƏSL nəzarət — `require_user` + per-user
 # `ai_budget` (auth işi). Per-IP limit botnet-ə qarşı onsuz da zəifdir.
-@router.get("/brief", dependencies=[Depends(rate_limit("brief", limit=10, window=60.0))])
+@router.get(
+    "/brief",
+    dependencies=[
+        Depends(rate_limit("brief", limit=10, window=60.0)),
+        Depends(require_user),
+        Depends(ai_budget("market_brief", weight=1)),
+    ],
+)
 async def brief_route(
     kind: str = Query("event", max_length=24),
     name: str = Query(..., min_length=1, max_length=120),

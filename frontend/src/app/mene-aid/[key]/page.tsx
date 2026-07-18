@@ -10,7 +10,6 @@ import { Sparkline } from "@/components/charts/Sparkline";
 import { NewsCard } from "@/components/news/NewsCard";
 import { WatchButton } from "@/components/assets/WatchButton";
 import { getAssetIntel } from "@/lib/api";
-import { getLastSeen } from "@/lib/lastSeen";
 import { useI18n } from "@/lib/i18n";
 import type { AssetDigest } from "@/types";
 
@@ -26,7 +25,7 @@ export default function MeneAidAssetPage() {
   useEffect(() => {
     let alive = true;
     setStatus("loading");
-    getAssetIntel(key, 30).then((d) => {
+    getAssetIntel(key).then((d) => {
       if (!alive) return;
       setData(d);
       setStatus(d && d.count > 0 ? "ready" : "empty");

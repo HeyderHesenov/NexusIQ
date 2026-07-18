@@ -35,29 +35,54 @@ _POOL = ThreadPoolExecutor(max_workers=4, thread_name_prefix="webpush")
 _SEND_SEM = asyncio.Semaphore(8)
 
 
+_USER_CAP = 10  # istifadəçi başına abunə tavanı (köhnəni bud)
+
+
+async def _prune_user(session: AsyncSession, user_id) -> None:
+    subs = (
+        await session.scalars(
+            select(PushSubscription)
+            .where(PushSubscription.user_id == user_id)
+            .order_by(PushSubscription.created_at.desc())
+        )
+    ).all()
+    for old in subs[_USER_CAP:]:
+        await session.delete(old)
+
+
 async def save_subscription(
-    session: AsyncSession, *, endpoint: str, p256dh: str, auth: str, lang: str = "az"
+    session: AsyncSession, *, user_id, endpoint: str, p256dh: str, auth: str, lang: str = "az"
 ) -> PushSubscription:
-    """Abunəni yaradır və ya yeniləyir (endpoint üzrə upsert)."""
+    """Abunəni yaradır/yeniləyir (endpoint upsert). Sahib cari istifadəçiyə TƏYİN olunur —
+    brauzer kim login-dirsə ona aiddir."""
     existing = await session.scalar(
         select(PushSubscription).where(PushSubscription.endpoint == endpoint)
     )
     if existing is not None:
+        existing.user_id = user_id  # reassignment: brauzer indi kim login-dirsə onundur
         existing.p256dh = p256dh
         existing.auth = auth
         existing.lang = lang
         sub = existing
     else:
-        sub = PushSubscription(endpoint=endpoint, p256dh=p256dh, auth=auth, lang=lang)
+        sub = PushSubscription(
+            user_id=user_id, endpoint=endpoint, p256dh=p256dh, auth=auth, lang=lang
+        )
         session.add(sub)
+    await session.flush()
+    await _prune_user(session, user_id)
     await session.commit()
     return sub
 
 
-async def delete_subscription(session: AsyncSession, endpoint: str) -> None:
-    """Abunəni endpoint üzrə silir (idempotent)."""
+async def delete_subscription(session: AsyncSession, endpoint: str, user_id) -> None:
+    """Abunəni endpoint + SAHİB üzrə silir (idempotent). Sahiblik yoxlaması — endpoint
+    entropiyasına güvənmə."""
     await session.execute(
-        delete(PushSubscription).where(PushSubscription.endpoint == endpoint)
+        delete(PushSubscription).where(
+            PushSubscription.endpoint == endpoint,
+            PushSubscription.user_id == user_id,
+        )
     )
     await session.commit()
 
@@ -95,16 +120,12 @@ async def _send_one(sub: PushSubscription, payload: dict) -> int | None:
         return await loop.run_in_executor(_POOL, _send_raw, sub, payload)
 
 
-async def send_to_all(session: AsyncSession, payload: dict) -> dict[str, int]:
-    """Bütün abunələrə göndərir. Ölü abunələri təmizləyir. Sayğac qaytarır."""
-    if not settings.push_enabled:
-        logger.info("Push deaktiv (VAPID açarları yoxdur) — atlanır.")
-        return {"sent": 0, "removed": 0, "total": 0}
-
-    subs = (await session.scalars(select(PushSubscription))).all()
+async def _send_to_subs(
+    session: AsyncSession, subs: list[PushSubscription], payload: dict
+) -> dict[str, int]:
+    """Verilmiş abunə siyahısına paralel göndərir + ölüləri təmizləyir."""
     # Sinxron webpush çağırışlarını paralel thread-lərdə işlət — event loop
-    # bloklanmasın (əks halda N abunə serial göndərilir). Paralellik semafor +
-    # ayrıca hovuzla məhdudlaşdırılır (bax yuxarıdakı `_POOL` şərhi).
+    # bloklanmasın. Paralellik semafor + ayrıca hovuzla məhdudlaşır (bax `_POOL`).
     statuses = await asyncio.gather(*(_send_one(sub, payload) for sub in subs))
     sent = 0
     dead_endpoints: list[str] = []
@@ -113,7 +134,6 @@ async def send_to_all(session: AsyncSession, payload: dict) -> dict[str, int]:
             dead_endpoints.append(sub.endpoint)
         else:
             sent += 1
-
     if dead_endpoints:
         await session.execute(
             delete(PushSubscription).where(
@@ -121,8 +141,28 @@ async def send_to_all(session: AsyncSession, payload: dict) -> dict[str, int]:
             )
         )
         await session.commit()
-
     return {"sent": sent, "removed": len(dead_endpoints), "total": len(subs)}
+
+
+async def send_to_all(session: AsyncSession, payload: dict) -> dict[str, int]:
+    """BÜTÜN abunələrə (ingest broadcast) — yeni xəbər hamıya. Ölüləri təmizləyir."""
+    if not settings.push_enabled:
+        logger.info("Push deaktiv (VAPID açarları yoxdur) — atlanır.")
+        return {"sent": 0, "removed": 0, "total": 0}
+    subs = (await session.scalars(select(PushSubscription))).all()
+    return await _send_to_subs(session, subs, payload)
+
+
+async def send_to_user(session: AsyncSession, user_id, payload: dict) -> dict[str, int]:
+    """YALNIZ bir istifadəçinin abunələrinə (məs. /push/test — hamıya spam yox)."""
+    if not settings.push_enabled:
+        return {"sent": 0, "removed": 0, "total": 0}
+    subs = (
+        await session.scalars(
+            select(PushSubscription).where(PushSubscription.user_id == user_id)
+        )
+    ).all()
+    return await _send_to_subs(session, subs, payload)
 
 
 def build_news_payload(title: str, count: int, lang: str = "az") -> dict:

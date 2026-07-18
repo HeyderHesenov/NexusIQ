@@ -50,10 +50,7 @@ export default function PortfolioPage() {
     if (debRef.current) clearTimeout(debRef.current);
     setLoading(true);
     debRef.current = setTimeout(() => {
-      getPortfolioIntel(
-        holdings.map((h) => ({ key: h.key, qty: h.qty, avgCost: h.avgCost })),
-        null,
-      ).then((d) => {
+      getPortfolioIntel().then((d) => {
         setData(d);
         setLoading(false);
       });

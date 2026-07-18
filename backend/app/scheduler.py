@@ -63,6 +63,12 @@ async def ingest_cycle() -> None:
                 logger.info(
                     "Planlı AI emal — emal olunan: %s", ai.get("processed", 0)
                 )
+                # Planlayıcı xərci qlobal cap-a sayılır (hər xəbər ~3 LLM: tərcümə+xülasə+kat).
+                from app.core import budget
+
+                await budget.record_system_usage(
+                    "scheduler.process", ai.get("processed", 0) * 3
+                )
             except Exception:  # noqa: BLE001
                 logger.exception("Planlı AI emal xətası")
 
@@ -76,6 +82,23 @@ async def ingest_cycle() -> None:
     await _link_cycle()
     await _score_cycle()
     await _anomaly_cycle()
+    await _maintenance_cycle()
+
+
+async def _maintenance_cycle() -> None:
+    """Auth sessiya + ai_usage retention təmizliyi (ucuz, idempotent DELETE)."""
+    from app.core import budget
+    from app.db.session import AsyncSessionLocal
+    from app.services import auth_service
+
+    try:
+        async with AsyncSessionLocal() as session:
+            sess_n = await auth_service.cleanup_sessions(session)
+            usage_n = await budget.cleanup_usage(session)
+        if sess_n or usage_n:
+            logger.info("Təmizlik — sessiya: %s, ai_usage: %s", sess_n, usage_n)
+    except Exception:  # noqa: BLE001
+        logger.exception("Təmizlik dövrü xətası")
 
 
 async def _summary_cycle() -> None:
@@ -86,6 +109,9 @@ async def _summary_cycle() -> None:
         stats = await summarize_all_pending()
         if stats.get("summarized"):
             logger.info("AI xülasə — %s xəbər", stats["summarized"])
+            from app.core import budget
+
+            await budget.record_system_usage("scheduler.summary", stats["summarized"])
     except Exception:  # noqa: BLE001
         logger.exception("AI xülasə dövrü xətası")
 
@@ -191,7 +217,9 @@ async def _embed_cycle() -> None:
         if stats.get("embedded"):
             logger.info("Xəbər embedding — %s xəbər", stats["embedded"])
             from app.analytics import analog
+            from app.core import budget
 
+            await budget.record_system_usage("scheduler.embed", stats["embedded"])
             analog.reset_index()  # yeni embedding-lər indeksə daxil olsun
     except Exception:  # noqa: BLE001
         logger.exception("Xəbər embedding xətası")
