@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
+import { getAssetsOverview, getTotalNewsCount } from "@/lib/api";
 
 type Col = { titleKey: string; links: { href: string; labelKey: string }[] };
 
@@ -12,6 +14,7 @@ const COLUMNS: Col[] = [
       { href: "/assets", labelKey: "nav.assets" },
       { href: "/markets", labelKey: "nav.markets" },
       { href: "/watchlist", labelKey: "nav.watchlist" },
+      { href: "/portfel", labelKey: "nav.portfel" },
     ],
   },
   {
@@ -19,17 +22,23 @@ const COLUMNS: Col[] = [
     links: [
       { href: "/anomalies", labelKey: "anom.nav" },
       { href: "/analogs", labelKey: "analog.nav" },
-      { href: "/compare", labelKey: "nav.compare" },
       { href: "/correlation", labelKey: "corr.nav" },
       { href: "/powerlaw", labelKey: "pl.nav" },
+    ],
+  },
+  {
+    titleKey: "foot.tools",
+    links: [
+      { href: "/compare", labelKey: "nav.compare" },
+      { href: "/accuracy", labelKey: "nav.accuracy" },
+      { href: "/radar", labelKey: "nav.radar" },
+      { href: "/alerts", labelKey: "nav.alerts" },
     ],
   },
   {
     titleKey: "foot.more",
     links: [
       { href: "/", labelKey: "nav.news" },
-      { href: "/radar", labelKey: "nav.radar" },
-      { href: "/alerts", labelKey: "nav.alerts" },
       { href: "/saved", labelKey: "bm.title" },
       { href: "/about", labelKey: "about.nav" },
     ],
@@ -37,13 +46,24 @@ const COLUMNS: Col[] = [
 ];
 
 export function Footer() {
-  const { t } = useI18n();
-  const year = 2026;
+  const { t, lang } = useI18n();
+  const year = new Date().getFullYear();
+  const [news, setNews] = useState<number | null>(null);
+  const [assets, setAssets] = useState<number | null>(null);
+
+  useEffect(() => {
+    getTotalNewsCount().then((n) => {
+      if (n > 0) setNews(Math.floor(n / 100) * 100);
+    });
+    getAssetsOverview().then((a) => {
+      if (a.length) setAssets(a.length);
+    });
+  }, []);
 
   return (
     <footer className="mt-auto border-t border-border bg-surface">
       <div className="shell py-12">
-        <div className="grid gap-10 md:grid-cols-[1.4fr_repeat(3,1fr)]">
+        <div className="grid gap-10 md:grid-cols-[1.4fr_repeat(4,1fr)]">
           {/* brend */}
           <div className="max-w-xs">
             <Link href="/" className="flex items-center gap-2.5">
@@ -79,6 +99,27 @@ export function Footer() {
                 </Link>
               ))}
             </nav>
+          ))}
+        </div>
+
+        {/* canlı statistika */}
+        <div className="mt-10 flex flex-wrap items-center gap-x-10 gap-y-4 border-t border-border pt-6">
+          {[
+            {
+              value: `${(news ?? 1500).toLocaleString(lang)}+`,
+              label: t("foot.statsNews"),
+            },
+            { value: `${assets ?? 80}+`, label: t("foot.statsAssets") },
+            { value: "4", label: t("foot.statsLangs") },
+          ].map((s) => (
+            <div key={s.label} className="flex items-baseline gap-2">
+              <span className="font-mono text-lg font-semibold text-accent">
+                {s.value}
+              </span>
+              <span className="text-xs uppercase tracking-[0.14em] text-muted">
+                {s.label}
+              </span>
+            </div>
           ))}
         </div>
 
