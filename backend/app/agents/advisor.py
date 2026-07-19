@@ -528,6 +528,30 @@ def _kb() -> store.VectorStore | None:
 _SIGNALS = {"prices", "anomalies", "correlations", "portfolio", "watchlist"}
 _PLAN_DEFAULT = {"path": "discussion", "signals": [], "assets": []}
 
+# Deterministik açar-söz augmentasiyası — zəif LLM (məs. mini modellər) siqnalı
+# buraxsa da tutulsun. 4 dil (az/en/ru/tr). Kiçik hərfli alt-sətir uyğunluğu.
+# Şəxsi siqnalların yanlış-müsbəti zərərsizdir (data yoxdursa `_ground` işə salmır).
+_KW_SIGNALS: dict[str, list[str]] = {
+    "prices": ["qiymət", "qiymet", "neçədir", "neçdir", "price", "quote", "fiyat",
+               "kaç para", "цена", "цены", "сколько стоит", "kurs", "məzənnə", "kotirovka"],
+    "anomalies": ["anomal", "аномал", "unusual", "sıçrayış", "spike", "why did", "why is",
+                  "niyə düş", "niyə qalx", "niyə artd", "neden düş", "neden yüksel",
+                  "kəskin hərəkət", "necə tərpən"],
+    "correlations": ["korrelyasiya", "korrelasiya", "correlat", "korelasyon", "корреляц",
+                     "əlaqəli", "relationship", "ilişkis", "связ"],
+    "portfolio": ["portfel", "portfolio", "portföy", "портфел", "holding", "p&l", "pnl",
+                  "mövqelər", "my position", "mənfəət/zərər", "kâr/zarar"],
+    "watchlist": ["watchlist", "izləmə siyah", "izlədiyim", "izleme list", "izlediğim",
+                  "список наблюд", "наблюдаем", "sən yox ik", "while i was away",
+                  "nələr oldu", "izlədiklər"],
+}
+
+
+def _keyword_signals(question: str) -> list[str]:
+    """Sualdan açar-sözlə siqnal tutur (LLM-in buraxdığını tamamlayır)."""
+    low = (question or "").lower()
+    return [sig for sig, kws in _KW_SIGNALS.items() if any(k in low for k in kws)]
+
 
 def _parse_plan(raw: str) -> dict:
     """Plan JSON-unu təhlükəsiz çevirir. Səhvdə default: discussion, siqnalsız."""
@@ -582,9 +606,14 @@ async def _plan(question: str, history: list | None = None) -> dict:
             temperature=0,
             max_tokens=120,
         )
-        return _parse_plan(resp.choices[0].message.content or "")
+        plan = _parse_plan(resp.choices[0].message.content or "")
     except Exception:  # noqa: BLE001
-        return dict(_PLAN_DEFAULT)
+        plan = dict(_PLAN_DEFAULT)
+    # Açar-söz augmentasiyası — LLM buraxsa da siqnalı tut (birləşdir, təkrarsız).
+    for sig in _keyword_signals(question):
+        if sig not in plan["signals"]:
+            plan["signals"].append(sig)
+    return plan
 
 
 async def _kb_chunks(question: str, k: int = 5) -> list[dict]:
