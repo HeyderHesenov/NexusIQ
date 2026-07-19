@@ -1,13 +1,23 @@
 "use client";
 
 import { memo, useEffect, useRef, useState } from "react";
-import { Sparkles, X, ArrowUp } from "lucide-react";
+import { Sparkles, X, ArrowUp, Activity, Wallet } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { streamChat } from "@/lib/api";
 import { PairChart } from "@/components/correlation/PairChart";
-import type { CorrPair } from "@/types";
+import type { CorrPair, ChatQuote, ChatAnomaly, ChatPortfolio } from "@/types";
 
-type Msg = { role: "user" | "assistant"; text: string; chart?: CorrPair };
+type Msg = {
+  role: "user" | "assistant";
+  text: string;
+  chart?: CorrPair;
+  quotes?: ChatQuote[];
+  anomalies?: { items: ChatAnomaly[]; asof: string };
+  portfolio?: ChatPortfolio;
+};
+
+// Söhbət yaddaşı — refresh-ə davam etsin (multi-turn UX). Son ~20 mesaj.
+const CHAT_KEY = "nexusiq_chat";
 
 /**
  * Sağ-altda üzən AI Analitik düyməsi + sağ drawer (ABB bankı tərzi).
@@ -36,6 +46,30 @@ export function AIAssistantFab() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages, busy]);
 
+  // Yaddaşdan bir dəfə yüklə (mount).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CHAT_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length) setMessages(parsed);
+      }
+    } catch {
+      /* zədəli yaddaş — iqnor */
+    }
+  }, []);
+
+  // Dəyişəndə saxla. Boş halda YAZMA → mount-dakı [] anını saxlanmış söhbətin
+  // üstünə yazmasın (effekt sırası: bu boşda erkən işləyir, load setMessages sonra).
+  useEffect(() => {
+    if (!messages.length) return;
+    try {
+      localStorage.setItem(CHAT_KEY, JSON.stringify(messages.slice(-20)));
+    } catch {
+      /* kvota/private mode — iqnor */
+    }
+  }, [messages]);
+
   function patchLast(fn: (m: Msg) => Msg) {
     setMessages((msgs) => {
       const copy = [...msgs];
@@ -48,6 +82,11 @@ export function AIAssistantFab() {
     const q = text.trim();
     if (!q || busy) return;
     setInput("");
+    // Follow-up konteksti — mövcud mətn növbələri (kartsız), son 6.
+    const history = messages
+      .filter((m) => m.text)
+      .map((m) => ({ role: m.role, content: m.text }))
+      .slice(-6);
     // istifadəçi sualı + boş köməkçi mesajı (axın bura yazılacaq)
     setMessages((m) => [
       ...m,
@@ -56,10 +95,19 @@ export function AIAssistantFab() {
     ]);
     setBusy(true);
     try {
-      await streamChat(q, lang, {
-        onChart: (chart) => patchLast((m) => ({ ...m, chart })),
-        onDelta: (delta) => patchLast((m) => ({ ...m, text: m.text + delta })),
-      });
+      await streamChat(
+        q,
+        lang,
+        {
+          onChart: (chart) => patchLast((m) => ({ ...m, chart })),
+          onQuote: (quotes) => patchLast((m) => ({ ...m, quotes })),
+          onAnomalies: (items, asof) =>
+            patchLast((m) => ({ ...m, anomalies: { items, asof } })),
+          onPortfolio: (portfolio) => patchLast((m) => ({ ...m, portfolio })),
+          onDelta: (delta) => patchLast((m) => ({ ...m, text: m.text + delta })),
+        },
+        history,
+      );
     } catch {
       patchLast((m) => ({ ...m, text: m.text || t("ai.error") }));
     } finally {
@@ -141,6 +189,27 @@ export function AIAssistantFab() {
 
             {messages.map((m, i) => (
               <div key={i} className="space-y-2">
+                {m.role === "assistant" && m.portfolio && (
+                  <PortfolioCard
+                    data={m.portfolio}
+                    labels={{
+                      title: t("ai.portfolio.title"),
+                      pnl: t("ai.portfolio.pnl"),
+                    }}
+                  />
+                )}
+                {m.role === "assistant" && m.quotes && (
+                  <QuoteChips quotes={m.quotes} />
+                )}
+                {m.role === "assistant" && m.anomalies && (
+                  <AnomalyCard
+                    data={m.anomalies}
+                    labels={{
+                      title: t("ai.anomaly.title"),
+                      calm: t("ai.anomaly.calm"),
+                    }}
+                  />
+                )}
                 {m.role === "assistant" && m.chart && (
                   <ChatChart pair={m.chart} />
                 )}
@@ -154,7 +223,12 @@ export function AIAssistantFab() {
               (() => {
                 const last = messages[messages.length - 1];
                 const waiting =
-                  last?.role === "assistant" && !last.text && !last.chart;
+                  last?.role === "assistant" &&
+                  !last.text &&
+                  !last.chart &&
+                  !last.quotes &&
+                  !last.anomalies &&
+                  !last.portfolio;
                 return waiting ? <Thinking label={t("ai.thinking")} /> : null;
               })()}
           </div>
@@ -213,6 +287,153 @@ const ChatChart = memo(function ChatChart({ pair }: { pair: CorrPair }) {
         labelB={pair.b.label}
         compact
       />
+    </div>
+  );
+});
+
+/** Min ayırıcılı tam ədəd (portfel dəyəri üçün). */
+function fmtNum(n: number) {
+  return Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
+}
+
+/** Canlı qiymət çipləri — adı çəkilən aktivlərin son qiyməti + 24s dəyişim.
+ *
+ * memo: axın hər token setMessages tetikləyir; `quotes` sabitdirsə render olunmasın. */
+const QuoteChips = memo(function QuoteChips({ quotes }: { quotes: ChatQuote[] }) {
+  return (
+    <div className="flex flex-wrap gap-2 rounded-2xl rounded-tl-sm border border-border bg-surface-hover p-3">
+      {quotes.map((q) => (
+        <div
+          key={q.key}
+          className="flex items-center gap-2 rounded-lg border border-border bg-bg px-2.5 py-1.5"
+        >
+          <span className="text-xs font-semibold">{q.label}</span>
+          <span className="font-mono text-xs text-text">{q.val}</span>
+          <span
+            className={`font-mono text-xs font-semibold ${q.up ? "text-up" : "text-down"}`}
+          >
+            {q.chgPct >= 0 ? "+" : ""}
+            {q.chgPct.toFixed(2)}%
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+});
+
+const SEV_COLOR: Record<string, string> = {
+  extreme: "text-down",
+  high: "text-amber-500",
+  medium: "text-muted",
+};
+
+/** Cari bazar anomaliyaları — dəyişim %, z-bal, şiddət nişanı. */
+const AnomalyCard = memo(function AnomalyCard({
+  data,
+  labels,
+}: {
+  data: { items: ChatAnomaly[]; asof: string };
+  labels: { title: string; calm: string };
+}) {
+  const { items, asof } = data;
+  return (
+    <div className="rounded-2xl rounded-tl-sm border border-border bg-surface-hover p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-xs font-semibold">
+          <Activity size={13} className="text-accent" />
+          {labels.title}
+        </span>
+        {asof && <span className="font-mono text-[10px] text-muted">{asof}</span>}
+      </div>
+      {items.length === 0 ? (
+        <p className="text-xs text-muted">{labels.calm}</p>
+      ) : (
+        <div className="space-y-1.5">
+          {items.map((a) => (
+            <div key={a.key} className="flex items-center justify-between gap-2">
+              <span className="text-xs font-medium">{a.label}</span>
+              <span className="flex items-center gap-2 font-mono text-xs">
+                <span className={a.change_pct >= 0 ? "text-up" : "text-down"}>
+                  {a.change_pct >= 0 ? "+" : ""}
+                  {a.change_pct.toFixed(1)}%
+                </span>
+                <span className="text-muted">
+                  z{a.price_z >= 0 ? "+" : ""}
+                  {a.price_z.toFixed(1)}
+                </span>
+                <span
+                  className={`text-[10px] font-semibold uppercase ${SEV_COLOR[a.severity] ?? "text-muted"}`}
+                >
+                  {a.severity}
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+});
+
+/** İstifadəçinin öz portfeli — cəmi dəyər + P&L + top mövqelər. */
+const PortfolioCard = memo(function PortfolioCard({
+  data,
+  labels,
+}: {
+  data: ChatPortfolio;
+  labels: { title: string; pnl: string };
+}) {
+  const { totals, positions } = data;
+  const pct = totals.pnlPct;
+  const pnlColor =
+    pct == null ? "text-muted" : pct >= 0 ? "text-up" : "text-down";
+  return (
+    <div className="rounded-2xl rounded-tl-sm border border-border bg-surface-hover p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-xs font-semibold">
+          <Wallet size={13} className="text-accent" />
+          {labels.title}
+        </span>
+        {totals.value != null && (
+          <span className="font-mono text-sm font-semibold">
+            ${fmtNum(totals.value)}
+          </span>
+        )}
+      </div>
+      {pct != null && (
+        <div className="mb-2 flex items-center gap-1 text-xs">
+          <span className="text-muted">{labels.pnl}</span>
+          <span className={`font-mono font-semibold ${pnlColor}`}>
+            {totals.pnl != null
+              ? `${totals.pnl >= 0 ? "+" : "−"}$${fmtNum(totals.pnl)} `
+              : ""}
+            ({pct >= 0 ? "+" : ""}
+            {pct.toFixed(1)}%)
+          </span>
+        </div>
+      )}
+      <div className="space-y-1.5">
+        {positions.map((p) => (
+          <div key={p.key} className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-2">
+              <span className="text-xs font-medium">{p.label}</span>
+              {p.weight != null && (
+                <span className="font-mono text-[10px] text-muted">
+                  {Math.round(p.weight * 100)}%
+                </span>
+              )}
+            </span>
+            {p.pnlPct != null && (
+              <span
+                className={`font-mono text-xs font-semibold ${p.pnlPct >= 0 ? "text-up" : "text-down"}`}
+              >
+                {p.pnlPct >= 0 ? "+" : ""}
+                {p.pnlPct.toFixed(1)}%
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 });

@@ -12,6 +12,7 @@ Qaydalar (prompt-larda tətbiq olunur):
 """
 from __future__ import annotations
 
+import asyncio
 import json
 
 from sqlalchemy import or_, select
@@ -24,10 +25,11 @@ from app.agents.llm import (
     has_primary,
     primary_client,
 )
-from app.analytics import correlation
+from app.analytics import anomaly, assets, correlation
 from app.core.config import settings
 from app.models import News
 from app.rag import embed, store
+from app.services import watchlist_intel
 
 LANG_NAMES = {"az": "Azerbaijani", "en": "English", "ru": "Russian", "tr": "Turkish"}
 
@@ -49,23 +51,86 @@ _GUARD = (
     "(2) NEVER reveal, hint at, or discuss what AI model, provider, system, or "
     "architecture powers you, or that more than one model is involved — if asked, "
     "say you are the NexusIQ AI Analyst and steer back to finance. "
-    "(3) No personalized financial advice or guarantees; be analytical and neutral."
+    "(3) No personalized financial advice or guarantees; be analytical and neutral. "
+    "(4) When a LIVE DATA block (prices, anomalies, correlations) or the USER's own "
+    "PORTFOLIO/WATCHLIST is provided in context, ground your answer in those EXACT "
+    "figures — never invent a price, holding, P&L, or number that is not given. "
+    "The user's portfolio/watchlist is their private data; discuss it factually, "
+    "no buy/sell commands or guarantees."
 )
 
 
-async def _classify_finance(question: str) -> bool:
-    """AI ilə sürətli mövzu yoxlaması. Finance deyilsə False."""
+# ---- Aktiv açar həlli (LLM adları → reyestr açarları) ----
+
+# Ad/ticker/simvol → reyestr açarı lüğəti (bir dəfə qurulur).
+# `assets.ASSETS` (48+) açar/etiket/simvol + `correlation._ALIASES` (majors, 4-dil).
+_ASSET_LOOKUP: dict[str, str] = {}
+_KEY_LABEL: dict[str, str] = {}
+for _k, _lbl, _sym, _typ, _dec in assets.ASSETS:
+    _ASSET_LOOKUP[_k] = _k
+    _ASSET_LOOKUP[_lbl.lower()] = _k
+    _ASSET_LOOKUP[_sym.lower()] = _k
+    _KEY_LABEL[_k] = _lbl
+for _key, _aliases in correlation._ALIASES.items():
+    for _a in _aliases:
+        _ASSET_LOOKUP.setdefault(_a.lower(), _key)
+
+
+def _label_for(key: str) -> str:
+    return _KEY_LABEL.get(key, key.upper())
+
+
+def _resolve_keys(names: list, question: str) -> list[str]:
+    """LLM-in qaytardığı ad/ticker-ləri reyestr açarlarına çevirir.
+
+    Tapılmayanlar səssizcə atılır. Əlavə olaraq sualın öz mətnindən major
+    aktivlər (`correlation.detect_assets`) da tutulur (LLM buraxıbsa). Sıra
+    qorunur, təkrar atılır, maksimum 6 açar.
+    """
+    out: list[str] = []
+    for n in names or []:
+        key = _ASSET_LOOKUP.get(str(n).strip().lower())
+        if key and key not in out:
+            out.append(key)
+    for key in correlation.detect_assets(question or ""):
+        if key not in out:
+            out.append(key)
+    return out[:6]
+
+
+def _history_block(history: list | None) -> str:
+    """Son ~6 növbəni kompakt mətnə çevirir (follow-up konteksti üçün)."""
+    if not history:
+        return ""
+    lines: list[str] = []
+    for t in history[-6:]:
+        role = "User" if (t or {}).get("role") == "user" else "Assistant"
+        content = str((t or {}).get("content") or "").strip()[:400]
+        if content:
+            lines.append(f"{role}: {content}")
+    return "\n".join(lines)
+
+
+async def _classify_finance(question: str, history: list | None = None) -> bool:
+    """AI ilə sürətli mövzu yoxlaması. Finance deyilsə False.
+
+    `history` verilsə follow-up konteksti nəzərə alınır ("bəs onun...?" tək başına
+    qeyri-maliyyə görünə bilər, əvvəlki növbə maliyyədirsə düzgün təsnif olunsun).
+    """
+    hist = _history_block(history)
+    user_text = f"Conversation so far:\n{hist}\n\nLatest message: {question}" if hist else question
     try:
         resp = await primary_client().chat.completions.create(
             model=settings.llm_primary_model,
             messages=[
                 {
                     "role": "system",
-                    "content": "Classify if the user message is about finance, "
-                    "markets, economy, trading, forex, crypto, stocks, commodities "
-                    "or financial news. Reply JSON: {\"finance\": true|false}.",
+                    "content": "Classify if the latest message (in the context of "
+                    "the conversation) is about finance, markets, economy, trading, "
+                    "forex, crypto, stocks, commodities or financial news. "
+                    "Reply JSON: {\"finance\": true|false}.",
                 },
-                {"role": "user", "content": question},
+                {"role": "user", "content": user_text},
             ],
             response_format={"type": "json_object"},
             temperature=0,
@@ -192,24 +257,30 @@ async def _secondary_pass(question: str, context: str) -> str:
 
 
 def _synth_messages(
-    question: str, lang: str, a: str, b: str, corr_note: str = ""
+    question: str, lang: str, a: str, b: str,
+    corr_note: str = "", live: str = "", hist: str = "",
 ) -> list[dict]:
     """Sintez üçün mesajlar (həm tam, həm axın variantı bunu işlədir)."""
     lang_name = LANG_NAMES.get(lang, "Azerbaijani")
     both = f"ANALYSIS A:\n{a}\n\nANALYSIS B:\n{b}" if b else f"ANALYSIS:\n{a}"
     extra = ""
     if corr_note:
-        extra = (
+        extra += (
             f"\n\n{corr_note}\nThe user is shown a chart of these two assets above "
             "your answer. Explain their RELATIONSHIP clearly: cite the correlation "
             "value, say whether they move together or opposite and how strongly, and "
             "give one practical takeaway (hedging/diversification). "
         )
+    if live:
+        extra += (
+            f"\n\nLIVE DATA (use these EXACT figures, do not invent numbers):\n{live}"
+        )
+    hist_pre = f"CONVERSATION SO FAR:\n{hist}\n\n" if hist else ""
     return [
         {"role": "system", "content": _GUARD},
         {
             "role": "user",
-            "content": f"Two internal analyses are given. Merge them into ONE "
+            "content": f"{hist_pre}Two internal analyses are given. Merge them into ONE "
             f"clear final answer for the user, written in {lang_name}. "
             "Reconcile agreements, note key disagreements briefly. "
             "Structure with short headers when useful (qısa/orta/uzun müddət, "
@@ -219,10 +290,13 @@ def _synth_messages(
     ]
 
 
-async def _synthesize(question: str, lang: str, a: str, b: str, corr_note: str = "") -> str:
+async def _synthesize(
+    question: str, lang: str, a: str, b: str,
+    corr_note: str = "", live: str = "", hist: str = "",
+) -> str:
     resp = await primary_client().chat.completions.create(
         model=settings.llm_primary_model,
-        messages=_synth_messages(question, lang, a, b, corr_note),
+        messages=_synth_messages(question, lang, a, b, corr_note, live, hist),
         temperature=0.4,
         max_tokens=600,
     )
@@ -244,6 +318,198 @@ async def _detect_chart(question: str) -> tuple[dict | None, str]:
     return data, note
 
 
+# ---- Grounding fetcher-lər (canlı, keşli data → kontekst qeydi + UI hadisəsi) ----
+#
+# Hər fetcher `(note_text | "", ui_event | None)` qaytarır. Hamısı SWR-keşli,
+# ucuz endpoint-lərə dəyir (yeni bahalı hesablama yoxdur). Mövcud `_detect_chart`
+# → `(data, note)` pattern-inin ümumiləşməsidir.
+
+
+async def _ground_prices(keys: list[str]) -> tuple[str, dict | None]:
+    """Adı çəkilən aktivlərin canlı qiyməti (`assets.get_quote`, 60s keş)."""
+    quotes = await asyncio.gather(*[assets.get_quote(k) for k in keys[:6]])
+    quotes = [q for q in quotes if q]
+    if not quotes:
+        return "", None
+    note = "LIVE PRICES: " + "; ".join(
+        f"{q['label']} {q['val']} ({q['chg']} 24h)" for q in quotes
+    )
+    ev = {
+        "type": "quote",
+        "quotes": [
+            {"key": q["key"], "label": q["label"], "val": q["val"],
+             "chgPct": q["chgPct"], "up": q["up"]}
+            for q in quotes
+        ],
+    }
+    return note, ev
+
+
+async def _ground_anomalies(keys: list[str]) -> tuple[str, dict | None]:
+    """Cari bazar anomaliyaları (`anomaly.scan_all`, 5dəq SWR, pulsuz hesablama)."""
+    data = await anomaly.scan_all()
+    items = data.get("anomalies", [])
+    top = items[:6]
+    hit = {a["key"]: a for a in items}
+    lines: list[str] = []
+    for k in keys[:4]:
+        a = hit.get(k)
+        if a:
+            lines.append(
+                f"{a['label']} IS anomalous: price_z {a['price_z']:+.1f}, "
+                f"{a['change_pct']:+.1f}% today ({a['severity']})"
+            )
+        else:
+            lines.append(f"{_label_for(k)}: no anomaly right now")
+    if not top and not lines:
+        return "CURRENT ANOMALIES: none — market is calm (nothing exceeded the z-score threshold).", None
+    note = "CURRENT ANOMALIES (robust z-score, |price_z|>=3 with volume confirm): "
+    if lines:
+        note += "; ".join(lines) + ". "
+    if top:
+        note += "Market-wide: " + "; ".join(
+            f"{a['label']} {a['change_pct']:+.1f}% ({a['severity']})" for a in top
+        )
+    ev = {
+        "type": "anomalies",
+        "asof": data.get("asof", ""),
+        "anomalies": [
+            {"key": a["key"], "label": a["label"], "price_z": a["price_z"],
+             "volume_z": a["volume_z"], "change_pct": a["change_pct"],
+             "severity": a["severity"]}
+            for a in top
+        ],
+    }
+    return note, ev if top else None
+
+
+async def _ground_correlations(keys: list[str]) -> tuple[str, dict | None]:
+    """Adı çəkilən major aktivin ən güclü korrelyasiyaları (matris sətri, 30dəq SWR).
+
+    Matris yalnız 9 major-u əhatə edir; qeyri-major açar tapılmasa qeyd verilmir.
+    """
+    target = next((k for k in keys if k in correlation._KEY_TO_SYM), None)
+    if target is None:
+        return "", None
+    m = await correlation.get_matrix()
+    order = [a["key"] for a in m.get("assets", [])]
+    labels = {a["key"]: a["label"] for a in m.get("assets", [])}
+    matrix = m.get("matrix") or []
+    if target not in order or not matrix:
+        return "", None
+    idx = order.index(target)
+    row = matrix[idx]
+    pairs = [
+        (order[j], row[j])
+        for j in range(len(order))
+        if j != idx and j < len(row) and row[j] is not None
+    ]
+    pairs.sort(key=lambda p: -abs(p[1]))
+    top = pairs[:5]
+    if not top:
+        return "", None
+    note = f"CORRELATIONS with {labels.get(target, target)} (90d Pearson daily returns): " + ", ".join(
+        f"{labels.get(k, k)} {v:+.2f}" for k, v in top
+    )
+    return note, None
+
+
+async def _ground_portfolio(session, holdings: list) -> tuple[str, dict | None]:
+    """İstifadəçinin öz portfeli — P&L + pul-çəkili xəbər (`watchlist_intel.portfolio`)."""
+    p = await watchlist_intel.portfolio(session, holdings, None)
+    positions = p.get("positions", [])
+    totals = p.get("totals", {})
+    if not positions:
+        return "", None
+    top = sorted(positions, key=lambda x: (x.get("weight") or 0), reverse=True)[:5]
+    val = totals.get("value")
+    pnl = totals.get("pnl")
+    pct = totals.get("pnlPct")
+    head = f"total value ${val:,.0f}" if val is not None else "value n/a"
+    if pnl is not None:
+        head += f", P&L ${pnl:,.0f}"
+    if pct is not None:
+        head += f" ({pct:+.1f}%)"
+    pos_txt = "; ".join(
+        f"{x['label']} {int((x.get('weight') or 0) * 100)}%"
+        + (f" {x['pnlPct']:+.1f}%" if x.get("pnlPct") is not None else "")
+        for x in top
+    )
+    note = f"USER PORTFOLIO: {head}. Positions: {pos_txt}."
+    news = p.get("news", [])[:2]
+    titles = [str(n.get("title") or "").strip()[:80] for n in news if n.get("title")]
+    if titles:
+        note += " Money-weighted news: " + "; ".join(titles) + "."
+    ev = {
+        "type": "portfolio",
+        "portfolio": {
+            "totals": {"value": val, "pnl": pnl, "pnlPct": pct},
+            "positions": [
+                {"key": x["key"], "label": x["label"], "value": x.get("value"),
+                 "pnlPct": x.get("pnlPct"), "weight": x.get("weight"),
+                 "chgPct": x.get("chgPct")}
+                for x in top
+            ],
+        },
+    }
+    return note, ev
+
+
+async def _ground_watchlist(session, keys: list[str], last_seen) -> tuple[str, dict | None]:
+    """İstifadəçinin watchlist digest-i — 'sən yox ikən' sayları (`watchlist_intel.digest`)."""
+    d = await watchlist_intel.digest(session, keys, last_seen)
+    rows = d.get("assets", [])
+    if not rows:
+        return "", None
+    since = d.get("sinceCount", 0)
+    top = rows[:5]
+    note = (
+        f"USER WATCHLIST: {len(rows)} assets tracked, {since} new items since last "
+        "visit. " + "; ".join(
+            f"{a['label']} ({a.get('sinceCount', 0)} new / {a.get('count', 0)} total)"
+            for a in top
+        )
+    )
+    return note, None
+
+
+async def _ground(
+    session, signals: list[str], keys: list[str],
+    holdings: list | None, watch_keys: list | None, last_seen,
+) -> dict:
+    """Plan siqnallarına görə fetcher-ləri paralel qoşur.
+
+    Şəxsi siqnallar yalnız data varsa (holdings/watch_keys) işə düşür — məxfilik +
+    lazımsız iş. Qaytarır {notes: [str], events: [dict]}.
+    """
+    tasks = []
+    if "prices" in signals and keys:
+        tasks.append(_ground_prices(keys))
+    if "anomalies" in signals:
+        tasks.append(_ground_anomalies(keys))
+    if "correlations" in signals and keys:
+        tasks.append(_ground_correlations(keys))
+    if "portfolio" in signals and holdings:
+        tasks.append(_ground_portfolio(session, holdings))
+    if "watchlist" in signals and watch_keys:
+        tasks.append(_ground_watchlist(session, watch_keys, last_seen))
+
+    notes: list[str] = []
+    events: list[dict] = []
+    if not tasks:
+        return {"notes": notes, "events": events}
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    for res in results:
+        if isinstance(res, Exception) or not res:
+            continue
+        note, ev = res
+        if note:
+            notes.append(note)
+        if ev:
+            events.append(ev)
+    return {"notes": notes, "events": events}
+
+
 # ---- RAG bilik bazası + marşrutlaşdırma ----
 
 _KB_STORE: store.VectorStore | None = None
@@ -259,38 +525,66 @@ def _kb() -> store.VectorStore | None:
     return _KB_STORE
 
 
-def _parse_route(raw: str) -> str:
-    """Router JSON-unu yola çevirir. Səhvdə təhlükəsiz default: discussion."""
+_SIGNALS = {"prices", "anomalies", "correlations", "portfolio", "watchlist"}
+_PLAN_DEFAULT = {"path": "discussion", "signals": [], "assets": []}
+
+
+def _parse_plan(raw: str) -> dict:
+    """Plan JSON-unu təhlükəsiz çevirir. Səhvdə default: discussion, siqnalsız."""
     try:
-        path = (json.loads(raw or "{}").get("path") or "").strip().lower()
+        obj = json.loads(raw or "{}")
     except Exception:  # noqa: BLE001
-        return "discussion"
-    return path if path in {"info", "chart", "discussion"} else "discussion"
+        return dict(_PLAN_DEFAULT)
+    path = str(obj.get("path") or "").strip().lower()
+    if path not in {"info", "chart", "discussion"}:
+        path = "discussion"
+    signals = [s for s in (obj.get("signals") or []) if s in _SIGNALS]
+    raw_assets = obj.get("assets") or []
+    asset_names = [str(a) for a in raw_assets if isinstance(a, (str, int, float))][:6]
+    return {"path": path, "signals": signals, "assets": asset_names}
 
 
-async def _route(question: str) -> str:
-    """AI ilə sualı təsnif edir: info | chart | discussion."""
+async def _plan(question: str, history: list | None = None) -> dict:
+    """Tək çağırışla marşrut + grounding siqnalları + adı çəkilən aktivlər.
+
+    Əvvəlki `_route`-u əvəz edir (əlavə LLM raundu YOX). Qaytarır:
+    {path: info|chart|discussion, signals: [...], assets: [...]}.
+    """
+    hist = _history_block(history)
+    user_text = f"Conversation so far:\n{hist}\n\nCurrent question: {question}" if hist else question
     try:
         resp = await primary_client().chat.completions.create(
             model=settings.llm_primary_model,
             messages=[
                 {
                     "role": "system",
-                    "content": "Classify a finance question into one path. "
-                    "'info' = definition/general explanation answerable from a "
-                    "knowledge base. 'chart' = asks to plot/compare two assets or "
-                    "show a graph. 'discussion' = analysis/opinion about news or an "
-                    "asset's outlook. Reply JSON: {\"path\":\"info|chart|discussion\"}.",
+                    "content": (
+                        "You plan how to answer a finance question. Reply JSON with 3 keys.\n"
+                        "1) path: 'info' = definition/general explanation from a knowledge "
+                        "base; 'chart' = asks to plot/compare TWO assets; 'discussion' = "
+                        "analysis/opinion/outlook or any data-driven question.\n"
+                        "2) signals: subset of ['prices','anomalies','correlations',"
+                        "'portfolio','watchlist'] — which LIVE data helps. Use 'prices' if "
+                        "it needs a current price/quote; 'anomalies' if it asks what is "
+                        "moving/unusual or WHY an asset moved today; 'correlations' if it "
+                        "asks what correlates with an asset; 'portfolio' if it refers to the "
+                        "user's OWN portfolio/holdings/P&L/'my'; 'watchlist' if it refers to "
+                        "the user's watchlist or 'what happened while I was away'. Empty if none.\n"
+                        "3) assets: tickers/names explicitly referenced (e.g. ['BTC','NVDA']); "
+                        "use conversation context to resolve pronouns; empty for pure "
+                        "personal questions.\n"
+                        'Reply: {"path":"...","signals":[...],"assets":[...]}.'
+                    ),
                 },
-                {"role": "user", "content": question},
+                {"role": "user", "content": user_text},
             ],
             response_format={"type": "json_object"},
             temperature=0,
-            max_tokens=20,
+            max_tokens=120,
         )
-        return _parse_route(resp.choices[0].message.content or "")
+        return _parse_plan(resp.choices[0].message.content or "")
     except Exception:  # noqa: BLE001
-        return "discussion"
+        return dict(_PLAN_DEFAULT)
 
 
 async def _kb_chunks(question: str, k: int = 5) -> list[dict]:
@@ -327,20 +621,29 @@ def _rag_answer_messages(question: str, lang: str, kb_context: str) -> list[dict
     ]
 
 
-async def answer(question: str, lang: str, session: AsyncSession) -> dict:
-    """Marşrut: info → tək-model RAG, chart/discussion → debate. {answer, refused}."""
-    import asyncio
+async def answer(
+    question: str, lang: str, session: AsyncSession, *,
+    history: list | None = None, holdings: list | None = None,
+    watch_keys: list | None = None, last_seen=None,
+) -> dict:
+    """Marşrut: info → tək-model RAG, digər → grounded debate. {answer, refused}.
 
+    Non-stream endpoint — zəngin UI hadisələri buraxılır (yalnız mətn cavab).
+    """
     lang = lang if lang in LANG_NAMES else "az"
     if not has_primary():
         return {"answer": _REFUSAL[lang], "refused": True}
-    if not await _classify_finance(question):
+    if not await _classify_finance(question, history):
         return {"answer": _REFUSAL[lang], "refused": True}
 
-    path, kb = await asyncio.gather(_route(question), _kb_chunks(question))
+    plan, kb = await asyncio.gather(_plan(question, history), _kb_chunks(question))
     kb_ctx = _kb_context(kb)
+    signals = plan["signals"]
+    keys = _resolve_keys(plan["assets"], question)
+    hist_block = _history_block(history)
 
-    if path == "info":
+    # təmiz info (canlı siqnal yoxdur) → tək-model bilik cavabı (debate yoxdur).
+    if plan["path"] == "info" and not signals:
         resp = await primary_client().chat.completions.create(
             model=settings.llm_primary_model,
             messages=_rag_answer_messages(question, lang, kb_ctx),
@@ -352,38 +655,52 @@ async def answer(question: str, lang: str, session: AsyncSession) -> dict:
             "refused": False,
         }
 
-    news_ctx, (_, corr_note) = await asyncio.gather(
-        _rag_context(session, question, lang), _detect_chart(question)
+    news_ctx, (_, corr_note), ground = await asyncio.gather(
+        _rag_context(session, question, lang),
+        _detect_chart(question),
+        _ground(session, signals, keys, holdings, watch_keys, last_seen),
     )
+    live = "\n".join(ground["notes"])
     context = f"{news_ctx}\n\nKNOWLEDGE:\n{kb_ctx}"
+    if live:
+        context += f"\n\nLIVE DATA:\n{live}"
+    if hist_block:
+        context = f"CONVERSATION SO FAR:\n{hist_block}\n\n{context}"
     primary_take, secondary_take = await asyncio.gather(
         _primary_pass(question, context), _secondary_pass(question, context)
     )
-    final = await _synthesize(question, lang, primary_take, secondary_take, corr_note)
+    final = await _synthesize(
+        question, lang, primary_take, secondary_take, corr_note, live, hist_block
+    )
     return {"answer": final or _REFUSAL[lang], "refused": False}
 
 
-async def answer_stream(question: str, lang: str, session: AsyncSession):
+async def answer_stream(
+    question: str, lang: str, session: AsyncSession, *,
+    history: list | None = None, holdings: list | None = None,
+    watch_keys: list | None = None, last_seen=None,
+):
     """Axın variantı. NDJSON hadisələri verir:
-    {type:chart,chart}, {type:delta,text}, {type:done,refused?}.
+    {type:chart|quote|anomalies|portfolio}, {type:delta,text}, {type:done,refused?}.
 
-    Router sualı təsnif edir: info → bilik bazasından tək-model cavab; chart/
-    discussion → arxa fonda debate (xəbər + bilik konteksti), sonra token axını.
+    Plan sualı təsnif edir: təmiz info → bilik bazasından tək-model cavab; digər →
+    grounded debate (xəbər + bilik + canlı data + istifadəçi portfeli), sonra axın.
     """
-    import asyncio
-
     lang = lang if lang in LANG_NAMES else "az"
 
-    if not has_primary() or not await _classify_finance(question):
+    if not has_primary() or not await _classify_finance(question, history):
         yield {"type": "delta", "text": _REFUSAL[lang]}
         yield {"type": "done", "refused": True}
         return
 
-    path, kb = await asyncio.gather(_route(question), _kb_chunks(question))
+    plan, kb = await asyncio.gather(_plan(question, history), _kb_chunks(question))
     kb_ctx = _kb_context(kb)
+    signals = plan["signals"]
+    keys = _resolve_keys(plan["assets"], question)
+    hist_block = _history_block(history)
 
-    # info → bilik bazasından birbaşa tək-model cavab (debate yoxdur).
-    if path == "info":
+    # təmiz info (canlı siqnal yoxdur) → birbaşa tək-model cavab (debate yoxdur).
+    if plan["path"] == "info" and not signals:
         stream = await primary_client().chat.completions.create(
             model=settings.llm_primary_model,
             messages=_rag_answer_messages(question, lang, kb_ctx),
@@ -402,21 +719,32 @@ async def answer_stream(question: str, lang: str, session: AsyncSession):
         yield {"type": "done"}
         return
 
-    # chart / discussion → debate (xəbər + bilik konteksti).
-    news_ctx, (chart, corr_note) = await asyncio.gather(
-        _rag_context(session, question, lang), _detect_chart(question)
+    # grounded debate: xəbər + korrelyasiya qrafiki + canlı data fetcher-ləri paralel.
+    news_ctx, (chart, corr_note), ground = await asyncio.gather(
+        _rag_context(session, question, lang),
+        _detect_chart(question),
+        _ground(session, signals, keys, holdings, watch_keys, last_seen),
     )
     if chart is not None:
         yield {"type": "chart", "chart": chart}
+    for ev in ground["events"]:
+        yield ev
 
+    live = "\n".join(ground["notes"])
     context = f"{news_ctx}\n\nKNOWLEDGE:\n{kb_ctx}"
+    if live:
+        context += f"\n\nLIVE DATA:\n{live}"
+    if hist_block:
+        context = f"CONVERSATION SO FAR:\n{hist_block}\n\n{context}"
     primary_take, secondary_take = await asyncio.gather(
         _primary_pass(question, context), _secondary_pass(question, context)
     )
 
     stream = await primary_client().chat.completions.create(
         model=settings.llm_primary_model,
-        messages=_synth_messages(question, lang, primary_take, secondary_take, corr_note),
+        messages=_synth_messages(
+            question, lang, primary_take, secondary_take, corr_note, live, hist_block
+        ),
         temperature=0.4,
         max_tokens=600,
         stream=True,

@@ -527,20 +527,30 @@ export async function getMajorsCalendar(): Promise<
   }
 }
 
+export interface ChatHistoryTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
 interface ChatStreamHandlers {
   onChart?: (chart: import("@/types").CorrPair) => void;
+  onQuote?: (quotes: import("@/types").ChatQuote[]) => void;
+  onAnomalies?: (anomalies: import("@/types").ChatAnomaly[], asof: string) => void;
+  onPortfolio?: (portfolio: import("@/types").ChatPortfolio) => void;
   onDelta?: (text: string) => void;
   onDone?: (refused: boolean) => void;
 }
 
 /**
- * AI cavabını axınla alır (NDJSON): əvvəl qrafik (varsa), sonra token-token mətn.
- * AI chat tərzi yazılma effekti üçün.
+ * AI cavabını axınla alır (NDJSON): əvvəl grounded kartlar (qrafik/qiymət/anomali/
+ * portfel — varsa), sonra token-token mətn. AI chat tərzi yazılma effekti üçün.
+ * `history` — çoxaddımlı yaddaş (follow-up konteksti üçün son növbələr).
  */
 export async function streamChat(
   message: string,
   lang: string,
   handlers: ChatStreamHandlers,
+  history: ChatHistoryTurn[] = [],
 ): Promise<void> {
   // `_tracked`-i atlayır → credentials + CSRF + 401→refresh→retry-once əl ilə.
   const doFetch = () =>
@@ -548,7 +558,7 @@ export async function streamChat(
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json", ...csrfHeaders() },
-      body: JSON.stringify({ message, lang }),
+      body: JSON.stringify({ message, lang, history }),
     });
 
   let res = await doFetch();
@@ -580,13 +590,27 @@ export async function streamChat(
       const line = buf.slice(0, nl).trim();
       buf = buf.slice(nl + 1);
       if (!line) continue;
-      let ev: { type: string; text?: string; chart?: import("@/types").CorrPair; refused?: boolean };
+      let ev: {
+        type: string;
+        text?: string;
+        chart?: import("@/types").CorrPair;
+        quotes?: import("@/types").ChatQuote[];
+        anomalies?: import("@/types").ChatAnomaly[];
+        asof?: string;
+        portfolio?: import("@/types").ChatPortfolio;
+        refused?: boolean;
+      };
       try {
         ev = JSON.parse(line);
       } catch {
         continue;
       }
       if (ev.type === "chart" && ev.chart) handlers.onChart?.(ev.chart);
+      else if (ev.type === "quote" && ev.quotes) handlers.onQuote?.(ev.quotes);
+      else if (ev.type === "anomalies" && ev.anomalies)
+        handlers.onAnomalies?.(ev.anomalies, ev.asof || "");
+      else if (ev.type === "portfolio" && ev.portfolio)
+        handlers.onPortfolio?.(ev.portfolio);
       else if (ev.type === "delta" && ev.text) handlers.onDelta?.(ev.text);
       else if (ev.type === "done") handlers.onDone?.(Boolean(ev.refused));
     }

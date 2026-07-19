@@ -215,6 +215,39 @@ export interface CorrPair {
   explanation?: string;
 }
 
+// ---- AI Asistan grounded kartları (NDJSON hadisələri) ----
+
+export interface ChatQuote {
+  key: string;
+  label: string;
+  val: string;
+  chgPct: number;
+  up: boolean;
+}
+
+export interface ChatAnomaly {
+  key: string;
+  label: string;
+  price_z: number;
+  volume_z: number;
+  change_pct: number;
+  severity: "medium" | "high" | "extreme";
+}
+
+export interface ChatPortfolioPos {
+  key: string;
+  label: string;
+  value: number | null;
+  pnlPct: number | null;
+  weight: number | null;
+  chgPct: number | null;
+}
+
+export interface ChatPortfolio {
+  totals: { value: number | null; pnl: number | null; pnlPct: number | null };
+  positions: ChatPortfolioPos[];
+}
+
 export type AssetType =
   | "crypto"
   | "index"
