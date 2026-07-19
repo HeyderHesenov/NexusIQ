@@ -421,6 +421,14 @@ async def _ground_portfolio(session, holdings: list) -> tuple[str, dict | None]:
     totals = p.get("totals", {})
     if not positions:
         return "", None
+    # Canlı qiymət soyuq/uğursuz olsa hər price=None → value 0 → yanlış "-100% zərər".
+    # Bunu dürüstcə "qiymət əlçatmaz" kimi bildir; həyəcanlandırıcı sərsəm kart YOX.
+    if not any(x.get("price") is not None for x in positions):
+        return (
+            "USER PORTFOLIO: live prices are temporarily unavailable, so current "
+            "value and P&L cannot be computed right now — say so and suggest retrying "
+            "shortly. Do NOT claim a loss or that positions were closed."
+        ), None
     top = sorted(positions, key=lambda x: (x.get("weight") or 0), reverse=True)[:5]
     val = totals.get("value")
     pnl = totals.get("pnl")
