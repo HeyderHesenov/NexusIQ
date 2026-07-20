@@ -47,6 +47,20 @@ dəqiqlik qorunması ilə xəbər→aktiv aşkarlama).
   uğur nisbəti naiv baza ("həmişə ▲") ilə müqayisədə (**delta**), `n≥20` dürüstlük
   qapısı. Per-aktiv güvən nişanı digestə də düşür.
 
+## Bonuslar — şəxsi alətlər (v2)
+Şəxsi qatın bünövrəsi: sən tətbiqə *nəyin sənə aid olduğunu* deyirsən — v3 "Mənə Aid"
+məhz bu datanın üstündə oturur. Naviqasiya yenidən quruldu (`AppNav` bütün səhifələrdə
+ortaq; ana səhifə artıq yalnız xəbər, bazar vidjetləri `/markets`-ə köçdü) və işıq/qaranlıq
+rejim əlavə olundu.
+
+- **İşıq / qaranlıq rejim** — `ThemeToggle`, localStorage-da yadda saxlanır, anti-flash script.
+- **İzləmə** (`/watchlist`) — izlədiyin aktivlər, canlı qiymət (60s poll), chip ilə əlavə.
+- **Qiymət xəbərdarlıqları** (`/alerts`) — hədd qaydaları; `AlertWatcher` 45s-də yoxlayır,
+  həddi kəsişəndə brauzer bildirişi.
+- **Asset səhifəsi** (`/asset/[key]`) — qiymət başlığı, aralıq seçici, qrafik, sürətli
+  xəbərdarlıq formu və bağlı xəbərlər.
+- **Müqayisə** (`/compare`) — normallaşdırılmış çoxxətli qrafik + cədvəl (maks 5 aktiv).
+
 ## Texnologiya
 | Qat | Stack |
 |-----|-------|
