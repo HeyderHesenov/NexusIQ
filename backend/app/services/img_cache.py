@@ -13,7 +13,11 @@ TƏHLÜKƏSİZLİK — bu AÇIQ PROKSİ DEYİL, amma "təxirə salınmış proks
   `netguard.safe_get` ilədir və aşağıdakı tavanlar məcburidir.
 
 Tavanlar (hər biri AYRI bir hücum oxudur — biri digərini əvəz etmir):
-- `_MAX_BYTES` — AXIN zamanı (netguard `max_bytes`), yükləmədən sonra yox.
+- `_MAX_BYTES` — AXIN zamanı (netguard `max_bytes`), yükləmədən sonra yox. Bu
+  DoS/soket tavanıdır, bomba qoruyucusu DEYİL — ona görə real naşir originalını
+  boğmayacaq qədər səxavətli olmalıdır (ölçdük: Yahoo `s.yimg.com/os/creatr-*`
+  şəkilləri 25 MB gəlir; 12 MB tavan onları kəsib kartı placeholder-ə salırdı).
+  Əsl bomba qoruyucusu aşağıdakı `_MAX_PIXELS`-dir (decode-dən SONRA).
 - `_MAX_PIXELS` — decompression bomba. Bayt tavanı bunu TUTMUR: sıxılma nisbətini
   hücumçu seçir (ölçdük: 435 KB PNG = 144M piksel ≈ 432 MB raster). Pillow-un
   öz `MAX_IMAGE_PIXELS`-i də tutmur — 89M-dən 2× böyük olana qədər yalnız
@@ -44,7 +48,8 @@ from app.core import netguard
 # 1280 (xəbər detalı). Artıq en = pulsuz keş şişməsi (enumerasiya × en).
 ALLOWED_W: frozenset[int] = frozenset({192, 640, 1280})
 
-_MAX_BYTES = 12 * 1024 * 1024
+_MAX_BYTES = 32 * 1024 * 1024  # naşir originalları böyük ola bilir (Yahoo ~25 MB);
+#                                soket/DoS tavanı, bomba qoruyucusu deyil (bax `_MAX_PIXELS`).
 _MAX_PIXELS = 40_000_000
 _TIMEOUT = 12.0
 _TOTAL_DEADLINE = 20.0
@@ -103,12 +108,18 @@ def _resize(raw: bytes, w: int) -> bytes | None:
     """Baytları `w` eninə kiçildib WebP qaytarır. Yararsız/bombada None."""
     try:
         im = Image.open(io.BytesIO(raw))
-        # Piksel tavanı DEKODDAN ƏVVƏL — `load()`-dan sonra artıq gecdir.
+        # JPEG-i libjpeg-in öz DCT miqyaslaması ilə kiçik açır (pik yaddaş + CPU
+        # dərhal aşağı düşür); digər formatlarda (PNG/WebP/GIF) təsirsizdir.
+        im.draft("RGB", (w, w))
+        # Piksel tavanı `load()`-DAN ƏVVƏL, amma `draft()`-DAN SONRA: `load()`-un
+        # AYIRACAĞI raster ölçüsü budur. Beləcə real BÖYÜK foto keçir (Yahoo
+        # 7954×5305=42M → draft sonrası 995×664=0.7M), draft kiçiltməyən bomba
+        # (nəhəng başlıqlı PNG/WebP və ya scale-siz JPEG) isə dekoddan ƏVVƏL tutulur.
+        # 40M piksel (~120MB raster) yaddaş büdcəsi olduğu kimi qalır — sadəcə
+        # düzgün nöqtədə yoxlanır. (Əvvəl draft-dan əvvəl yoxlanırdı → 42M-lik real
+        # Yahoo fotosunu kəsib kartı placeholder-ə salırdı.)
         if im.width * im.height > _MAX_PIXELS:
             return None
-        # JPEG-i libjpeg-in öz DCT miqyaslaması ilə kiçik açır (pik yaddaş + CPU
-        # dərhal aşağı düşür); digər formatlarda təsirsizdir.
-        im.draft("RGB", (w, w))
         im.load()  # truncated fayl burada tutulur
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError, ValueError):
         return None

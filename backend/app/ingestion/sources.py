@@ -54,8 +54,20 @@ FEEDS: list[FeedSource] = [
     # ---- Commodities (əmtəə: enerji, uran, taxıl, metal və s.) ----
     FeedSource("OilPrice", "https://oilprice.com/rss/main",
                Category.COMMODITIES, "https://oilprice.com"),
+    # `Investing Commodities` şəkil vermir: `i-invdn-com.investing.com` şəkilləri VƏ
+    # investing.com məqalə səhifələri real brauzer UA ilə də 403 qaytarır (bot-blok),
+    # ona görə həm inline, həm og:image backfill uğursuzdur → kart brendli örtüyə düşür.
+    # Feed məzmun üçün saxlanır, amma aşağıdakı şəkilli mənbələr onun payını seyrəldir.
+    # (Yeni mənbə əlavə edəndə: HTTPS məcburi + son 10 məqalənin ≥70%-i proksidən
+    #  şəkil verməli — bax scripts probe. Bunlar prod UA ilə 90-100% keçdi.)
     FeedSource("Investing Commodities", "https://www.investing.com/rss/news_11.rss",
                Category.COMMODITIES, "https://www.investing.com"),
     FeedSource("Mining.com", "https://www.mining.com/feed/",
                Category.COMMODITIES, "https://www.mining.com"),
+    FeedSource("World Oil", "https://www.worldoil.com/rss?feed=news",
+               Category.COMMODITIES, "https://www.worldoil.com"),
+    FeedSource("Northern Miner", "https://www.northernminer.com/feed/",
+               Category.COMMODITIES, "https://www.northernminer.com"),
+    FeedSource("Natural Gas Intelligence", "https://www.naturalgasintel.com/feed/",
+               Category.COMMODITIES, "https://www.naturalgasintel.com"),
 ]
