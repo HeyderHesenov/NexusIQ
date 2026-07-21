@@ -7,6 +7,8 @@ Bu test bookmark-lı istifadəçi üçün 200 + düzgün mənbə adı tələb ed
 """
 from __future__ import annotations
 
+from sqlalchemy import text
+
 from app.core import cookies
 from app.models import News, Source
 
@@ -26,6 +28,11 @@ async def _login(client, email):
 
 
 async def test_bookmarks_serialize_source_without_missing_greenlet(client, db):
+    # conftest yalnız `users`-i truncate edir; `news`/`sources` pytest run-lar arası
+    # qalır → determinizm üçün burada təmizlə (əks halda unikal `name` toqquşur).
+    await db.execute(text("TRUNCATE news, sources CASCADE"))
+    await db.commit()
+
     # Mənbəli xəbər — source relationship-i məhz burada eager-load olunmalıdır.
     src = Source(name="TestWire", default_category="us")
     db.add(src)
