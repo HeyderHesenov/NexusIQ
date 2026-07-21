@@ -16,6 +16,7 @@ from app.core import bgtasks
 from app.core.config import settings, validate_runtime
 from app.core.csrf import CsrfMiddleware
 from app.core.security_headers import SecurityHeaders
+from app.core import yf_session
 from app.scheduler import shutdown_scheduler, start_scheduler, startup_catchup
 from app.services import img_cache
 
@@ -112,6 +113,9 @@ async def _prewarm() -> None:
 async def lifespan(app: FastAPI):
     """Başlanğıc / bağlanış hadisələri — planlayıcı + keş istiləşməsi."""
     # startup
+    # yfinance-i HTTP/1.1-ə keçir — HƏR yfinance çağırışından (scheduler/prewarm) ƏVVƏL.
+    # Native SIGBUS (curl_cffi nghttp2) crash-ının qarşısını alır. Bax yf_session.py.
+    yf_session.install()
     # Konfiq coherence yoxlaması (prod-da təhlükəsiz olmayan auth konfiqi boot-u dayandırır).
     for w in validate_runtime():
         logger.warning("konfiq: %s", w)
