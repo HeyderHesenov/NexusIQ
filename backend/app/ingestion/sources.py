@@ -54,14 +54,13 @@ FEEDS: list[FeedSource] = [
     # ---- Commodities (əmtəə: enerji, uran, taxıl, metal və s.) ----
     FeedSource("OilPrice", "https://oilprice.com/rss/main",
                Category.COMMODITIES, "https://oilprice.com"),
-    # `Investing Commodities` şəkil vermir: `i-invdn-com.investing.com` şəkilləri VƏ
-    # investing.com məqalə səhifələri real brauzer UA ilə də 403 qaytarır (bot-blok),
-    # ona görə həm inline, həm og:image backfill uğursuzdur → kart brendli örtüyə düşür.
-    # Feed məzmun üçün saxlanır, amma aşağıdakı şəkilli mənbələr onun payını seyrəldir.
-    # (Yeni mənbə əlavə edəndə: HTTPS məcburi + son 10 məqalənin ≥70%-i proksidən
-    #  şəkil verməli — bax scripts probe. Bunlar prod UA ilə 90-100% keçdi.)
-    FeedSource("Investing Commodities", "https://www.investing.com/rss/news_11.rss",
-               Category.COMMODITIES, "https://www.investing.com"),
+    # `Investing Commodities` (investing.com/rss/news_11.rss) QƏSDƏN ATILDI: `i-invdn-com`
+    # şəkilləri VƏ məqalə səhifələri real brauzer UA ilə də 403 qaytarır (Cloudflare
+    # bot-blok) → nə inline, nə og:image alınır → kart HƏMİŞƏ örtüyə düşürdü. TLS
+    # saxtakarlığı/CF bypass qərarı YOX idi, ona görə bərpa mümkünsüz. Aşağıdakı şəkilli
+    # mənbələr (World Oil / Northern Miner / Natural Gas Intelligence) həcmi doldurur.
+    # (Yeni commodities mənbəsi əlavə edəndə: HTTPS məcburi + son 10 məqalənin ≥70%-i
+    #  proksidən şəkil verməli — bunlar prod UA ilə 80-100% keçdi.)
     FeedSource("Mining.com", "https://www.mining.com/feed/",
                Category.COMMODITIES, "https://www.mining.com"),
     FeedSource("World Oil", "https://www.worldoil.com/rss?feed=news",
