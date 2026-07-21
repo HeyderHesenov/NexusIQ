@@ -12,6 +12,7 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Path
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.auth import require_user
 from app.db.session import get_db
@@ -109,7 +110,14 @@ async def get_bookmarks(user: User = Depends(require_user), db: AsyncSession = D
     ids = await user_data.list_bookmark_news_ids(db, user.id)
     if not ids:
         return []
-    rows = (await db.scalars(select(News).where(News.id.in_(ids)))).all()
+    # selectinload(News.source) MƏCBURİDİR: `NewsOut.from_model` `n.source.name`-ə
+    # toxunur; async-də yüklənməmiş relationship = MissingGreenlet (bütün sorğu 500).
+    # Digər BÜTÜN News-serializasiya sorğuları bunu edir (news.py `_BASE` və s.).
+    rows = (
+        await db.scalars(
+            select(News).options(selectinload(News.source)).where(News.id.in_(ids))
+        )
+    ).all()
     by_id = {n.id: n for n in rows}
     return [NewsOut.from_model(by_id[i]).model_dump(by_alias=True) for i in ids if i in by_id]
 
