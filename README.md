@@ -135,7 +135,8 @@ Tək əmrlə işə salma:
 
 ## Status
 Bütün 10 əsas addım + v2 (bonuslar) + v3 (Mənə Aid flaqmanı) + v4 (real
-autentifikasiya + təhlükəsizlik sərtləşdirmə) tamamlanıb.
+autentifikasiya + təhlükəsizlik sərtləşdirmə) + v5 (audit log + sessiya/cihaz UI)
+tamamlanıb.
 Tam dəyişiklik tarixçəsi: **[CHANGELOG.md](CHANGELOG.md)**.
 
 ## Sənədlər

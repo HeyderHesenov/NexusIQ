@@ -2,6 +2,34 @@
 
 Bütün diqqətəlayiq dəyişikliklər. Tarixlər YYYY-MM-DD.
 
+## 2026-07 — Təhlükəsizlik tamamlaması: audit + sessiya UI (v5)
+
+Auth passından (v4) qalan yarımçıq parçalar bağlandı; auth alt-sistemi tam funksional,
+təhlükəsiz və izlənə bilən oldu.
+
+### Audit log
+- Append-only `auth_audit_log` cədvəli (migrasiya `e1f2a3b4c5d6`): login (uğur/uğursuz/
+  kilid), qeydiyyat, Google giriş, çıxış, logout-all, sessiya-ləğvi, parol dəyiş/reset,
+  token-reuse. Uğursuz/naməlum cəhdlər `user_id NULL` (forensika, user feed-ində görünmür).
+  Yazılar öz-session ilə (uğursuz-yol rollback-ı sətri atmır). 90 günlük retention (scheduler).
+- `GET /me/audit` — istifadəçinin öz son təhlükəsizlik hadisələri.
+
+### Sessiyalar / cihazlar UI
+- `/security` səhifəsi (backend `/auth/sessions` artıq hazır idi): aktiv cihazlar
+  (User-Agent → "Chrome · macOS", cari-cihaz nişanı, fərdi ləğv, "bütün digər cihazlardan
+  çıx" = logout-all) + "Son fəaliyyət" audit zaman xətti. Header + mobil naviqasiya girişi.
+  4 dil (az/en/ru/tr).
+
+### Sərtləşdirmələr
+- Rate-limit: `/auth/password` (10/60s) + `/auth/password-reset/confirm` (10/3600s) —
+  əvvəl qonşu endpoint-lərdən fərqli olaraq throttle-suz idi.
+- `EMAIL_VERIFICATION_REQUIRED` açıq olsa boot fail-closed edir — verify axını hələ tam
+  deyil, açıq bayraq bütün parol user-lərini 403 kilidləyərdi.
+
+### Öncədən qeydə alınmamış feature-lər (v4-dən sonra, bu buraxılışdan əvvəl)
+- Zəngin "Haqqında" səhifəsi (stats/10 özəllik/necə-işləyir/FAQ), 4-sütun footer + canlı
+  statistika, grounded + şəxsi + çox-növbəli AI Asistan, commodity xəbərlərinə şəkil əhatəsi.
+
 ## 2026-07 — Real autentifikasiya + təhlükəsizlik sərtləşdirmə (v4)
 
 Demo localStorage girişi tam server-tərəfli sessiya sistemi ilə əvəzləndi. Bütün
