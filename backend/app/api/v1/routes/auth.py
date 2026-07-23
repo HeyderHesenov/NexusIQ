@@ -32,7 +32,7 @@ from app.schemas.auth import (
     ResetRequestIn,
     UserOut,
 )
-from app.services import auth_service, google_auth, hibp
+from app.services import audit, auth_service, google_auth, hibp
 from app.services.email import get_email_sender
 
 router = APIRouter()
@@ -47,6 +47,8 @@ _login_m = rate_limit("auth_login_m", 10, 60)
 _login_h = rate_limit("auth_login_h", 100, 3600)
 _refresh_l = rate_limit("auth_refresh", 120, 3600)
 _reset_l = rate_limit("auth_reset", 3, 3600)
+_reset_confirm_l = rate_limit("auth_reset_confirm", 10, 3600)  # token 256-bit, amma throttle olsun
+_pw_change_l = rate_limit("auth_pw_change", 10, 60)  # cari-parol təxminini throttle et
 
 
 def _err(status: int, code: str, headers: dict | None = None) -> HTTPException:
@@ -96,13 +98,14 @@ async def register(
 
     existing = await auth_service.get_user_by_email(db, payload.email)
     if existing is None:
-        await auth_service.create_user(
+        new_user = await auth_service.create_user(
             db,
             payload.email,
             password_hash=hash_password(payload.password),
             display_name=payload.display_name,
         )
         await db.commit()
+        await audit.record_audit(new_user.id, "register", request)
     else:
         # Mövcud email → sahibinə xəbər ver (console/SMTP). Cavab eynidir.
         await get_email_sender().send(
@@ -111,6 +114,8 @@ async def register(
             "Kimsə bu email ilə qeydiyyatdan keçməyə çalışdı. Əgər bu sən deyilsənsə, "
             "nəzərə alma.",
         )
+        # Sahibi öz "son fəaliyyət"ində bloklanmış cəhdi görsün.
+        await audit.record_audit(existing.id, "register_blocked", request)
 
     await _floor_since(start)
     return JSONResponse(OkOut().model_dump(by_alias=True), status_code=202)
@@ -129,8 +134,10 @@ async def login(
     try:
         user = await auth_service.authenticate(db, payload.email, payload.password)
     except auth_service.AccountLocked as e:
+        await audit.record_audit(None, "login_locked", request, meta={"email": payload.email})
         raise _err(429, "too_many_attempts", headers={"Retry-After": str(e.retry_after)})
     except auth_service.LoginFailed:
+        await audit.record_audit(None, "login_failure", request, meta={"email": payload.email})
         raise _err(401, "invalid_credentials")
 
     raw_refresh, sess = await auth_service.create_session(
@@ -139,6 +146,7 @@ async def login(
         ip=client_ip(request),
     )
     await db.commit()
+    await audit.record_audit(user.id, "login_success", request)
     return _user_response(user, sess, raw_refresh=raw_refresh)
 
 
@@ -162,6 +170,7 @@ async def refresh(
             ip=client_ip(request),
         )
     except auth_service.ReuseDetected:
+        await audit.record_audit(None, "reuse_detected", request)
         resp = JSONResponse({"detail": {"code": "session_revoked"}}, status_code=401)
         cookies.clear_auth_cookies(resp)
         return resp
@@ -222,6 +231,7 @@ async def google_login(
         ip=client_ip(request),
     )
     await db.commit()
+    await audit.record_audit(user.id, "google_login", request)
     resp = _user_response(user, sess, raw_refresh=raw_refresh)
     resp.delete_cookie(cookies.gnonce_name(), path="/", samesite="lax")  # tək-istifadə
     return resp
@@ -235,6 +245,7 @@ async def logout(request: Request, db: AsyncSession = Depends(get_db)) -> JSONRe
     if raw:
         await auth_service.revoke_by_refresh_token(db, raw)
         await db.commit()
+        await audit.record_audit(None, "logout", request)
     resp = JSONResponse(OkOut().model_dump(by_alias=True))
     cookies.clear_auth_cookies(resp)
     return resp
@@ -249,6 +260,7 @@ async def logout_all(
     await auth_service.revoke_all_sessions(db, user.id, "logout_all")
     await auth_service.bump_sessions_valid_from(db, user.id)
     await db.commit()
+    await audit.record_audit(user.id, "logout_all", request)
     from app.core.auth import _clear_valid_from_cache
 
     _clear_valid_from_cache(user.id)
@@ -283,6 +295,7 @@ async def list_sessions(
 @router.delete("/sessions/{sid}")
 async def revoke_one_session(
     sid: str,
+    request: Request,
     user: User = Depends(require_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -296,6 +309,7 @@ async def revoke_one_session(
         raise HTTPException(status_code=404)
     await auth_service.revoke_session(db, obj.id, "admin")
     await db.commit()
+    await audit.record_audit(user.id, "session_revoke", request, meta={"sid": sid})
     return OkOut().model_dump(by_alias=True)
 
 
@@ -322,6 +336,7 @@ async def change_password(
     request: Request,
     user: User = Depends(require_user),
     db: AsyncSession = Depends(get_db),
+    _rl=Depends(_pw_change_l),
 ) -> dict:
     if not user.password_hash or not _verify(user.password_hash, payload.current_password):
         raise _err(401, "invalid_credentials")
@@ -335,6 +350,7 @@ async def change_password(
     current_sid = getattr(request.state, "sid", None)
     await auth_service.change_password(db, user, payload.new_password, current_sid=current_sid)
     await db.commit()
+    await audit.record_audit(user.id, "password_change", request)
     return OkOut().model_dump(by_alias=True)
 
 
@@ -358,6 +374,7 @@ async def reset_request(
     if user is not None:
         raw = await auth_service.create_reset_token(db, user, ip=client_ip(request))
         await db.commit()
+        await audit.record_audit(user.id, "password_reset_request", request)
         link = f"/reset?token={raw}"
         body = f"Parolu sıfırlamaq üçün: {link}\n30 dəqiqə etibarlıdır."
         if settings.auth_dev_expose_tokens and settings.is_dev:
@@ -369,7 +386,10 @@ async def reset_request(
 
 @router.post("/password-reset/confirm")
 async def reset_confirm(
-    payload: ResetConfirmIn, db: AsyncSession = Depends(get_db)
+    payload: ResetConfirmIn,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    _rl=Depends(_reset_confirm_l),
 ) -> dict:
     try:
         validate_password(payload.password)
@@ -383,6 +403,7 @@ async def reset_confirm(
         raise _err(400, "invalid_token")
     await auth_service.apply_password_reset(db, user, payload.password)
     await db.commit()
+    await audit.record_audit(user.id, "password_reset_confirm", request)
     from app.core.auth import _clear_valid_from_cache
 
     _clear_valid_from_cache(user.id)

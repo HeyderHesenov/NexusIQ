@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from app.models.ai_budget import AiUsage, SystemFlag
+from app.models.audit_log import AuthAuditLog
 from app.models.auth_session import AuthSession
 from app.models.auth_token import EmailVerificationToken, PasswordResetToken
 from app.models.category import Category
@@ -21,6 +22,7 @@ from app.models.user_data import (
 
 __all__ = [
     "AiUsage",
+    "AuthAuditLog",
     "AuthSession",
     "Category",
     "SystemFlag",

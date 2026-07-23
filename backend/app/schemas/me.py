@@ -104,5 +104,14 @@ class ImportOut(_Camel):
     skipped: int
 
 
+class AuditOut(_Camel):
+    id: str
+    event: str
+    ip: str | None = None
+    user_agent: str | None = None
+    meta: dict | None = None
+    created_at: str | None = None
+
+
 class OkOut(_Camel):
     ok: bool = True

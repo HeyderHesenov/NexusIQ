@@ -239,3 +239,38 @@ async def test_reset_confirm_single_use_and_revokes(client, db):
     # köhnə parolla login artıq işləməməli, yenisi işləməli
     assert (await _login(client, "rc@example.com", PW)).status_code == 401
     assert (await _login(client, "rc@example.com", "freshpass123456")).status_code == 200
+
+
+# ---- rate limit (parol endpoint-ləri — əvvəl throttle-suz idi) ----
+
+async def test_password_change_rate_limited(client):
+    await _register(client, "pwrl@example.com")
+    await _login(client, "pwrl@example.com")
+    # Yanlış cari parol → 401 (validate/hibp-dən əvvəl, şəbəkə çağırışı yox). Limit 10/60s.
+    for _ in range(10):
+        r = await client.post(
+            f"{BASE}/password",
+            headers=_csrf(client),
+            json={"currentPassword": "wrong-current-1", "newPassword": "brandnewpass123"},
+        )
+        assert r.status_code == 401
+    r = await client.post(
+        f"{BASE}/password",
+        headers=_csrf(client),
+        json={"currentPassword": "wrong-current-1", "newPassword": "brandnewpass123"},
+    )
+    assert r.status_code == 429
+    assert "retry-after" in {k.lower() for k in r.headers}
+
+
+async def test_reset_confirm_rate_limited(client):
+    # Zəif parol → 422 (validate_password, hibp-dən ƏVVƏL → şəbəkə yox). Limit 10/3600s.
+    for _ in range(10):
+        r = await client.post(
+            f"{BASE}/password-reset/confirm", json={"token": "x", "password": "short"}
+        )
+        assert r.status_code == 422
+    r = await client.post(
+        f"{BASE}/password-reset/confirm", json={"token": "x", "password": "short"}
+    )
+    assert r.status_code == 429

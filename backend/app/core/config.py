@@ -191,6 +191,16 @@ def validate_runtime() -> list[str]:
     s = settings
     warnings: list[str] = []
 
+    # Footgun: verify axını hələ tam deyil (verify endpoint-i/email-i yoxdur). Bayraq
+    # açıq olsa, hər parol user-i `require_user`-də 403 "email_not_verified" alır və
+    # təmizləmə yolu YOXDUR. Dev/prod fərqi yox — bu həmişə sınıqdır → fail-closed.
+    if s.email_verification_required:
+        raise RuntimeError(
+            "EMAIL_VERIFICATION_REQUIRED=true, amma email-verify axını hələ yoxdur "
+            "(verify endpoint-i/email-i qurulmayıb) → bütün parol user-ləri kilidlənər. "
+            "Axın tamamlanana qədər bu bayraqı açma. Boot dayandırıldı."
+        )
+
     if not s.is_dev:
         # Footgun: ENVIRONMENT=development ilə deploy = repo-məlum dev açar = auth bypass.
         # Fail-closed məhz bu dəyişənə bağlanır.

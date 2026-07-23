@@ -25,6 +25,7 @@ USER: set[tuple[str, str]] = {
     ("GET", f"{_P}/correlation/pair/explain"),
     ("GET", f"{_P}/market/brief"),
     ("GET", f"{_P}/me/alerts"),
+    ("GET", f"{_P}/me/audit"),
     ("GET", f"{_P}/me/bookmarks"),
     ("GET", f"{_P}/me/holdings"),
     ("GET", f"{_P}/me/intel/asset/{{key}}"),

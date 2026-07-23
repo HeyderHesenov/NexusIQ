@@ -137,6 +137,9 @@ async def client(session_factory, monkeypatch):
             yield s
 
     app.dependency_overrides[get_db] = _override
+    # Öz-session helper-lər (audit.record_audit) get_db override-ından keçmir → prod
+    # engine-ə yazardılar. Test DB-yə yönəlt ki, HTTP-yolu audit yazıları görünsün.
+    monkeypatch.setattr("app.db.session.AsyncSessionLocal", session_factory)
     transport = ASGITransport(app=app)
     async with AsyncClient(
         transport=transport,

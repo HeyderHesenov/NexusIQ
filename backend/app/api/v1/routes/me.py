@@ -20,6 +20,7 @@ from app.models import News, User
 from app.schemas.me import (
     AlertIn,
     AlertOut,
+    AuditOut,
     HoldingIn,
     HoldingOut,
     ImportIn,
@@ -31,7 +32,7 @@ from app.schemas.me import (
     SavedEventOut,
 )
 from app.schemas.news import NewsOut
-from app.services import user_data, watchlist_intel
+from app.services import audit, user_data, watchlist_intel
 
 router = APIRouter()
 
@@ -327,3 +328,24 @@ async def intel_asset(key: str, user: User = Depends(require_user), db: AsyncSes
         db, k, since, p.last_seen_at if p else None, per_asset=20, days=30
     )
     return d or {"key": k, "label": k.upper(), "count": 0, "news": [], "trust": None}
+
+
+# ==================== Audit ("son fəaliyyət") ====================
+
+@router.get("/audit")
+async def get_audit(
+    user: User = Depends(require_user), db: AsyncSession = Depends(get_db)
+) -> list[dict]:
+    """İstifadəçinin öz təhlükəsizlik hadisələri (login/parol/sessiya) — ən son 50."""
+    rows = await audit.list_recent(db, user.id, limit=50)
+    return [
+        AuditOut(
+            id=str(r.id),
+            event=r.event,
+            ip=r.ip,
+            user_agent=r.user_agent,
+            meta=r.meta,
+            created_at=r.created_at.isoformat() if r.created_at else None,
+        ).model_dump(by_alias=True)
+        for r in rows
+    ]
