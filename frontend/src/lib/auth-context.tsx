@@ -31,6 +31,7 @@ import {
   login as apiLogin,
   register as apiRegister,
   logout as apiLogout,
+  logoutAll as apiLogoutAll,
   googleLogin as apiGoogleLogin,
   type UserOut,
 } from "./auth";
@@ -49,6 +50,7 @@ interface AuthContextValue {
   ) => Promise<void>;
   loginWithGoogle: (credential: string) => Promise<UserOut>;
   logout: () => Promise<void>;
+  logoutAll: () => Promise<void>;
   refreshMe: () => Promise<void>;
 }
 
@@ -172,6 +174,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     bcRef.current?.postMessage("logout");
   }, [applyAnon]);
 
+  // Bütün cihazlardan çıx: server sessions_valid_from-u bump edir → cari sessiya da
+  // ölür, ona görə lokal olaraq anon-a keçirik (logout ilə eyni).
+  const logoutAll = useCallback(async () => {
+    try {
+      await apiLogoutAll();
+    } catch {
+      // Server əlçatmaz olsa belə lokal olaraq təmizlə.
+    }
+    resetApiCaches();
+    applyAnon();
+    bcRef.current?.postMessage("logout");
+  }, [applyAnon]);
+
   return (
     <AuthContext.Provider
       value={{
@@ -181,6 +196,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         register,
         loginWithGoogle,
         logout,
+        logoutAll,
         refreshMe,
       }}
     >

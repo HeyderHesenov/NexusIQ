@@ -42,7 +42,7 @@ async function readCode(res: Response): Promise<string | undefined> {
 
 async function authRequest<T>(
   path: string,
-  method: "GET" | "POST",
+  method: "GET" | "POST" | "DELETE",
   body?: unknown,
 ): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -148,4 +148,27 @@ export function googleNonce(): Promise<{ nonce: string }> {
 /** Google ID token (JWT) ilə giriş → UserOut + cookie-lər. */
 export function googleLogin(credential: string): Promise<UserOut> {
   return authRequest<UserOut>("/auth/google", "POST", { credential });
+}
+
+/** Aktiv sessiya ("cihaz"). `current` = bu brauzerin sessiyası (ləğv edilə bilməz). */
+export interface Session {
+  id: string;
+  userAgent: string | null;
+  ip: string | null;
+  createdAt: string | null;
+  lastUsedAt: string | null;
+  current: boolean;
+}
+
+/** İstifadəçinin aktiv sessiyaları — ən son işlənən əvvəl. */
+export function listSessions(): Promise<Session[]> {
+  return authRequest<Session[]>("/auth/sessions", "GET");
+}
+
+/** Tək bir sessiyanı ("cihazı") ləğv et. */
+export function revokeSession(sid: string): Promise<{ ok?: boolean }> {
+  return authRequest<{ ok?: boolean }>(
+    `/auth/sessions/${encodeURIComponent(sid)}`,
+    "DELETE",
+  );
 }

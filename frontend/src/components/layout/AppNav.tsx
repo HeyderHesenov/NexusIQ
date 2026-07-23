@@ -14,6 +14,7 @@ import {
   LogOut,
   Newspaper,
   Radar,
+  ShieldCheck,
   Spline,
   Star,
   Target,
@@ -78,6 +79,7 @@ const ALL_LEAVES: Leaf[] = [
   { href: "/compare", labelKey: "nav.compare", icon: GitCompareArrows },
   { href: "/correlation", labelKey: "corr.nav", icon: Spline },
   { href: "/powerlaw", labelKey: "pl.nav", icon: TrendingUp },
+  { href: "/security", labelKey: "nav.security", icon: ShieldCheck },
   { href: "/about", labelKey: "about.nav", icon: Info },
 ];
 
@@ -218,6 +220,15 @@ export function AppNav() {
             <Target size={16} />
           </Link>
           <SavedNavLink />
+          <Link
+            href="/security"
+            title={t("nav.security")}
+            onMouseEnter={() => warm("/security")}
+            onFocus={() => warm("/security")}
+            className="flex items-center rounded-lg px-2 py-1.5 text-muted transition-colors duration-200 hover:bg-surface-hover hover:text-accent"
+          >
+            <ShieldCheck size={16} />
+          </Link>
           <NotifyBell />
           <ThemeToggle />
           <span className="mx-1 h-5 w-px bg-border" />
